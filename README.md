@@ -38,39 +38,67 @@ source venv/bin/activate        # Windows : venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## 3. Démarrage rapide (données de démo)
+## 3. Démarrage rapide (données réelles)
+
+Ce projet fonctionne uniquement avec des données réelles — aucun jeu de données
+fictif n'est généré ni utilisé par l'application.
 
 ```bash
 cd src
-python database.py              # Initialise la base SQLite
-python generate_sample_data.py  # Génère un championnat fictif (2 saisons + 1 journée à venir)
-python ml_model.py              # Entraîne les modèles ML (optionnel, sinon Poisson seul)
+python database.py              # Initialise la base SQLite (vide)
+export FOOTBALL_DATA_API_KEY="ta_clé_gratuite"   # https://www.football-data.org/
+python data_sources.py --provider football-data --competition PL
+python ml_model.py              # Entraîne les modèles ML une fois assez de matchs importés
 cd ..
 streamlit run app.py            # Lance le dashboard -> http://localhost:8501
 ```
+
+L'import de matchs réels est aussi disponible directement depuis la barre latérale
+du dashboard (code compétition + bouton « Importer les matchs réels »).
 
 L'API REST (optionnelle, pour intégration externe) :
 ```bash
 uvicorn api:app --reload --port 8000   # Documentation : http://localhost:8000/docs
 ```
 
-## 4. Utiliser des données réelles
+## 4. Sources de données réelles
 
-Remplacer le générateur de démo par un vrai flux de données :
+Deux connecteurs prêts à l'emploi dans `src/data_sources.py` :
 
 ```bash
 export FOOTBALL_DATA_API_KEY="ta_clé_gratuite"   # https://www.football-data.org/
 python src/data_sources.py --provider football-data --competition PL
 ```
+> Plan gratuit : pas de xG (remplacé par la moyenne de ligue via `DEFAULT_XG`),
+> pas de cotes bookmaker historiques. Les cotes bookmaker doivent être saisies
+> manuellement dans l'onglet « Comparateur libre » ou via l'endpoint `/value-bets`.
 
-Ou avec API-Football (xG, cotes, blessures — plan payant recommandé) :
+Ou avec API-Football (xG réel, cotes multi-marchés, historique — plan payant recommandé) :
 ```bash
 export API_FOOTBALL_KEY="ta_clé"
 python src/data_sources.py --provider api-football --league-id 39 --season 2025
 ```
 
+Ou avec The Odds API (cotes bookmaker en direct, moyennées multi-bookmakers — plan gratuit dispo) :
+```bash
+export ODDS_API_KEY="ta_clé_gratuite"   # https://the-odds-api.com/
+python src/data_sources.py --provider odds-api --sport-key soccer_fifa_world_cup
+```
+> Crée le match s'il n'existe pas encore (ex. une affiche internationale comme Brésil - Norvège)
+> et enregistre ses cotes (1X2, Over/Under 2.5, BTTS) à chaque exécution — une nouvelle ligne
+> d'historique n'est ajoutée que si les cotes ont bougé depuis la dernière capture (pas de doublons
+> si rien n'a changé). Disponible aussi depuis la barre latérale du dashboard
+> (« Cotes en direct — The Odds API »), avec un bouton pour lister les `sport_key` disponibles
+> si tu ne connais pas la bonne compétition. L'onglet « Analyse de match » affiche l'historique
+> des cotes du match sélectionné (tableau + graphique d'évolution 1X2) une fois plusieurs
+> captures effectuées.
+
 Le reste du pipeline (features, prédiction, value betting) fonctionne sans
 modification, puisqu'il consomme directement la table `matches` de SQLite.
+
+> `src/generate_sample_data.py` (générateur de championnat fictif) n'est plus
+> utilisé par l'application — conservé uniquement comme utilitaire de test local
+> du pipeline, à ne jamais exécuter en usage normal.
 
 ## 5. Fonctionnement du moteur
 

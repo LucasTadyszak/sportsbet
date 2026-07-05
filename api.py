@@ -15,6 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database import get_conn, init_db, DB_PATH
 from features import load_matches_df, build_match_features

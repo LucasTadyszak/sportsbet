@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS odds (
     odds_under25 REAL,
     odds_btts_yes REAL,
     odds_btts_no REAL,
+    captured_at TEXT DEFAULT CURRENT_TIMESTAMP,  -- horodatage de la capture (historique de cotes)
     FOREIGN KEY(match_id) REFERENCES matches(match_id)
 );
 
@@ -100,10 +101,21 @@ def get_conn():
         conn.close()
 
 
+def _migrate(conn):
+    """Applique les évolutions de schéma sur une base déjà créée avec une version antérieure."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(odds)")}
+    if "captured_at" not in columns:
+        # SQLite interdit un DEFAULT non constant (CURRENT_TIMESTAMP) sur ALTER TABLE ADD COLUMN :
+        # on ajoute la colonne sans défaut puis on backfille les lignes existantes.
+        conn.execute("ALTER TABLE odds ADD COLUMN captured_at TEXT")
+        conn.execute("UPDATE odds SET captured_at = CURRENT_TIMESTAMP WHERE captured_at IS NULL")
+
+
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
 
 
 def reset_db():

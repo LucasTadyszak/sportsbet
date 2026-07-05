@@ -93,7 +93,7 @@ def train_models(test_size=0.2, random_state=42):
         probs = model.predict_proba(X_te)
         metrics[name] = {
             "accuracy": round(float(accuracy_score(y_test, preds)), 4),
-            "log_loss": round(float(log_loss(y_test, probs, labels=[0, 1, 2])), 4),
+            "log_loss": round(float(log_loss(y_test, probs, labels=model.classes_)), 4),
             "n_test_samples": int(len(y_test)),
         }
 
@@ -130,9 +130,17 @@ def predict_match_ml(features: dict, model_choice="gradient_boosting"):
 
     if model_choice == "logistic_regression":
         X_in = scaler.transform(X)
-        probs = logreg.predict_proba(X_in)[0]
+        model = logreg
+        raw_probs = logreg.predict_proba(X_in)[0]
     else:
-        probs = gbc.predict_proba(X)[0]
+        model = gbc
+        raw_probs = gbc.predict_proba(X)[0]
+
+    # Le modèle peut avoir été entraîné sans voir toutes les classes (ex: pas de nul
+    # dans le jeu d'entraînement) : on replace chaque proba à son index réel (0/1/2).
+    probs = np.zeros(3)
+    for cls, p in zip(model.classes_, raw_probs):
+        probs[cls] = p
 
     sorted_probs = sorted(probs, reverse=True)
     confidence = float(sorted_probs[0] - sorted_probs[1])  # 0 = incertain, ~1 = quasi certain

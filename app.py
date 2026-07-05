@@ -6,6 +6,7 @@ Dashboard Streamlit — Sports Analytics & Value Betting Tool.
 Lancer avec :  streamlit run app.py
 """
 
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
@@ -15,6 +16,9 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database import get_conn, init_db, DB_PATH
 from features import load_matches_df, build_match_features, rolling_form, head_to_head
@@ -44,7 +48,12 @@ def get_upcoming_matches():
             """SELECT m.match_id, m.date, m.home_team, m.away_team,
                       o.odds_home, o.odds_draw, o.odds_away,
                       o.odds_over25, o.odds_under25, o.odds_btts_yes, o.odds_btts_no
-               FROM matches m LEFT JOIN odds o ON m.match_id = o.match_id
+               FROM matches m
+               LEFT JOIN odds o ON o.odds_id = (
+                   SELECT o2.odds_id FROM odds o2 WHERE o2.match_id = m.match_id
+                   ORDER BY CASE WHEN o2.bookmaker = 'the-odds-api' THEN 0 ELSE 1 END, o2.odds_id DESC
+                   LIMIT 1
+               )
                WHERE m.status = 'scheduled' ORDER BY m.date ASC""",
             conn,
         )
@@ -55,6 +64,17 @@ def get_upcoming_matches():
 def get_all_teams():
     with get_conn() as conn:
         return pd.read_sql_query("SELECT DISTINCT name FROM teams ORDER BY name", conn)["name"].tolist()
+
+
+@st.cache_data(ttl=60)
+def get_odds_history(match_id):
+    with get_conn() as conn:
+        return pd.read_sql_query(
+            """SELECT captured_at, bookmaker, odds_home, odds_draw, odds_away,
+                      odds_over25, odds_under25, odds_btts_yes, odds_btts_no
+               FROM odds WHERE match_id = ? ORDER BY captured_at ASC""",
+            conn, params=(match_id,),
+        )
 
 
 def analyze_and_predict(home_team, away_team, odds=None, min_value_pct=5.0, kelly_frac=0.25):
@@ -81,24 +101,87 @@ def analyze_and_predict(home_team, away_team, odds=None, min_value_pct=5.0, kell
 st.sidebar.title("⚽ SportsBet Analytics")
 st.sidebar.markdown("---")
 
-if st.sidebar.button("🔄 Générer / régénérer les données d'exemple"):
-    from generate_sample_data import main as gen_main
-    with st.spinner("Génération d'un championnat fictif (2 saisons + journée à venir)..."):
-        gen_main()
-    st.cache_data.clear()
-    st.sidebar.success("Données générées !")
+st.sidebar.subheader("📥 Import de données réelles")
+st.sidebar.caption("Football-Data.org — codes courants : PL, FL1, BL1, SA, PD, DED, PPL, CL")
+competition_code = st.sidebar.text_input("Code compétition", value="PL")
+season_input = st.sidebar.text_input("Saison (optionnel, ex. 2024)", value="")
+
+if not os.environ.get("FOOTBALL_DATA_API_KEY"):
+    st.sidebar.warning(
+        "Variable d'environnement `FOOTBALL_DATA_API_KEY` absente. "
+        "Crée une clé gratuite sur football-data.org puis exporte-la avant de lancer Streamlit."
+    )
+
+if st.sidebar.button("⬇️ Importer les matchs réels"):
+    from data_sources import fetch_football_data_org
+    try:
+        with st.spinner(f"Import des matchs {competition_code} depuis Football-Data.org..."):
+            n = fetch_football_data_org(competition_code=competition_code, season=season_input or None)
+        st.cache_data.clear()
+        st.sidebar.success(f"{n} matchs importés.")
+    except Exception as exc:
+        st.sidebar.error(f"Échec de l'import : {exc}")
 
 if st.sidebar.button("🧠 Entraîner les modèles ML"):
     from ml_model import train_models
-    with st.spinner("Entraînement régression logistique + gradient boosting..."):
-        metrics = train_models()
-    st.session_state["ml_metrics"] = metrics
-    st.sidebar.success("Modèles entraînés !")
+    try:
+        with st.spinner("Entraînement régression logistique + gradient boosting..."):
+            metrics = train_models()
+        st.session_state["ml_metrics"] = metrics
+        st.sidebar.success("Modèles entraînés !")
+    except Exception as exc:
+        st.sidebar.error(
+            f"Échec de l'entraînement : {exc}. Il faut suffisamment de matchs joués "
+            "importés (avec au moins quelques matchs par équipe) avant d'entraîner les modèles ML."
+        )
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🌍 Cotes en direct — The Odds API")
+st.sidebar.caption("the-odds-api.com — clé gratuite (500 requêtes/mois)")
+
+if not os.environ.get("ODDS_API_KEY"):
+    st.sidebar.warning(
+        "Variable d'environnement `ODDS_API_KEY` absente. "
+        "Crée une clé gratuite sur the-odds-api.com puis exporte-la avant de lancer Streamlit."
+    )
+
+if st.sidebar.button("🔍 Lister les sports/compétitions dispo"):
+    from data_sources import list_odds_api_sports
+    try:
+        sports = list_odds_api_sports()
+        st.session_state["odds_api_sports"] = sorted(
+            s["key"] for s in sports if s.get("key", "").startswith("soccer")
+        )
+        st.sidebar.success(f"{len(st.session_state['odds_api_sports'])} compétitions foot trouvées.")
+    except Exception as exc:
+        st.sidebar.error(f"Échec : {exc}")
+
+if st.session_state.get("odds_api_sports"):
+    odds_sport_key = st.sidebar.selectbox(
+        "Compétition (sport key)", st.session_state["odds_api_sports"],
+        index=st.session_state["odds_api_sports"].index("soccer_fifa_world_cup")
+        if "soccer_fifa_world_cup" in st.session_state["odds_api_sports"] else 0,
+    )
+else:
+    odds_sport_key = st.sidebar.text_input(
+        "Sport key (The Odds API)", value="soccer_fifa_world_cup",
+        help="Ex: soccer_fifa_world_cup, soccer_epl... Utilise « Lister les sports » pour voir toutes les clés disponibles.",
+    )
+
+if st.sidebar.button("⬇️ Récupérer les cotes"):
+    from data_sources import fetch_odds_api
+    try:
+        with st.spinner(f"Récupération des cotes ({odds_sport_key})..."):
+            n_new, n_odds = fetch_odds_api(sport_key=odds_sport_key)
+        st.cache_data.clear()
+        st.sidebar.success(f"{n_new} match(s) ajouté(s), {n_odds} cote(s) mise(s) à jour.")
+    except Exception as exc:
+        st.sidebar.error(f"Échec de la récupération des cotes : {exc}")
 
 st.sidebar.markdown("---")
 min_value_pct = st.sidebar.slider("Seuil de value bet (%)", 1.0, 30.0, 5.0, 0.5)
 kelly_frac = st.sidebar.slider("Fraction de Kelly appliquée", 0.05, 1.0, 0.25, 0.05)
-initial_bankroll = st.sidebar.number_input("Bankroll initiale (€)", value=1000.0, step=100.0)
+initial_bankroll = st.sidebar.number_input("Bankroll actuelle (€)", value=30.83, step=1.0, format="%.2f")
 
 st.sidebar.markdown("---")
 st.sidebar.caption(
@@ -202,17 +285,56 @@ with tab1:
 
         st.subheader("🎯 Value bets détectés sur ce match")
         if value_bets:
+            top_bet = max(value_bets, key=lambda x: x["value_pct"])
+            top_stake_eur = round(top_bet["kelly_stake_pct"] / 100 * initial_bankroll, 2)
+            st.success(
+                f"💰 **Mise recommandée : {top_stake_eur} €** sur « {top_bet['market']} » "
+                f"(cote {top_bet['bookmaker_odds']}) — {top_bet['kelly_stake_pct']}% de la bankroll "
+                f"({initial_bankroll:.2f} €)"
+            )
+
             vb_df = pd.DataFrame(value_bets)
-            vb_df.columns = ["Marché", "Prob. modèle", "Cote bookmaker", "Prob. implicite", "Value (%)", "Mise Kelly (%)"]
+            vb_df["stake_eur"] = (vb_df["kelly_stake_pct"] / 100 * initial_bankroll).round(2)
+            vb_df.columns = ["Marché", "Prob. modèle", "Cote bookmaker", "Prob. implicite",
+                              "Value (%)", "Mise Kelly (%)", "Mise (€)"]
             st.dataframe(
                 vb_df.style.format({
                     "Prob. modèle": "{:.1%}", "Prob. implicite": "{:.1%}",
-                    "Value (%)": "{:+.2f}%", "Mise Kelly (%)": "{:.2f}%",
+                    "Value (%)": "{:+.2f}%", "Mise Kelly (%)": "{:.2f}%", "Mise (€)": "{:.2f} €",
                 }).background_gradient(subset=["Value (%)"], cmap="Greens"),
                 use_container_width=True,
             )
         else:
             st.info("Aucun value bet détecté sur ce match au seuil actuel.")
+
+        st.subheader("📜 Historique des cotes")
+        odds_hist = get_odds_history(int(row["match_id"]))
+        if len(odds_hist) >= 1:
+            hist_df = odds_hist.copy()
+            hist_df.columns = ["Capturé le", "Bookmaker", "Cote dom.", "Cote nul", "Cote ext.",
+                                "Cote Over 2.5", "Cote Under 2.5", "Cote BTTS oui", "Cote BTTS non"]
+            st.dataframe(hist_df, use_container_width=True)
+
+            if len(odds_hist) >= 2:
+                fig_hist = go.Figure()
+                for col, label, color in [
+                    ("odds_home", "Domicile", "#2563eb"),
+                    ("odds_draw", "Nul", "#94a3b8"),
+                    ("odds_away", "Extérieur", "#dc2626"),
+                ]:
+                    fig_hist.add_trace(go.Scatter(
+                        x=odds_hist["captured_at"], y=odds_hist[col], mode="lines+markers",
+                        name=label, line=dict(color=color),
+                    ))
+                fig_hist.update_layout(height=300, margin=dict(t=20), yaxis_title="Cote",
+                                        title="Évolution des cotes 1X2 dans le temps")
+                st.plotly_chart(fig_hist, use_container_width=True)
+        else:
+            st.info(
+                "Aucun historique pour ce match. Récupère les cotes via « ⬇️ Récupérer les cotes » "
+                "(barre latérale) pour commencer à en construire un — chaque nouvelle capture avec des "
+                "cotes différentes s'ajoute à l'historique."
+            )
 
 # ============================== TAB 2 ==============================
 with tab2:
@@ -241,15 +363,16 @@ with tab2:
 
         if all_value_bets:
             top_df = pd.DataFrame(all_value_bets).sort_values("value_pct", ascending=False)
+            top_df["stake_eur"] = (top_df["kelly_stake_pct"] / 100 * initial_bankroll).round(2)
             top_df = top_df[["date", "match", "market", "model_prob", "bookmaker_odds",
-                              "implied_prob", "value_pct", "kelly_stake_pct"]]
+                              "implied_prob", "value_pct", "kelly_stake_pct", "stake_eur"]]
             top_df.columns = ["Date", "Match", "Marché", "Prob. modèle", "Cote", "Prob. implicite",
-                              "Value (%)", "Mise Kelly (%)"]
+                              "Value (%)", "Mise Kelly (%)", "Mise (€)"]
             st.success(f"{len(top_df)} value bet(s) détecté(s) sur {len(upcoming)} matchs analysés.")
             st.dataframe(
                 top_df.style.format({
                     "Prob. modèle": "{:.1%}", "Prob. implicite": "{:.1%}",
-                    "Value (%)": "{:+.2f}%", "Mise Kelly (%)": "{:.2f}%",
+                    "Value (%)": "{:+.2f}%", "Mise Kelly (%)": "{:.2f}%", "Mise (€)": "{:.2f} €",
                 }).background_gradient(subset=["Value (%)"], cmap="Greens"),
                 use_container_width=True, height=400,
             )

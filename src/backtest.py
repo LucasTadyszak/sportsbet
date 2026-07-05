@@ -20,9 +20,22 @@ from value_betting import detect_value_bets, BankrollSimulator, value_score
 RNG = np.random.default_rng(7)
 
 
+MARKET_GROUPS = [
+    ("1", "X", "2"),
+    ("over25", "under25"),
+    ("btts_yes", "btts_no"),
+]
+
+
 def simulate_market_odds(true_probs: dict, margin=0.06, noise_std=0.02):
     """
     Simule des cotes de marché bruitées à partir des probabilités Poisson (proxy backtest).
+
+    Les marchés forment 3 groupes de résultats mutuellement exclusifs (1X2, over/under,
+    BTTS oui/non) : chaque groupe doit être renormalisé séparément pour sommer à 1. Une
+    normalisation globale sur les 7 marchés à la fois biaiserait chaque probabilité vers
+    le bas (somme des 3 groupes ~= 3), gonflant artificiellement les cotes générées et
+    produisant de faux value bets extrêmes.
 
     LIMITE IMPORTANTE : en l'absence d'historique de cotes réelles, ce backtest compare
     le modèle à une version BRUITÉE DE SES PROPRES PROBABILITÉS. Sélectionner à chaque match
@@ -32,12 +45,17 @@ def simulate_market_odds(true_probs: dict, margin=0.06, noise_std=0.02):
     MÉTHODOLOGIE (pipeline détection + Kelly + suivi bankroll), PAS comme une preuve de
     rentabilité réelle. Pour un backtest fiable, remplacer `simulate_market_odds` par un
     historique réel de cotes bookmaker (voir data_sources.py / odds table)."""
-    keys = list(true_probs.keys())
-    noise = RNG.normal(1.0, noise_std, size=len(keys))
-    noisy = {k: max(0.02, true_probs[k] * n) for k, n in zip(keys, noise)}
-    total = sum(noisy.values())
-    normed = {k: v / total for k, v in noisy.items()}
-    return {k: round((1 + margin) / v, 2) for k, v in normed.items()}
+    odds = {}
+    for group in MARKET_GROUPS:
+        keys = [k for k in group if k in true_probs]
+        if not keys:
+            continue
+        noise = RNG.normal(1.0, noise_std, size=len(keys))
+        noisy = {k: max(0.02, true_probs[k] * n) for k, n in zip(keys, noise)}
+        total = sum(noisy.values())
+        normed = {k: v / total for k, v in noisy.items()}
+        odds.update({k: round((1 + margin) / v, 2) for k, v in normed.items()})
+    return odds
 
 
 def run_backtest(min_matches_played=5, min_value_pct=5.0, kelly_frac=0.25, initial_bankroll=1000.0):
