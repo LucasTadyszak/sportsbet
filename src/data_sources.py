@@ -35,6 +35,60 @@ API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4"
 
 
+# ---------------------------------------------------------------------------
+# Throttle des appels API : on journalise chaque appel réussi (table fetch_log)
+# et on refuse de rappeler l'API tant que les données locales sont assez fraîches.
+# Évite de consommer le quota à chaque rechargement de page / clic répété.
+# ---------------------------------------------------------------------------
+
+class FetchThrottled(Exception):
+    """Levée quand un appel API est bloqué car les données locales sont encore fraîches."""
+
+    def __init__(self, provider, resource, age_minutes, max_age_minutes):
+        self.provider = provider
+        self.resource = resource
+        self.age_minutes = age_minutes
+        self.max_age_minutes = max_age_minutes
+        remaining = max(0, int(round(max_age_minutes - age_minutes)))
+        super().__init__(
+            f"Appel {provider} ({resource}) ignoré : dernières données récupérées il y a "
+            f"{int(round(age_minutes))} min (< {int(max_age_minutes)} min). "
+            f"Prochain appel autorisé dans ~{remaining} min, ou coche « Forcer l'appel »."
+        )
+
+
+def minutes_since_last_fetch(provider, resource):
+    """Minutes écoulées depuis le dernier appel réussi (None si jamais appelé)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT fetched_at FROM fetch_log WHERE provider=? AND resource=?",
+            (provider, resource),
+        ).fetchone()
+    if not row:
+        return None
+    last = datetime.strptime(row["fetched_at"], "%Y-%m-%d %H:%M:%S")
+    return (datetime.utcnow() - last).total_seconds() / 60.0
+
+
+def record_fetch(provider, resource):
+    """Enregistre (upsert) l'horodatage UTC du dernier appel réussi."""
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO fetch_log (provider, resource, fetched_at) VALUES (?,?,?)
+               ON CONFLICT(provider, resource) DO UPDATE SET fetched_at=excluded.fetched_at""",
+            (provider, resource, now),
+        )
+
+
+def _check_throttle(provider, resource, max_age_minutes, force):
+    if force or not max_age_minutes:
+        return
+    age = minutes_since_last_fetch(provider, resource)
+    if age is not None and age < max_age_minutes:
+        raise FetchThrottled(provider, resource, age, max_age_minutes)
+
+
 def extract_team_name(team_payload):
     """Extract a readable team name from various payload shapes."""
     if not team_payload:
@@ -67,11 +121,16 @@ def extract_match_goals(match_payload):
     return full_time.get("home"), full_time.get("away")
 
 
-def fetch_football_data_org(competition_code="PL", season=None):
+def fetch_football_data_org(competition_code="PL", season=None, max_age_minutes=None, force=False):
     """
     Football-Data.org : nécessite une clé API gratuite (https://www.football-data.org/).
     competition_code ex: PL (Premier League), FL1 (Ligue 1), SA (Serie A), BL1 (Bundesliga).
+    `max_age_minutes` : si fourni et que le dernier import de cette compétition date de
+    moins de X minutes, l'appel est bloqué (FetchThrottled) sauf si `force=True`.
     """
+    resource = f"{competition_code}:{season or 'current'}"
+    _check_throttle("football-data.org", resource, max_age_minutes, force)
+
     api_key = os.environ.get("FOOTBALL_DATA_API_KEY")
     if not api_key:
         raise EnvironmentError(
@@ -111,6 +170,7 @@ def fetch_football_data_org(competition_code="PL", season=None):
             )
             inserted += 1
 
+    record_fetch("football-data.org", resource)
     print(f"{inserted} matchs importés depuis Football-Data.org ({competition_code}).")
     return inserted
 
@@ -261,13 +321,19 @@ def _average_odds_from_bookmakers(bookmakers, home_team, away_team, bookmaker_fi
     }
 
 
-def fetch_odds_api(sport_key="soccer_fifa_world_cup", regions="eu", markets="h2h,totals,btts", bookmaker=None):
+def fetch_odds_api(sport_key="soccer_fifa_world_cup", regions="eu", markets="h2h,totals,btts",
+                   bookmaker=None, max_age_minutes=None, force=False):
     """
     The Odds API (https://the-odds-api.com/) : cotes bookmaker en direct, moyennées sur
     les bookmakers de la région choisie. Nécessite une clé API (offre gratuite dispo).
     Crée les matchs à venir s'ils n'existent pas encore, et met à jour leurs cotes
     (bookmaker='the-odds-api') dans la table `odds` — ré-exécutable sans doublons.
+    `max_age_minutes` : si fourni et que la dernière récupération de ce sport_key date de
+    moins de X minutes, l'appel est bloqué (FetchThrottled) sauf si `force=True` —
+    protège le quota (500 requêtes/mois en plan gratuit).
     """
+    _check_throttle("the-odds-api", sport_key, max_age_minutes, force)
+
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
         raise EnvironmentError(
@@ -358,6 +424,7 @@ def fetch_odds_api(sport_key="soccer_fifa_world_cup", regions="eu", markets="h2h
             )
             updated += 1
 
+    record_fetch("the-odds-api", sport_key)
     print(f"The Odds API : {inserted} match(s) créé(s), {updated} cote(s) enregistrée(s) en historique ({sport_key}).")
     return inserted, updated
 

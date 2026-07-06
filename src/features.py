@@ -14,6 +14,7 @@ import pandas as pd
 from database import get_conn
 
 DEFAULT_XG = 1.35
+FORM_DECAY = 0.85  # pondération exponentielle : chaque match plus ancien pèse 15% de moins
 
 
 def load_matches_df(status="played"):
@@ -58,10 +59,13 @@ def _match_outcome_for_team(row, team):
     return gf, ga, xgf, xga, pts, is_home
 
 
-def rolling_form(df, team, n=5, before_date=None):
+def rolling_form(df, team, n=8, before_date=None, decay=FORM_DECAY):
     """
-    Moyenne mobile sur les n derniers matchs :
-    - forme_points (0-3 moyenne), buts marqués/encaissés moyens, xG moyens, variance des points.
+    Forme récente sur les n derniers matchs, avec pondération exponentielle par récence :
+    le match le plus récent a un poids 1, le précédent `decay`, puis `decay²`, etc.
+    Capture mieux la dynamique actuelle qu'une moyenne simple (un pic de forme il y a
+    2 mois ne compense plus une série noire en cours).
+    Retourne : forme_points (0-3), buts marqués/encaissés moyens, xG moyens, variance des points.
     """
     hist = team_match_history(df, team, before_date)
     if hist.empty:
@@ -74,13 +78,24 @@ def rolling_form(df, team, n=5, before_date=None):
     stats = last_n.apply(lambda r: _match_outcome_for_team(r, team), axis=1, result_type="expand")
     stats.columns = ["gf", "ga", "xgf", "xga", "pts", "is_home"]
 
+    # poids exponentiels : dernière ligne (match le plus récent) = poids max
+    weights = decay ** np.arange(len(stats) - 1, -1, -1)
+    weights = weights / weights.sum()
+
+    def wavg(col):
+        return float(np.average(stats[col].astype(float), weights=weights))
+
+    pts_wavg = wavg("pts")
+    form_var = float(np.average((stats["pts"].astype(float) - pts_wavg) ** 2, weights=weights) ** 0.5) \
+        if len(stats) > 1 else 0.0
+
     return {
-        "form_points_avg": float(stats["pts"].mean()),
-        "goals_for_avg": float(stats["gf"].mean()),
-        "goals_against_avg": float(stats["ga"].mean()),
-        "xg_for_avg": float(stats["xgf"].mean()),
-        "xg_against_avg": float(stats["xga"].mean()),
-        "form_variance": float(stats["pts"].std(ddof=0)) if len(stats) > 1 else 0.0,
+        "form_points_avg": pts_wavg,
+        "goals_for_avg": wavg("gf"),
+        "goals_against_avg": wavg("ga"),
+        "xg_for_avg": wavg("xgf"),
+        "xg_against_avg": wavg("xga"),
+        "form_variance": form_var,
         "n_matches": int(len(stats)),
     }
 
@@ -150,8 +165,8 @@ def head_to_head(df, team_a, team_b, before_date=None, n=5):
 
 def build_match_features(df, home_team, away_team, match_date=None):
     """Assemble toutes les features pour un match donné (utilisé en prédiction et en training)."""
-    form_h = rolling_form(df, home_team, n=5, before_date=match_date)
-    form_a = rolling_form(df, away_team, n=5, before_date=match_date)
+    form_h = rolling_form(df, home_team, n=8, before_date=match_date)
+    form_a = rolling_form(df, away_team, n=8, before_date=match_date)
     ha_h = home_away_split(df, home_team, before_date=match_date)
     ha_a = home_away_split(df, away_team, before_date=match_date)
     h2h = head_to_head(df, home_team, away_team, before_date=match_date)

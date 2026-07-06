@@ -58,7 +58,10 @@ def simulate_market_odds(true_probs: dict, margin=0.06, noise_std=0.02):
     return odds
 
 
-def run_backtest(min_matches_played=5, min_value_pct=5.0, kelly_frac=0.25, initial_bankroll=1000.0):
+def run_backtest(min_matches_played=3, min_value_pct=5.0, kelly_frac=0.25, initial_bankroll=1000.0):
+    # min_matches_played=3 : le shrinkage bayésien du modèle Poisson (poisson_model.estimate_lambdas)
+    # ramène les prédictions vers la moyenne de ligue quand l'échantillon est mince, ce qui rend
+    # exploitables des équipes à faible historique (tournois type Coupe du Monde).
     df = load_matches_df(status="played")
     sim = BankrollSimulator(initial_bankroll=initial_bankroll)
 

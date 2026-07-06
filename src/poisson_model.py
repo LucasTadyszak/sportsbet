@@ -1,9 +1,11 @@
 """
 poisson_model.py
 ------------------
-Modèle de Poisson (bivarié indépendant) pour :
+Modèle de Dixon-Coles (Poisson bivarié corrigé) pour :
 - estimer les lambdas (buts attendus) home/away à partir des features,
-- calculer la matrice de probabilité des scores exacts,
+  avec shrinkage bayésien vers la moyenne de ligue quand l'échantillon est faible,
+- calculer la matrice de probabilité des scores exacts, corrigée pour la
+  dépendance des scores faibles (0-0, 1-0, 0-1, 1-1) — correction de Dixon-Coles,
 - en dériver : 1X2, over/under X.5 buts, BTTS, score le plus probable.
 
 C'est le modèle "statistique classique" du projet, complémentaire au
@@ -16,13 +18,29 @@ from scipy.stats import poisson
 LEAGUE_AVG_GOALS = 1.35
 HOME_ADVANTAGE = 1.15
 MAX_GOALS = 10
+SHRINK_K = 6      # pseudo-matchs : avec n matchs observés, poids des données = n / (n + K)
+DC_RHO = -0.13    # paramètre de Dixon-Coles (valeur typique estimée sur les grands championnats)
+
+
+def _shrink(value, n_matches, prior, k=SHRINK_K):
+    """
+    Shrinkage bayésien : tire l'estimation vers le prior (moyenne de ligue) quand
+    l'échantillon est petit. Avec 0 match on rend le prior, avec beaucoup de matchs
+    on rend la valeur observée. Évite les prédictions extrêmes en début de saison.
+    """
+    w = n_matches / (n_matches + k)
+    return w * value + (1 - w) * prior
 
 
 def estimate_lambdas(features: dict, league_avg_goals=LEAGUE_AVG_GOALS, home_advantage=HOME_ADVANTAGE):
     """
     Combine la forme récente et les xG pour estimer les buts attendus (lambda)
-    de chaque équipe, pondérés par la force offensive/défensive relative à la ligue.
+    de chaque équipe, pondérés par la force offensive/défensive relative à la ligue,
+    avec shrinkage vers la moyenne de ligue selon le volume de données disponible.
     """
+    n_home = features.get("home_matches_played", 0)
+    n_away = features.get("away_matches_played", 0)
+
     # force offensive/défensive relative (pondération xG 60% / buts réels 40% pour lisser la variance)
     home_attack = 0.6 * features["home_xg_for_avg"] + 0.4 * features["home_goals_for_avg"]
     home_defense = 0.6 * features["home_xg_against_avg"] + 0.4 * features["home_goals_against_avg"]
@@ -30,6 +48,12 @@ def estimate_lambdas(features: dict, league_avg_goals=LEAGUE_AVG_GOALS, home_adv
     away_defense = 0.6 * features["away_xg_against_avg"] + 0.4 * features["away_goals_against_avg"]
 
     league_avg = league_avg_goals
+
+    # shrinkage : peu de matchs observés => on se rapproche de la moyenne de ligue
+    home_attack = _shrink(home_attack, n_home, league_avg)
+    home_defense = _shrink(home_defense, n_home, league_avg)
+    away_attack = _shrink(away_attack, n_away, league_avg)
+    away_defense = _shrink(away_defense, n_away, league_avg)
 
     attack_strength_home = home_attack / league_avg
     defense_strength_away = away_defense / league_avg
@@ -45,10 +69,27 @@ def estimate_lambdas(features: dict, league_avg_goals=LEAGUE_AVG_GOALS, home_adv
     return lambda_home, lambda_away
 
 
-def score_matrix(lambda_home, lambda_away, max_goals=MAX_GOALS):
+def score_matrix(lambda_home, lambda_away, max_goals=MAX_GOALS, rho=DC_RHO):
+    """
+    Matrice des scores exacts : Poisson indépendant + correction de Dixon-Coles.
+
+    Le Poisson indépendant sous-estime les scores faibles corrélés (0-0, 1-1) et
+    surestime 1-0 / 0-1 : les équipes "se neutralisent" plus souvent que ne le prédit
+    l'indépendance. La correction tau de Dixon-Coles (1997) réajuste ces 4 cases
+    (avec rho < 0 : plus de 0-0 et 1-1, moins de 1-0 et 0-1), puis on renormalise.
+    Améliore surtout la justesse des probabilités de match nul et d'under 2.5.
+    """
     ph = poisson.pmf(np.arange(max_goals + 1), lambda_home)
     pa = poisson.pmf(np.arange(max_goals + 1), lambda_away)
-    return np.outer(ph, pa)  # matrix[i, j] = P(home=i, away=j)
+    matrix = np.outer(ph, pa)  # matrix[i, j] = P(home=i, away=j)
+
+    matrix[0, 0] *= 1 - lambda_home * lambda_away * rho
+    matrix[0, 1] *= 1 + lambda_home * rho
+    matrix[1, 0] *= 1 + lambda_away * rho
+    matrix[1, 1] *= 1 - rho
+
+    matrix = np.clip(matrix, 0.0, None)
+    return matrix / matrix.sum()
 
 
 def outcome_probs(matrix):

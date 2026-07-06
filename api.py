@@ -51,8 +51,14 @@ def root():
 
 @app.get("/teams")
 def list_teams():
+    # Dérivé de `matches` : les imports réels ne remplissent pas la table `teams`.
     with get_conn() as conn:
-        rows = conn.execute("SELECT name, league FROM teams ORDER BY name").fetchall()
+        rows = conn.execute(
+            """SELECT name, MIN(league) AS league FROM (
+                   SELECT home_team AS name, league FROM matches
+                   UNION ALL SELECT away_team, league FROM matches
+               ) GROUP BY name ORDER BY name"""
+        ).fetchall()
     return [dict(r) for r in rows]
 
 

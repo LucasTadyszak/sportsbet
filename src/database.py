@@ -97,6 +97,14 @@ CREATE TABLE IF NOT EXISTS api_usage (
     requests_last_cost INTEGER,      -- coût en crédits du dernier appel (header x-requests-last)
     captured_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS fetch_log (
+    fetch_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,          -- ex: 'the-odds-api', 'football-data.org'
+    resource TEXT NOT NULL,          -- ex: sport_key ou code compétition
+    fetched_at TEXT NOT NULL,        -- horodatage UTC du dernier appel réussi
+    UNIQUE(provider, resource)
+);
 """
 
 

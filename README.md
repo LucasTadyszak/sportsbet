@@ -109,15 +109,20 @@ modification, puisqu'il consomme directement la table `matches` de SQLite.
 ## 5. Fonctionnement du moteur
 
 ### a) Feature engineering (`features.py`)
-- **Forme récente** : moyenne mobile sur les 5 derniers matchs (points, buts, xG)
+- **Forme récente pondérée** : 8 derniers matchs avec **décroissance exponentielle**
+  (chaque match plus ancien pèse 15% de moins) — la dynamique actuelle domine
 - **Domicile / extérieur** : performance spécifique selon le lieu
 - **H2H** : confrontations directes historiques
 - **Variance de forme** : régularité vs irrégularité d'une équipe
 
-### b) Modèle de Poisson (`poisson_model.py`)
+### b) Modèle de Dixon-Coles (`poisson_model.py`)
 Estime les buts attendus (λ) de chaque équipe à partir de la force offensive/défensive
-relative à la moyenne de la ligue, pondérée xG (60%) / buts réels (40%). Construit la
-matrice de probabilité de tous les scores exacts, puis en dérive :
+relative à la moyenne de la ligue, pondérée xG (60%) / buts réels (40%), avec :
+- **Shrinkage bayésien** vers la moyenne de ligue quand l'échantillon est faible
+  (évite les prédictions extrêmes en début de saison)
+- **Correction de Dixon-Coles** sur la matrice des scores (les scores faibles 0-0/1-1
+  sont plus fréquents que ne le prédit un Poisson indépendant — meilleure calibration
+  du nul et de l'under 2.5)
 - Probabilités 1X2, Over/Under 2.5 buts, BTTS, top 3 scores les plus probables
 
 ### c) Machine Learning (`ml_model.py`)
@@ -125,6 +130,17 @@ matrice de probabilité de tous les scores exacts, puis en dérive :
 - Dataset reconstruit *sans fuite de données* : les features de chaque match d'entraînement
   ne contiennent que l'information disponible **avant** le match
 - Score de confiance = écart entre la probabilité la plus forte et la 2e
+
+### c-bis) Ensemble (`ensemble.py`)
+La prédiction finale combine trois sources, groupe de marchés par groupe :
+1. **Poisson (Dixon-Coles)** — tous les marchés
+2. **ML (gradient boosting)** — 1X2, poids réglable dans la barre latérale
+3. **Marché (cotes dé-margées)** — ancrage réglable : les cotes agrègent l'information
+   de milliers de parieurs, les ignorer rend le modèle sur-confiant et génère de faux
+   value bets
+
+La **mise Kelly est en outre réduite** quand l'historique d'une des deux équipes est
+mince (score de fiabilité 0-1 affiché dans l'interface).
 
 ### d) Value betting (`value_betting.py`)
 ```
@@ -152,10 +168,21 @@ Rejoue tout l'historique de matchs joués avec le pipeline complet.
 
 | Onglet | Contenu |
 |---|---|
-| 📊 Analyse de match | Prédictions 1X2/Poisson, comparaison ML, forme, H2H, value bets du match |
-| 🎯 Value Bets du jour | Scan de tous les matchs à venir, tri par % de value |
+| 📊 Analyse de match | Prédiction finale (ensemble), comparaison Poisson/ML/Marché, forme, H2H, value bets du match |
+| 🎯 Value Bets du jour | Scan de tous les matchs à venir, tri par % de value, score de fiabilité |
 | 📈 Backtest & ROI | Simulation bankroll sur l'historique, taux de réussite, drawdown |
 | 🔬 Comparateur libre | Choisir deux équipes + cotes manuelles pour tester un scénario |
+
+### Contrôle des appels API (protection des quotas)
+
+Chaque appel API réussi est journalisé (table `fetch_log`, par fournisseur × ressource).
+Un nouvel appel n'est autorisé que si les dernières données sont **plus vieilles que
+l'intervalle minimum** configuré dans la barre latérale (60 min par défaut) — sinon il
+est bloqué avec un message indiquant quand le prochain appel sera possible. La case
+« Forcer l'appel » permet de passer outre ponctuellement. La barre latérale affiche
+aussi l'ancienneté du dernier appel par ressource et l'historique de consommation de
+crédits The Odds API (en-têtes `x-requests-*`). Les lectures de la base locale sont
+mises en cache (5 min) : recharger la page ne déclenche **jamais** d'appel API.
 
 ## 7. Extensions possibles
 
