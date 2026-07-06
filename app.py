@@ -77,6 +77,12 @@ def get_odds_history(match_id):
         )
 
 
+@st.cache_data(ttl=30)
+def get_odds_api_usage_history():
+    from data_sources import get_odds_api_usage_history as _get_usage
+    return _get_usage()
+
+
 def analyze_and_predict(home_team, away_team, odds=None, min_value_pct=5.0, kelly_frac=0.25):
     df_hist = load_matches_df(status="played")
     feats = build_match_features(df_hist, home_team, away_team)
@@ -152,6 +158,7 @@ if st.sidebar.button("🔍 Lister les sports/compétitions dispo"):
         st.session_state["odds_api_sports"] = sorted(
             s["key"] for s in sports if s.get("key", "").startswith("soccer")
         )
+        st.cache_data.clear()
         st.sidebar.success(f"{len(st.session_state['odds_api_sports'])} compétitions foot trouvées.")
     except Exception as exc:
         st.sidebar.error(f"Échec : {exc}")
@@ -177,6 +184,23 @@ if st.sidebar.button("⬇️ Récupérer les cotes"):
         st.sidebar.success(f"{n_new} match(s) ajouté(s), {n_odds} cote(s) mise(s) à jour.")
     except Exception as exc:
         st.sidebar.error(f"Échec de la récupération des cotes : {exc}")
+
+usage_hist = get_odds_api_usage_history()
+if not usage_hist.empty:
+    last = usage_hist.iloc[-1]
+    st.sidebar.caption(
+        f"🔋 Crédits : **{int(last['requests_used'])} utilisés** / "
+        f"**{int(last['requests_remaining'])} restants** "
+        f"(dernier appel : {int(last['requests_last_cost'])} crédit(s) — {last['captured_at']})"
+    )
+    with st.sidebar.expander("Historique de consommation"):
+        st.dataframe(
+            usage_hist.rename(columns={
+                "captured_at": "Date", "endpoint": "Endpoint", "requests_used": "Utilisés",
+                "requests_remaining": "Restants", "requests_last_cost": "Coût dernier appel",
+            }),
+            use_container_width=True, height=200,
+        )
 
 st.sidebar.markdown("---")
 min_value_pct = st.sidebar.slider("Seuil de value bet (%)", 1.0, 30.0, 5.0, 0.5)

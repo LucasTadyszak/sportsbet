@@ -92,6 +92,12 @@ python src/data_sources.py --provider odds-api --sport-key soccer_fifa_world_cup
 > si tu ne connais pas la bonne compétition. L'onglet « Analyse de match » affiche l'historique
 > des cotes du match sélectionné (tableau + graphique d'évolution 1X2) une fois plusieurs
 > captures effectuées.
+>
+> The Odds API renvoie sa consommation de crédits dans les en-têtes de chaque réponse
+> (`x-requests-used`, `x-requests-remaining`, `x-requests-last`) : ils sont archivés dans la
+> table `api_usage` à chaque appel et affichés dans la barre latérale (crédits utilisés/restants
+> + historique de consommation dépliable). Le endpoint `/sports` (liste des compétitions) est
+> gratuit côté The Odds API et peut donc servir à vérifier ton quota sans consommer de crédit.
 
 Le reste du pipeline (features, prédiction, value betting) fonctionne sans
 modification, puisqu'il consomme directement la table `matches` de SQLite.

@@ -87,6 +87,16 @@ CREATE TABLE IF NOT EXISTS bankroll_history (
     change REAL,
     reason TEXT
 );
+
+CREATE TABLE IF NOT EXISTS api_usage (
+    usage_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,          -- ex: 'the-odds-api'
+    endpoint TEXT,                   -- ex: '/sports/{sport}/odds'
+    requests_used INTEGER,           -- cumulé depuis le début du mois (header x-requests-used)
+    requests_remaining INTEGER,      -- header x-requests-remaining
+    requests_last_cost INTEGER,      -- coût en crédits du dernier appel (header x-requests-last)
+    captured_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

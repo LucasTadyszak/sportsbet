@@ -22,6 +22,7 @@ sans aucune modification.
 import os
 import argparse
 import requests
+import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -159,8 +160,34 @@ def fetch_api_football(league_id, season, api_key=None):
     return inserted
 
 
+def _record_odds_api_usage(resp, endpoint):
+    """
+    The Odds API renvoie sa consommation de crédits dans les en-têtes de CHAQUE réponse
+    (x-requests-used, x-requests-remaining, x-requests-last). On les archive à chaque appel
+    pour avoir un petit historique de consommation, sans endpoint dédié côté fournisseur.
+    """
+    used = resp.headers.get("x-requests-used")
+    remaining = resp.headers.get("x-requests-remaining")
+    last_cost = resp.headers.get("x-requests-last")
+    if used is None and remaining is None:
+        return  # pas d'en-têtes de quota (ex: erreur réseau avant d'atteindre l'API)
+
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO api_usage (provider, endpoint, requests_used, requests_remaining, requests_last_cost)
+               VALUES (?,?,?,?,?)""",
+            (
+                "the-odds-api", endpoint,
+                int(used) if used is not None else None,
+                int(remaining) if remaining is not None else None,
+                int(last_cost) if last_cost is not None else None,
+            ),
+        )
+
+
 def list_odds_api_sports(api_key=None):
-    """Liste les sports/compétitions disponibles sur The Odds API (pour trouver le bon `sport_key`)."""
+    """Liste les sports/compétitions disponibles sur The Odds API (pour trouver le bon `sport_key`).
+    Ne compte pas dans le quota de crédits (endpoint gratuit côté The Odds API)."""
     api_key = api_key or os.environ.get("ODDS_API_KEY")
     if not api_key:
         raise EnvironmentError(
@@ -169,7 +196,18 @@ def list_odds_api_sports(api_key=None):
         )
     resp = requests.get(f"{ODDS_API_BASE_URL}/sports", params={"apiKey": api_key}, timeout=30)
     resp.raise_for_status()
+    _record_odds_api_usage(resp, "/sports")
     return resp.json()
+
+
+def get_odds_api_usage_history():
+    """Historique de consommation de crédits The Odds API archivé localement (voir `_record_odds_api_usage`)."""
+    with get_conn() as conn:
+        return pd.read_sql_query(
+            """SELECT captured_at, endpoint, requests_used, requests_remaining, requests_last_cost
+               FROM api_usage WHERE provider = 'the-odds-api' ORDER BY captured_at ASC""",
+            conn,
+        )
 
 
 def _average_odds_from_bookmakers(bookmakers, home_team, away_team, bookmaker_filter=None):
@@ -259,6 +297,8 @@ def fetch_odds_api(sport_key="soccer_fifa_world_cup", regions="eu", markets="h2h
         resp.raise_for_status()
         events = resp.json()
         break
+
+    _record_odds_api_usage(resp, f"/sports/{sport_key}/odds")
 
     inserted, updated = 0, 0
     with get_conn() as conn:
