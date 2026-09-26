@@ -24,13 +24,13 @@ prototype Python/Streamlit a été retiré du repo.
 ## Architecture
 
 ```
-prisma/schema.prisma        # Sport, Event, Bookmaker, Odds, ApiUsageLog, FetchLog,
+prisma/schema.prisma        # Sport, Event, Team, Bookmaker, Odds, ApiUsageLog, FetchLog,
                              # TeamStats, MatchPrediction
 src/lib/prisma.ts           # client Prisma (singleton, driver adapter pg)
 
 # Cotes (The Odds API)
 src/lib/oddsApi.ts          # client The Odds API (+ log de quota via les headers x-requests-*)
-src/lib/refreshOdds.ts      # orchestration : throttle -> fetch -> upsert -> insère seulement si le prix a bougé
+src/lib/refreshOdds.ts      # orchestration : throttle -> fetch -> upsert Event/Team -> capture un snapshot complet des odds
 scripts/refresh-odds.ts     # point d'entrée CLI pour un cron (Render Cron Job)
 src/app/api/refresh-odds/   # endpoint HTTP protégé par CRON_SECRET pour déclencher un refresh
 
@@ -47,15 +47,27 @@ src/app/api/refresh-stats/  # endpoint HTTP protégé par CRON_SECRET pour décl
 src/app/page.tsx            # tableau des cotes + probabilités modèle (server component)
 ```
 
-Deux garde-fous repris de l'ancien prototype pour ne pas cramer le quota
-gratuit de The Odds API (et réutilisés pour football-data.org) :
+Tout ce qu'un sync ramène est conservé en base, y compris ce qui ne change
+pas d'un appel à l'autre :
+- **`Event`** : upserté à chaque sync (nom des équipes, horaire) — donc
+  toujours à jour même si l'API ne renvoie rien de nouveau par ailleurs.
+- **`Team`** : chaque nom d'équipe vu côté The Odds API est enregistré une
+  fois pour toutes (`firstSeenAt`/`lastSeenAt`), plutôt que de n'exister que
+  comme texte dupliqué sur chaque `Event`. Sert aussi de cache pour le
+  rapprochement avec football-data.org (voir plus bas).
+- **`Odds`** : une ligne est écrite à **chaque** sync pour chaque
+  bookmaker/marché/issue, que le prix ait bougé ou non — la table est un
+  historique complet de toutes les observations, pas seulement des
+  changements.
+
+Un seul garde-fou pour ne pas cramer le quota gratuit des deux API :
 - **`FetchLog`** : chaque sport n'est re-fetché que toutes les
   `ODDS_REFRESH_INTERVAL_MINUTES` (30 min par défaut) côté cotes, et chaque
   compétition que toutes les `FOOTBALL_DATA_REFRESH_INTERVAL_MINUTES` (6h par
   défaut — un classement bouge beaucoup moins vite qu'une cote) côté stats.
-- **`Odds`** : une nouvelle ligne n'est insérée que si le prix a réellement
-  changé depuis la dernière capture — ça construit un historique de
-  mouvement de cotes gratuitement, sans dupliquer les lignes identiques.
+  Ce throttle limite le nombre d'*appels API*, pas ce qui est enregistré une
+  fois l'appel fait : à chaque fetch réellement exécuté, tout son contenu est
+  persisté (voir ci-dessus).
 - **`ApiUsageLog`** : log les headers de quota à chaque appel (`x-requests-used`
   / `x-requests-remaining` / `x-requests-last` pour The Odds API,
   `x-requests-available-minute` pour football-data.org), pour surveiller la
@@ -82,7 +94,12 @@ Comme The Odds API et football-data.org n'utilisent pas les mêmes noms
 d'équipe (ex. "Wolves" vs "Wolverhampton Wanderers FC"), `teamNameMatch.ts`
 normalise les noms (accents, suffixes "FC"/"AFC"/…) et connaît quelques alias
 courants ; un match sans correspondance n'affiche simplement pas de
-probabilité plutôt que d'en afficher une fausse.
+probabilité plutôt que d'en afficher une fausse. Le nom d'une équipe ne
+changeant pas d'une saison à l'autre, `resolveTeamStats` n'a besoin de
+réussir cette recherche floue qu'une seule fois par équipe : dès qu'une
+correspondance est trouvée, elle est mémorisée sur la ligne `Team`
+(`competitionCode` + `footballDataTeamId`), et tous les refresh suivants la
+réutilisent directement au lieu de refaire tourner les heuristiques.
 
 ## Installation locale
 
@@ -151,5 +168,7 @@ curl "http://localhost:3000/api/refresh-stats?secret=$CRON_SECRET"
 - Historique/graphique de mouvement de cotes par match (la table `Odds`
   est déjà pensée pour ça).
 - Alerting (Slack/Telegram) sur value bet au-dessus d'un seuil.
-- Table de correspondance d'équipes explicite (au lieu des seuls
-  alias/normalisation) si de nouveaux championnats posent des faux négatifs.
+- Correction manuelle des faux négatifs de `teamNameMatch` : permettre de
+  fixer à la main `Team.footballDataTeamId` pour une équipe que les
+  heuristiques ne rapprochent jamais correctement (nouveau championnat,
+  nom trop différent), plutôt que d'attendre qu'un futur alias la corrige.

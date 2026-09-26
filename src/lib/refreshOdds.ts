@@ -28,9 +28,13 @@ async function markFetched(resourceKey: string) {
   });
 }
 
-/** Key identifying one quoted line, used to detect whether a price actually moved. */
-function lineKey(bookmakerKey: string, marketKey: string, outcomeName: string, point: number | null) {
-  return `${bookmakerKey}|${marketKey}|${outcomeName}|${point ?? ""}`;
+/** Remembers a team name forever (it doesn't change sync to sync), and bumps lastSeenAt. */
+async function upsertTeam(name: string) {
+  await prisma.team.upsert({
+    where: { name },
+    create: { name },
+    update: {}, // no fields change, but the update still bumps the @updatedAt lastSeenAt
+  });
 }
 
 async function upsertEvent(event: OddsApiEvent) {
@@ -55,9 +59,13 @@ async function upsertEvent(event: OddsApiEvent) {
       awayTeam: event.away_team,
     },
   });
+
+  await upsertTeam(event.home_team);
+  await upsertTeam(event.away_team);
 }
 
-async function insertChangedOdds(event: OddsApiEvent): Promise<number> {
+/** Writes a full snapshot of every current price on every sync, not just the ones that moved. */
+async function insertOddsSnapshot(event: OddsApiEvent): Promise<number> {
   const bookmakerKeys = event.bookmakers.map((b) => b.key);
   if (bookmakerKeys.length === 0) return 0;
 
@@ -65,18 +73,6 @@ async function insertChangedOdds(event: OddsApiEvent): Promise<number> {
     data: event.bookmakers.map((b) => ({ key: b.key, title: b.title })),
     skipDuplicates: true,
   });
-
-  // Latest known price per line for this event, so we only write rows that actually changed.
-  const existing = await prisma.odds.findMany({
-    where: { eventId: event.id },
-    orderBy: { capturedAt: "desc" },
-    select: { bookmakerKey: true, marketKey: true, outcomeName: true, point: true, price: true },
-  });
-  const latestByLine = new Map<string, number>();
-  for (const row of existing) {
-    const key = lineKey(row.bookmakerKey, row.marketKey, row.outcomeName, row.point);
-    if (!latestByLine.has(key)) latestByLine.set(key, row.price);
-  }
 
   const toInsert: {
     eventId: string;
@@ -91,17 +87,13 @@ async function insertChangedOdds(event: OddsApiEvent): Promise<number> {
   for (const bookmaker of event.bookmakers) {
     for (const market of bookmaker.markets) {
       for (const outcome of market.outcomes) {
-        const point = outcome.point ?? null;
-        const key = lineKey(bookmaker.key, market.key, outcome.name, point);
-        const previousPrice = latestByLine.get(key);
-        if (previousPrice === outcome.price) continue;
         toInsert.push({
           eventId: event.id,
           bookmakerKey: bookmaker.key,
           marketKey: market.key,
           outcomeName: outcome.name,
           price: outcome.price,
-          point,
+          point: outcome.point ?? null,
           lastUpdate: new Date(market.last_update),
         });
       }
@@ -118,7 +110,7 @@ export type RefreshSummary = {
   sportKey: string;
   skipped: boolean;
   events: number;
-  oddsInserted: number;
+  oddsCaptured: number;
 }[];
 
 /** Pulls fresh odds for every tracked sport, respecting the per-sport throttle. */
@@ -128,19 +120,19 @@ export async function refreshOdds(): Promise<RefreshSummary> {
   for (const sportKey of trackedSportKeys()) {
     const resourceKey = `odds:${sportKey}`;
     if (!(await canFetch(resourceKey))) {
-      summary.push({ sportKey, skipped: true, events: 0, oddsInserted: 0 });
+      summary.push({ sportKey, skipped: true, events: 0, oddsCaptured: 0 });
       continue;
     }
 
     const events = await getOddsForSport(sportKey);
-    let oddsInserted = 0;
+    let oddsCaptured = 0;
     for (const event of events) {
       await upsertEvent(event);
-      oddsInserted += await insertChangedOdds(event);
+      oddsCaptured += await insertOddsSnapshot(event);
     }
     await markFetched(resourceKey);
 
-    summary.push({ sportKey, skipped: false, events: events.length, oddsInserted });
+    summary.push({ sportKey, skipped: false, events: events.length, oddsCaptured });
   }
 
   return summary;

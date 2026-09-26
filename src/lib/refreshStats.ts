@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { refreshTeamStats, type TeamStatsRefreshSummary } from "@/lib/footballDataStats";
 import { SPORT_KEY_TO_FOOTBALL_DATA_COMPETITION } from "@/lib/leagueMapping";
 import { trackedSportKeys } from "@/lib/refreshOdds";
-import { findTeamStats } from "@/lib/teamNameMatch";
+import { resolveTeamStats } from "@/lib/teamNameMatch";
 import { computeMatchProbabilities, leagueAverageGoalsPerGame } from "@/lib/predictions";
 
 const PREDICTION_WINDOW_DAYS = 14;
@@ -24,8 +24,8 @@ async function refreshPredictionsForSport(sportKey: string, competitionCode: str
 
   let computed = 0;
   for (const event of events) {
-    const homeStats = findTeamStats(event.homeTeam, teams);
-    const awayStats = findTeamStats(event.awayTeam, teams);
+    const homeStats = await resolveTeamStats(event.homeTeam, competitionCode, teams);
+    const awayStats = await resolveTeamStats(event.awayTeam, competitionCode, teams);
     if (!homeStats || !awayStats) continue;
 
     const probabilities = computeMatchProbabilities(homeStats, awayStats, leagueAvg);

@@ -1,6 +1,7 @@
 // The Odds API and football-data.org don't share team identifiers, so matching
 // an event's home/away team name to a TeamStats row is done on normalized
 // name text, with a small alias table for the common short names bookmakers use.
+import { prisma } from "@/lib/prisma";
 
 const SUFFIX_WORDS = new Set([
   "fc", "afc", "cf", "sc", "ac", "cd", "club", "calcio", "futbol", "football",
@@ -65,4 +66,34 @@ export function findTeamStats<T extends MatchableTeam>(oddsApiName: string, cand
   }
 
   return null;
+}
+
+export type TeamStatsCandidate = MatchableTeam & { teamId: number };
+
+/**
+ * Resolves an Odds API team name to a TeamStats row, remembering a successful match in
+ * the Team registry (keyed by the exact Odds API name) so that a name only ever needs
+ * the fuzzy-matching heuristics above once — every later sync reuses the stored id.
+ */
+export async function resolveTeamStats<T extends TeamStatsCandidate>(
+  oddsApiName: string,
+  competitionCode: string,
+  candidates: T[]
+): Promise<T | null> {
+  const team = await prisma.team.findUnique({ where: { name: oddsApiName } });
+
+  if (team?.competitionCode === competitionCode && team.footballDataTeamId !== null) {
+    const remembered = candidates.find((c) => c.teamId === team.footballDataTeamId);
+    if (remembered) return remembered;
+  }
+
+  const match = findTeamStats(oddsApiName, candidates);
+  if (match) {
+    await prisma.team.upsert({
+      where: { name: oddsApiName },
+      create: { name: oddsApiName, competitionCode, footballDataTeamId: match.teamId },
+      update: { competitionCode, footballDataTeamId: match.teamId },
+    });
+  }
+  return match;
 }

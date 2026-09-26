@@ -39,6 +39,23 @@ model Event {
   @@map("events")
 }
 
+// Registry of every team name The Odds API has ever reported. A team's name
+// doesn't change sync to sync, so this is written once and kept forever
+// instead of only living as a duplicated string on each Event — and it
+// doubles as a persistent cache of the football-data.org match found for
+// it, so that fuzzy name-matching only has to succeed once per team, not
+// on every stats refresh.
+model Team {
+  id                 String   @id @default(cuid())
+  name               String   @unique // exact team name as reported by The Odds API
+  competitionCode    String? // football-data.org competition code, once matched
+  footballDataTeamId Int? // football-data.org team id, once matched
+  firstSeenAt        DateTime @default(now())
+  lastSeenAt         DateTime @updatedAt
+
+  @@map("teams")
+}
+
 // A bookmaker as exposed by The Odds API (e.g. "pinnacle", "bet365").
 model Bookmaker {
   key   String @id
@@ -50,8 +67,8 @@ model Bookmaker {
 }
 
 // One captured price for one outcome of one market, from one bookmaker, for one event.
-// A new row is only inserted when the price actually changed since the last capture,
-// which builds a cheap line-movement history for free.
+// A row is written on every sync (not only when the price moves), so the table is
+// a complete history of every observation, not just a log of changes.
 model Odds {
   id           BigInt    @id @default(autoincrement())
   eventId      String

@@ -10,7 +10,7 @@ async function main() {
     console.log(
       row.skipped
         ? `[${row.sportKey}] skipped (throttled)`
-        : `[${row.sportKey}] ${row.events} events, ${row.oddsInserted} new odds rows`
+        : `[${row.sportKey}] ${row.events} events, ${row.oddsCaptured} odds rows captured`
     );
   }
 }
