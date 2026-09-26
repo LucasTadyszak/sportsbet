@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { addDays, parisStartOfDay } from "@/lib/dates";
+import { addDays, parisDateKey, parisStartOfDay } from "@/lib/dates";
 import { consensusProbabilities } from "@/lib/probability";
 
 export type OddsLine = {
@@ -131,7 +131,7 @@ export async function getBoard(opts: {
   dateKey: string;
   status: StatusFilter;
   query: string;
-}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null }> {
+}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null; nearestEventDateKey: string | null }> {
   const dayStart = parisStartOfDay(opts.dateKey);
   const dayEnd = parisStartOfDay(addDays(opts.dateKey, 1));
   const search = opts.query.trim();
@@ -178,7 +178,28 @@ export async function getBoard(opts: {
     prediction: event.prediction,
   }));
 
-  return { events: board, lastCapturedAt: lastCaptured._max.capturedAt };
+  // The viewed day/status/search can legitimately come back empty even with plenty of
+  // matches elsewhere (e.g. no kickoff today); point at the closest day that does have
+  // one instead of leaving the visitor to guess how many days to click through.
+  let nearestEventDateKey: string | null = null;
+  if (board.length === 0) {
+    const [next, previous] = await Promise.all([
+      prisma.event.findFirst({
+        where: { commenceTime: { gte: dayEnd } },
+        orderBy: { commenceTime: "asc" },
+        select: { commenceTime: true },
+      }),
+      prisma.event.findFirst({
+        where: { commenceTime: { lt: dayStart } },
+        orderBy: { commenceTime: "desc" },
+        select: { commenceTime: true },
+      }),
+    ]);
+    const nearest = next?.commenceTime ?? previous?.commenceTime ?? null;
+    if (nearest) nearestEventDateKey = parisDateKey(nearest);
+  }
+
+  return { events: board, lastCapturedAt: lastCaptured._max.capturedAt, nearestEventDateKey };
 }
 
 export function groupBySport(events: BoardEvent[]): [string, BoardEvent[]][] {

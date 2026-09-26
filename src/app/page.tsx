@@ -48,7 +48,7 @@ export default async function Home({
     params.status === "upcoming" || params.status === "live" ? params.status : "all";
   const query = params.q ?? "";
 
-  const { events, lastCapturedAt } = await getBoard({ dateKey, status, query });
+  const { events, lastCapturedAt, nearestEventDateKey } = await getBoard({ dateKey, status, query });
   const bySport = groupBySport(events);
 
   const baseQuery = { date: dateKey, status, ...(query ? { q: query } : {}) };
@@ -153,14 +153,30 @@ export default async function Home({
               ) : lastCapturedAt ? (
                 <>
                   Les cotes sont bien synchronisées ({formatKickoff(lastCapturedAt)}), mais aucun match
-                  n&apos;est programmé pour ce jour côté The Odds API. Essaie{" "}
-                  <Link
-                    href={{ pathname: "/", query: { ...baseQuery, date: addDays(dateKey, 1) } }}
-                    className="text-accent-strong underline underline-offset-2"
-                  >
-                    le jour suivant
-                  </Link>
-                  .
+                  n&apos;est programmé pour ce jour côté The Odds API.{" "}
+                  {nearestEventDateKey ? (
+                    <>
+                      Le match le plus proche est{" "}
+                      <Link
+                        href={{ pathname: "/", query: { ...baseQuery, date: nearestEventDateKey } }}
+                        className="text-accent-strong underline underline-offset-2"
+                      >
+                        {formatDayLabel(nearestEventDateKey).toLowerCase()}
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      Essaie{" "}
+                      <Link
+                        href={{ pathname: "/", query: { ...baseQuery, date: addDays(dateKey, 1) } }}
+                        className="text-accent-strong underline underline-offset-2"
+                      >
+                        le jour suivant
+                      </Link>
+                      .
+                    </>
+                  )}
                 </>
               ) : (
                 <>
