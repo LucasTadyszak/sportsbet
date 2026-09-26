@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refreshStats } from "@/lib/refreshStats";
-import { refreshEdges } from "@/lib/refreshEdges";
+import { runNightly } from "@/lib/nightly";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +17,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const summary = await refreshStats();
-    const edges = await refreshEdges();
-    return NextResponse.json({ ok: true, summary, edges });
+    const summary = await runNightly();
+    return NextResponse.json({ ok: true, summary });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
@@ -29,5 +27,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Convenience for triggering a refresh from a browser or a plain HTTP cron pinger.
+// Convenience for triggering the job from a browser or a plain HTTP cron pinger.
 export const GET = POST;

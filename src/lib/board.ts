@@ -1,7 +1,9 @@
 import { cache } from "react";
+import type { Edge, MatchPrediction } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addDays, parisStartOfDay } from "@/lib/dates";
 import { consensusProbabilities } from "@/lib/probability";
+import { isStakedTier } from "@/lib/methodology/config";
 
 export type OddsLine = {
   bookmakerKey: string;
@@ -13,13 +15,23 @@ export type OddsLine = {
   capturedAt: Date;
 };
 
-// The Poisson goals model's estimate (src/lib/predictions.ts), computed from
-// football-data.org standings — independent of, and complementary to, the
-// odds-implied probabilities above.
+// The raw model's estimate (Elo + goals model, src/lib/methodology), before any market
+// anchor or calibration — independent of the odds-implied probabilities above.
 export type ModelPrediction = {
   homeWinProbability: number;
   drawProbability: number;
   awayWinProbability: number;
+};
+
+// The side the methodology would take in one market, and its verdict (src/lib/refreshEdges.ts).
+export type BoardVerdict = {
+  marketKey: string;
+  outcomeName: string;
+  point: number | null;
+  tier: string;
+  bestPrice: number | null;
+  edge: number;
+  stakeUnits: number;
 };
 
 export type BoardEvent = {
@@ -30,10 +42,13 @@ export type BoardEvent = {
   commenceTime: Date;
   h2h: OddsLine[];
   prediction: ModelPrediction | null;
+  verdicts: BoardVerdict[];
 };
 
 export type MatchDetail = BoardEvent & {
   totals: OddsLine[];
+  edges: Edge[];
+  predictionDetail: MatchPrediction | null;
 };
 
 export type StatusFilter = "all" | "upcoming" | "live";
@@ -92,27 +107,16 @@ export function resultBoxes(h2h: OddsLine[], homeTeam: string, awayTeam: string)
   ];
 }
 
-/** The model's probability for a given h2h outcome name ("Draw", or one of the two team names). */
-export function modelProbabilityForOutcome(
-  prediction: ModelPrediction | null,
-  outcomeName: string,
-  homeTeam: string,
-  awayTeam: string
-): number | null {
-  if (!prediction) return null;
-  if (outcomeName === homeTeam) return prediction.homeWinProbability;
-  if (outcomeName === awayTeam) return prediction.awayWinProbability;
-  if (outcomeName === "Draw") return prediction.drawProbability;
-  return null;
-}
-
-// A price is flagged as "value" when it pays out more than the model's implied fair odds,
-// with a small margin so borderline cases (model noise, bookmaker margin) aren't flagged.
-const VALUE_BET_MARGIN = 1.05;
-
-export function isValueBet(price: number | null, modelProbability: number | null): boolean {
-  if (price === null || modelProbability === null || modelProbability <= 0) return false;
-  return price * modelProbability >= VALUE_BET_MARGIN;
+function toVerdict(edge: Edge): BoardVerdict {
+  return {
+    marketKey: edge.marketKey,
+    outcomeName: edge.outcomeName,
+    point: edge.point,
+    tier: edge.tier,
+    bestPrice: edge.bestPrice,
+    edge: edge.edge,
+    stakeUnits: edge.stakeUnits,
+  };
 }
 
 function toBoardEvent(event: {
@@ -123,6 +127,7 @@ function toBoardEvent(event: {
   commenceTime: Date;
   odds: Parameters<typeof dedupeLatestPerLine>[0];
   prediction: ModelPrediction | null;
+  edges: Edge[];
 }): BoardEvent {
   return {
     id: event.id,
@@ -132,7 +137,13 @@ function toBoardEvent(event: {
     commenceTime: event.commenceTime,
     h2h: dedupeLatestPerLine(event.odds),
     prediction: event.prediction,
+    verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
   };
+}
+
+/** The recommended side of a market, if the methodology would stake it. */
+export function stakedVerdict(verdicts: BoardVerdict[], marketKey: string): BoardVerdict | null {
+  return verdicts.find((v) => v.marketKey === marketKey && isStakedTier(v.tier)) ?? null;
 }
 
 const UPCOMING_FALLBACK_LIMIT = 30;
@@ -146,6 +157,7 @@ async function getUpcomingFallback(): Promise<BoardEvent[]> {
     include: {
       sport: true,
       prediction: true,
+      edges: { where: { isRecommended: true } },
       odds: {
         where: { marketKey: "h2h" },
         orderBy: { capturedAt: "desc" },
@@ -199,6 +211,7 @@ export async function getBoard(opts: {
       include: {
         sport: true,
         prediction: true,
+        edges: { where: { isRecommended: true } },
         odds: {
           where: { marketKey: "h2h" },
           orderBy: { capturedAt: "desc" },
@@ -236,6 +249,7 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
     include: {
       sport: true,
       prediction: true,
+      edges: true,
       odds: {
         where: { marketKey: { in: ["h2h", "totals"] } },
         orderBy: { capturedAt: "desc" },
@@ -255,6 +269,9 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
     h2h: lines.filter((l) => l.marketKey === "h2h"),
     totals: lines.filter((l) => l.marketKey === "totals"),
     prediction: event.prediction,
+    predictionDetail: event.prediction,
+    edges: event.edges,
+    verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
   };
 });
 

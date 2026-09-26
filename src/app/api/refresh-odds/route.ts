@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { refreshOdds } from "@/lib/refreshOdds";
+import { refreshEdges } from "@/lib/refreshEdges";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
   }
   try {
     const summary = await refreshOdds();
-    return NextResponse.json({ ok: true, summary });
+    const edges = await refreshEdges();
+    return NextResponse.json({ ok: true, summary, edges });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },

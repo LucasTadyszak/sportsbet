@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import {
   getMatchDetail,
-  isValueBet,
-  modelProbabilityForOutcome,
   resultBoxes,
   resultProbabilities,
   totalsProbabilities,
   type OddsLine,
 } from "@/lib/board";
 import { formatKickoff } from "@/lib/dates";
+import { outcomeLabel } from "@/lib/labels";
+import { isStakedTier } from "@/lib/methodology/config";
+import { userLabel } from "@/lib/methodology/verdict";
+import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { TierBadge } from "@/components/Verdict";
+import { Analysis } from "./Analysis";
 import { MatchTabs } from "./Tabs";
 
 export const dynamic = "force-dynamic";
@@ -21,15 +26,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${match.homeTeam} vs ${match.awayTeam} — SportsBet` };
 }
 
+type PickCell = { bookmakerKey: string | null; outcomeName: string; point: number | null };
+
 function OddsTable({
   lines,
   outcomeOrder,
-  modelProbabilityByOutcome,
+  pick,
 }: {
   lines: OddsLine[];
   outcomeOrder: string[];
-  /** Model probability per outcome name, when available (h2h market only) — enables the value-bet highlight. */
-  modelProbabilityByOutcome?: Map<string, number>;
+  /** The price the methodology would take in this market, highlighted. */
+  pick?: PickCell | null;
 }) {
   const outcomes = outcomeOrder.filter((name) => lines.some((l) => l.outcomeName === name));
   const bookmakers = Array.from(new Map(lines.map((l) => [l.bookmakerKey, l.bookmakerTitle])).entries());
@@ -63,8 +70,7 @@ function OddsTable({
               {outcomes.map((outcome) => {
                 const line = lines.find((l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome);
                 const isBest = line && best.get(outcome) === line.price;
-                const modelProbability = modelProbabilityByOutcome?.get(outcome) ?? null;
-                const value = line && isValueBet(line.price, modelProbability);
+                const isPick = pick && pick.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
                 return (
                   <td
                     key={outcome}
@@ -73,8 +79,8 @@ function OddsTable({
                     }`}
                   >
                     <span
-                      className={value ? "rounded border border-accent bg-accent-dim px-1.5 py-0.5" : undefined}
-                      title={value ? "Value bet : cote supérieure à la probabilité modèle" : undefined}
+                      className={isPick ? "rounded border border-accent bg-accent-dim px-1.5 py-0.5" : undefined}
+                      title={isPick ? "La cote que le modèle prendrait" : undefined}
                     >
                       {line ? line.price.toFixed(2) : "—"}
                     </span>
@@ -104,6 +110,19 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const match = await getMatchDetail(id);
   if (!match) notFound();
 
+  const [picks, bookmakers] = await Promise.all([
+    prisma.pick.findMany({ where: { eventId: match.id } }),
+    prisma.bookmaker.findMany(),
+  ]);
+  const bookTitles = new Map(bookmakers.map((b) => [b.key, b.title]));
+
+  const stakedEdge = (marketKey: string) =>
+    match.edges.find((e) => e.marketKey === marketKey && e.isRecommended && isStakedTier(e.tier)) ?? null;
+  const h2hPick = stakedEdge("h2h");
+  const totalsPick = stakedEdge("totals");
+  const pickCell = (edge: typeof h2hPick): PickCell | null =>
+    edge ? { bookmakerKey: edge.bestBookmakerKey, outcomeName: edge.outcomeName, point: edge.point } : null;
+
   const totalsByPoint = new Map<number, OddsLine[]>();
   for (const line of match.totals) {
     if (line.point == null) continue;
@@ -121,23 +140,13 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const totalsProbs = totalsProbabilities(match.totals);
 
-  const modelProbabilityByOutcome = new Map<string, number>();
-  for (const outcomeName of [match.homeTeam, "Draw", match.awayTeam]) {
-    const probability = modelProbabilityForOutcome(match.prediction, outcomeName, match.homeTeam, match.awayTeam);
-    if (probability !== null) modelProbabilityByOutcome.set(outcomeName, probability);
-  }
-
   const resume = (
     <div className="flex flex-col gap-6">
       <section>
         <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
           Résultat (1X2)
         </h3>
-        <OddsTable
-          lines={match.h2h}
-          outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]}
-          modelProbabilityByOutcome={modelProbabilityByOutcome}
-        />
+        <OddsTable lines={match.h2h} outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]} pick={pickCell(h2hPick)} />
       </section>
 
       {Array.from(totalsByPoint.entries())
@@ -147,7 +156,11 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
               Total de buts — {point}
             </h3>
-            <OddsTable lines={lines} outcomeOrder={["Over", "Under"]} />
+            <OddsTable
+              lines={lines}
+              outcomeOrder={["Over", "Under"]}
+              pick={totalsPick?.point === point ? pickCell(totalsPick) : null}
+            />
           </section>
         ))}
     </div>
@@ -156,8 +169,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const probabilites = (
     <div className="flex flex-col gap-8">
       <p className="text-xs text-fg-muted">
-        Probabilités « de-vig » : la marge du bookmaker est retirée de chaque cote, puis le résultat est
-        moyenné entre bookmakers. Donnée indicative calculée à partir des cotes stockées — pas un
+        Probabilités « de-vig » : la marge de chaque bookmaker est retirée (méthode de Shin côté verdicts, proportionnelle
+        ici), puis le résultat est moyenné entre bookmakers. Donnée indicative calculée à partir des cotes stockées — pas un
         pronostic garanti.
       </p>
 
@@ -203,7 +216,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
       <section>
         <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
-          Résultat — modèle statistique (football-data.org)
+          Résultat — modèle brut (Elo + modèle de buts)
         </h3>
         {!match.prediction ? (
           <p className="text-sm text-fg-muted">
@@ -214,35 +227,16 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-3 gap-3">
               {[
-                {
-                  label: "1",
-                  name: match.homeTeam,
-                  probability: match.prediction.homeWinProbability,
-                  price: home?.price ?? null,
-                  color: "text-accent-strong",
-                },
-                {
-                  label: "X",
-                  name: "Nul",
-                  probability: match.prediction.drawProbability,
-                  price: draw?.price ?? null,
-                  color: "text-fg-muted",
-                },
-                {
-                  label: "2",
-                  name: match.awayTeam,
-                  probability: match.prediction.awayWinProbability,
-                  price: away?.price ?? null,
-                  color: "text-fg",
-                },
+                { label: "1", name: match.homeTeam, outcome: match.homeTeam, probability: match.prediction.homeWinProbability, price: home?.price ?? null, color: "text-accent-strong" },
+                { label: "X", name: "Nul", outcome: "Draw", probability: match.prediction.drawProbability, price: draw?.price ?? null, color: "text-fg-muted" },
+                { label: "2", name: match.awayTeam, outcome: match.awayTeam, probability: match.prediction.awayWinProbability, price: away?.price ?? null, color: "text-fg" },
               ].map((slot) => {
-                const value = isValueBet(slot.price, slot.probability);
+                const isPick = h2hPick?.outcomeName === slot.outcome;
                 return (
                   <div
                     key={slot.label}
-                    title={value ? "Value bet : cote supérieure à la probabilité modèle" : undefined}
                     className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-4 text-center ${
-                      value ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
+                      isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
                     }`}
                   >
                     <span className="font-mono-tabular text-xs uppercase text-fg-muted">{slot.label}</span>
@@ -265,9 +259,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               ]}
             />
             <p className="text-xs text-fg-muted">
-              Modèle de Poisson simplifié à partir des classements football-data.org (force
-              offensive/défensive relative à la moyenne de la compétition, avantage du terrain fixe) —
-              indicatif, pas un pronostic garanti.
+              Modèle brut, avant l&apos;ancre marché, le mouvement de ligne et la calibration : le détail et le verdict
+              sont dans l&apos;onglet Analyse — indicatif, pas un pronostic garanti.
             </p>
           </div>
         )}
@@ -317,14 +310,15 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   };
 
   return (
-    <div className="flex-1 bg-bg text-fg">
-      <div className="mx-auto max-w-4xl px-6 py-6">
+    <div className="flex flex-1 flex-col bg-bg text-fg">
+      <SiteHeader active="board" />
+      <div className="mx-auto w-full max-w-4xl px-6 py-6">
         <Link href="/" className="text-sm text-fg-muted transition hover:text-fg">
           ‹ Retour au tableau
         </Link>
       </div>
 
-      <div className="mx-auto max-w-4xl px-6 pb-10">
+      <div className="mx-auto w-full max-w-4xl px-6 pb-10">
         <div className="rounded-t-lg border border-border bg-bg-elevated px-6 py-6 text-center">
           <p className="font-mono-tabular text-xs uppercase tracking-widest text-fg-muted">
             {match.sportTitle}
@@ -337,25 +331,19 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           </time>
           <div className="mx-auto mt-4 flex max-w-xs justify-center gap-2">
             {boxes.map((box) => {
-              const modelProbability = modelProbabilityForOutcome(
-                match.prediction,
-                boxOutcomeName[box.label],
-                match.homeTeam,
-                match.awayTeam
-              );
-              const value = isValueBet(box.price, modelProbability);
+              const isPick = h2hPick?.outcomeName === boxOutcomeName[box.label];
               return (
                 <div
                   key={box.label}
-                  title={value ? "Value bet : cote supérieure à la probabilité modèle" : undefined}
+                  title={isPick && h2hPick ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}` : undefined}
                   className={`flex flex-1 flex-col items-center rounded-md border px-2 py-1.5 ${
-                    value ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
+                    isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
                   }`}
                 >
                   <span className="font-mono-tabular text-[10px] uppercase text-fg-muted">{box.label}</span>
                   <span
                     className={`font-mono-tabular text-sm font-semibold ${
-                      value ? "text-accent-strong" : "text-fg"
+                      isPick ? "text-accent-strong" : "text-fg"
                     }`}
                   >
                     {box.price ? box.price.toFixed(2) : "—"}
@@ -364,12 +352,33 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               );
             })}
           </div>
+          {h2hPick || totalsPick ? (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {[h2hPick, totalsPick].map((edge) =>
+                edge ? (
+                  <span key={edge.marketKey} className="inline-flex items-center gap-2">
+                    <TierBadge tier={edge.tier} />
+                    <span className="text-sm text-fg">
+                      {outcomeLabel(edge.marketKey, edge.outcomeName, edge.point, match.homeTeam, match.awayTeam)}
+                    </span>
+                  </span>
+                ) : null
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-b-lg border border-t-0 border-border bg-bg-elevated">
-          <MatchTabs resume={resume} probabilites={probabilites} />
+          <MatchTabs
+            tabs={[
+              { id: "resume", label: "Résumé", content: resume },
+              { id: "analyse", label: "Analyse", content: <Analysis match={match} picks={picks} bookTitles={bookTitles} /> },
+              { id: "probabilites", label: "Probabilités", content: probabilites },
+            ]}
+          />
         </div>
       </div>
+      <PageFooter />
     </div>
   );
 }

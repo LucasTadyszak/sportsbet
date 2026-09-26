@@ -1,21 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { getStandings, sleep } from "@/lib/footballDataApi";
+import { getStandings } from "@/lib/footballDataApi";
 import { trackedCompetitionCodes } from "@/lib/leagueMapping";
 import { trackedSportKeys } from "@/lib/refreshOdds";
 
-const REFRESH_INTERVAL_MINUTES = Number(process.env.FOOTBALL_DATA_REFRESH_INTERVAL_MINUTES ?? 360);
-// Free tier is capped at 10 requests/minute; spacing calls out keeps a multi-competition
-// refresh well under that even if other traffic is hitting the same API key.
-const REQUEST_SPACING_MS = 7_000;
+export const REFRESH_INTERVAL_MINUTES = Number(process.env.FOOTBALL_DATA_REFRESH_INTERVAL_MINUTES ?? 360);
 
-async function canFetch(resourceKey: string): Promise<boolean> {
+export async function canFetch(resourceKey: string): Promise<boolean> {
   const log = await prisma.fetchLog.findUnique({ where: { resourceKey } });
   if (!log) return true;
   const ageMinutes = (Date.now() - log.lastFetchedAt.getTime()) / 60_000;
   return ageMinutes >= REFRESH_INTERVAL_MINUTES;
 }
 
-async function markFetched(resourceKey: string) {
+export async function markFetched(resourceKey: string) {
   await prisma.fetchLog.upsert({
     where: { resourceKey },
     create: { resourceKey },
@@ -34,7 +31,6 @@ export async function refreshTeamStats(): Promise<TeamStatsRefreshSummary> {
   const summary: TeamStatsRefreshSummary = [];
   const competitionCodes = trackedCompetitionCodes(trackedSportKeys());
 
-  let isFirstRequest = true;
   for (const competitionCode of competitionCodes) {
     const resourceKey = `stats:${competitionCode}`;
     if (!(await canFetch(resourceKey))) {
@@ -42,9 +38,7 @@ export async function refreshTeamStats(): Promise<TeamStatsRefreshSummary> {
       continue;
     }
 
-    if (!isFirstRequest) await sleep(REQUEST_SPACING_MS);
-    isFirstRequest = false;
-
+    // Request spacing for the free tier's 10 req/min is handled inside footballDataApi.
     const data = await getStandings(competitionCode);
     const totalTable = data.standings.find((s) => s.type === "TOTAL")?.table ?? [];
     const season = new Date(data.season.startDate).getFullYear();

@@ -34,6 +34,9 @@ model Event {
 
   odds       Odds[]
   prediction MatchPrediction?
+  edges      Edge[]
+  picks      Pick[]
+  grade      EventGrade?
 
   @@index([sportKey, commenceTime])
   @@map("events")
@@ -135,9 +138,11 @@ model TeamStats {
   @@map("team_stats")
 }
 
-// Model-estimated outcome probabilities for one event, derived from
-// TeamStats via a Poisson goals model. Recomputed whenever fresher stats
-// or a fresher event come in; not a betting recommendation, informational only.
+// Model-estimated outcome probabilities for one event (the "raw" model, before
+// any market anchor, line-movement nudge or calibration — see src/lib/methodology).
+// homeWin/draw/awayWin is the Elo + goals-model blend; the two components are kept
+// alongside so the match page can show where the number comes from. Recomputed
+// whenever fresher stats or a fresher event come in, only while the match is upcoming.
 model MatchPrediction {
   id                 String   @id @default(cuid())
   eventId            String   @unique
@@ -145,10 +150,208 @@ model MatchPrediction {
   homeWinProbability Float
   drawProbability    Float
   awayWinProbability Float
-  expectedHomeGoals  Float
-  expectedAwayGoals  Float
+  expectedHomeGoals  Float? // null when only the Elo side of the model could run
+  expectedAwayGoals  Float?
+  // Dixon-Coles low-score correlation used with the expected goals above to rebuild
+  // the full score grid (and so any totals line) without storing it.
+  rho                Float    @default(0)
+  eloHomeRating      Float?
+  eloAwayRating      Float?
+  eloHomeWin         Float?
+  eloDraw            Float?
+  eloAwayWin         Float?
+  goalsHomeWin       Float?
+  goalsDraw          Float?
+  goalsAwayWin       Float?
+  // "full" | "partial" | "thin" — thin team data caps the verdict at MARGINAL.
+  dataQuality        String   @default("partial")
+  components         Json? // form/rest adjustments, sample sizes, which sub-models ran
   modelVersion       String   @default("poisson-v1")
   computedAt         DateTime @default(now())
 
   @@map("match_predictions")
+}
+
+// Every football-data.org match of a tracked competition (finished or not). The
+// finished ones feed the Elo ratings, the goals model and the last-10 form score;
+// they are also how picks get graded (90-minute score, like bookmakers settle).
+model Fixture {
+  id              Int      @id // football-data.org match id
+  competitionCode String
+  season          Int // season start year
+  utcDate         DateTime
+  status          String // SCHEDULED | TIMED | IN_PLAY | PAUSED | FINISHED | POSTPONED | CANCELLED | ...
+  matchday        Int?
+  stage           String?
+  homeTeamId      Int
+  awayTeamId      Int
+  homeTeamName    String
+  awayTeamName    String
+  homeGoals       Int? // score after 90 minutes (regularTime when the match went to extra time)
+  awayGoals       Int?
+  updatedAt       DateTime @updatedAt
+
+  @@index([competitionCode, utcDate])
+  @@index([homeTeamId, utcDate])
+  @@index([awayTeamId, utcDate])
+  @@map("fixtures")
+}
+
+// Current Elo rating of a team (football-data.org team id), replayed from scratch
+// over every stored finished Fixture on each stats refresh.
+model TeamRating {
+  teamId       Int       @id
+  name         String
+  elo          Float
+  matchesRated Int
+  // Mean (actual - expected) Elo score over the last 10 matches: the hot/cold streak signal.
+  formScore    Float     @default(0)
+  lastMatchAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@map("team_ratings")
+}
+
+// Per-competition parameters: Elo constants tuned on that league's own history
+// (K factor, home-field advantage, draw model) and the fitted Dixon-Coles goals model.
+model CompetitionModel {
+  competitionCode String   @id
+  kFactor         Float
+  homeAdvantage   Float // Elo points
+  drawBase        Float // draw probability between two equal teams
+  drawWidth       Float // how fast the draw probability decays with the Elo gap
+  eloTuned        Boolean  @default(false) // false = defaults (not enough history to tune)
+  goalsBase       Float? // goals-model baseline per team per match
+  goalsHomeAdv    Float? // goals-model home multiplier
+  rho             Float    @default(0)
+  teamStrengths   Json? // { [teamId]: { attack, defense, games } }
+  matchesUsed     Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@map("competition_models")
+}
+
+// Latest verdict for every outcome of every priced market of an upcoming event,
+// rewritten wholesale after each odds refresh ("edges recomputed" loop). Purely a
+// read model for the UI — the permanent record is Pick.
+model Edge {
+  id               String   @id @default(cuid())
+  eventId          String
+  event            Event    @relation(fields: [eventId], references: [id])
+  marketKey        String // "h2h" | "totals"
+  outcomeName      String
+  point            Float?
+  bestPrice        Float?
+  bestBookmakerKey String?
+  marketProb       Float // Pinnacle-weighted consensus, de-vigged
+  sharpProb        Float? // Pinnacle alone, de-vigged
+  modelRawProb     Float // blend straight out of the model
+  modelBaseProb    Float // after market anchor + line-movement nudge (pre-calibration)
+  modelProb        Float // final: calibrated, clamped — what the edge is computed from
+  edge             Float // modelProb - marketProb (probability points)
+  ev               Float? // expected return per unit staked at bestPrice
+  tier             String // HERO | STRONG_BET | BOSS_PICK | GOOD_BET | MARGINAL | PASS
+  reasons          String[]
+  signals          Json
+  stakeUnits       Float    @default(0)
+  isRecommended    Boolean  @default(false) // the side the model would take in this market
+  computedAt       DateTime @default(now())
+
+  @@index([eventId])
+  @@index([tier, isRecommended])
+  @@map("edges")
+}
+
+// The journal: a staked recommendation, snapshotted with every input the moment it
+// is published and never edited afterwards except to add its closing line and result.
+model Pick {
+  id                 String    @id @default(cuid())
+  eventId            String
+  event              Event     @relation(fields: [eventId], references: [id])
+  sportKey           String
+  commenceTime       DateTime
+  marketKey          String
+  outcomeName        String
+  point              Float?
+  bookmakerKey       String
+  price              Float
+  tier               String
+  modelProb          Float
+  modelProbPreOffset Float // before the journal's calibration offsets — what those offsets are fitted against
+  marketProb         Float
+  sharpProb          Float?
+  edge               Float
+  ev                 Float
+  stakeUnits         Float
+  inputs             Json // full snapshot of every input that fed the verdict
+  modelVersion       String
+  publishedAt        DateTime  @default(now())
+  // Closing line, captured once the match has kicked off.
+  closingFairProb    Float?
+  closingSource      String? // "pinnacle" | "consensus"
+  clv                Float? // price * closingFairProb - 1: did we beat the close?
+  // Result, once the match is finished.
+  status             String    @default("pending") // pending | won | lost | push | half_won | half_lost | void
+  profitUnits        Float?
+  homeGoals          Int?
+  awayGoals          Int?
+  gradedAt           DateTime?
+
+  @@unique([eventId, marketKey])
+  @@index([status])
+  @@index([sportKey, marketKey])
+  @@index([publishedAt])
+  @@map("picks")
+}
+
+// Graded outcome of every finished event we priced, with the model's and the
+// market's closing probabilities side by side — the basis for Brier / log-loss /
+// reliability on /modele and for fitting the calibration edge scale.
+model EventGrade {
+  eventId      String   @id
+  event        Event    @relation(fields: [eventId], references: [id])
+  sportKey     String
+  commenceTime DateTime
+  homeGoals    Int
+  awayGoals    Int
+  result       String // "H" | "D" | "A"
+  modelHome    Float? // model after anchor + nudge, before calibration
+  modelDraw    Float?
+  modelAway    Float?
+  finalHome    Float? // final calibrated model
+  finalDraw    Float?
+  finalAway    Float?
+  marketHome   Float? // closing Pinnacle-weighted consensus
+  marketDraw   Float?
+  marketAway   Float?
+  sharpHome    Float? // closing Pinnacle
+  sharpDraw    Float?
+  sharpAway    Float?
+  totalsLine   Float?
+  modelOver    Float?
+  marketOver   Float?
+  gradedAt     DateTime @default(now())
+
+  @@index([sportKey, commenceTime])
+  @@map("event_grades")
+}
+
+// Output of the nightly "reflect" job: calibration statistics per bucket and the
+// correction actually applied to the next predictions (offset in probability
+// points, or the edge scale for scope "edge_scale").
+model CalibrationBucket {
+  id           String   @id @default(cuid())
+  scope        String // "sport" | "sport_market" | "tier" | "edge_scale"
+  sportKey     String
+  marketKey    String   @default("")
+  tier         String   @default("")
+  n            Int
+  avgPredicted Float
+  hitRate      Float
+  gap          Float // hitRate - avgPredicted (negative = overconfident)
+  applied      Float // offset (pp as a fraction) or edge scale actually used
+  computedAt   DateTime @default(now())
+
+  @@unique([scope, sportKey, marketKey, tier])
+  @@map("calibration_buckets")
 }

@@ -19,6 +19,14 @@
   --accent-strong: #c2410c;
   --accent-dim: #ffedd5;
   --fall: #dc2626;
+  --rise: #15803d; /* won / positive CLV text — ~5:1 on white */
+  /* Status (model health bands) — always paired with an icon + label, never color alone. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  /* Chart series, fixed order (validated for CVD separation on white). */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 
 @theme inline {
@@ -32,6 +40,12 @@
   --color-accent-strong: var(--accent-strong);
   --color-accent-dim: var(--accent-dim);
   --color-fall: var(--fall);
+  --color-rise: var(--rise);
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);

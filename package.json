@@ -7,12 +7,15 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "refresh:odds": "tsx scripts/refresh-odds.ts",
-    "refresh:stats": "tsx scripts/refresh-stats.ts"
+    "refresh:stats": "tsx scripts/refresh-stats.ts",
+    "refresh:edges": "tsx scripts/refresh-edges.ts",
+    "nightly": "tsx scripts/nightly.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

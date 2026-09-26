@@ -2,6 +2,7 @@
 // Usage: npx tsx scripts/refresh-odds.ts
 import "dotenv/config";
 import { refreshOdds } from "@/lib/refreshOdds";
+import { refreshEdges } from "@/lib/refreshEdges";
 import { prisma } from "@/lib/prisma";
 
 async function main() {
@@ -13,6 +14,10 @@ async function main() {
         : `[${row.sportKey}] ${row.events} events, ${row.oddsCaptured} odds rows captured`
     );
   }
+  // New prices → new market signals and edges; recomputed even when every sport was
+  // throttled, so the verdicts stay in step with the latest calibration and predictions.
+  const edges = await refreshEdges();
+  console.log(`edges: ${edges.edges} verdicts over ${edges.events} events, ${edges.picksPublished} picks published`);
 }
 
 main()

@@ -2,14 +2,16 @@ import Link from "next/link";
 import {
   getBoard,
   groupBySport,
-  isValueBet,
-  modelProbabilityForOutcome,
   resultBoxes,
+  stakedVerdict,
   type BoardEvent,
   type StatusFilter,
 } from "@/lib/board";
 import { addDays, formatDayLabel, formatKickoff, isValidDateKey, parisDateKey } from "@/lib/dates";
-import type { ReactNode } from "react";
+import { outcomeCode, outcomeLabel } from "@/lib/labels";
+import { userLabel } from "@/lib/methodology/verdict";
+import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { EmptyState, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
 
@@ -29,22 +31,6 @@ const BOX_OUTCOME_NAME: Record<"1" | "X" | "2", (event: BoardEvent) => string> =
   X: () => "Draw",
   "2": (event) => event.awayTeam,
 };
-
-/** Whether the best price shown in a 1/X/2 box pays more than the model's probability justifies. */
-function isBoxValueBet(box: { label: "1" | "X" | "2"; price: number | null }, event: BoardEvent): boolean {
-  const outcomeName = BOX_OUTCOME_NAME[box.label](event);
-  const modelProbability = modelProbabilityForOutcome(event.prediction, outcomeName, event.homeTeam, event.awayTeam);
-  return isValueBet(box.price, modelProbability);
-}
-
-function EmptyState({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border bg-bg-elevated px-6 py-16 text-center">
-      <p className="font-display text-lg font-semibold text-fg">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-fg-muted">{children}</p>
-    </div>
-  );
-}
 
 /** Matches grouped by sport/competition, each in a collapsible section — the board's main list. */
 function MatchGroups({ groups }: { groups: [string, BoardEvent[]][] }) {
@@ -68,6 +54,8 @@ function MatchGroups({ groups }: { groups: [string, BoardEvent[]][] }) {
             {sportEvents.map((event) => {
               const boxes = resultBoxes(event.h2h, event.homeTeam, event.awayTeam);
               const live = isLive(event.commenceTime);
+              const h2hPick = stakedVerdict(event.verdicts, "h2h");
+              const picks = [h2hPick, stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
 
               return (
                 <Link
@@ -95,17 +83,34 @@ function MatchGroups({ groups }: { groups: [string, BoardEvent[]][] }) {
                     <p className="truncate font-display text-sm font-semibold text-fg">
                       {event.homeTeam} <span className="text-fg-muted">vs</span> {event.awayTeam}
                     </p>
+                    {picks.length > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {picks.map((pick) => (
+                          <span key={pick.marketKey} className="inline-flex items-center gap-1.5">
+                            <TierBadge tier={pick.tier} compact />
+                            <span className="font-mono-tabular text-xs text-fg-muted">
+                              {outcomeCode(pick.marketKey, pick.outcomeName, pick.point, event.homeTeam, event.awayTeam)}
+                              {pick.bestPrice ? ` @${pick.bestPrice.toFixed(2)}` : ""}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex shrink-0 gap-1.5">
                     {boxes.map((box) => {
-                      const value = isBoxValueBet(box, event);
+                      const isPick = h2hPick !== null && h2hPick.outcomeName === BOX_OUTCOME_NAME[box.label](event);
                       return (
                         <div
                           key={box.label}
-                          title={value ? "Value bet : cote supérieure à la probabilité modèle" : undefined}
+                          title={
+                            isPick && h2hPick
+                              ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}`
+                              : undefined
+                          }
                           className={`flex w-16 flex-col items-center rounded-md border px-2 py-1 ${
-                            value ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
+                            isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
                           }`}
                         >
                           <span className="font-mono-tabular text-[10px] uppercase text-fg-muted">
@@ -113,7 +118,7 @@ function MatchGroups({ groups }: { groups: [string, BoardEvent[]][] }) {
                           </span>
                           <span
                             className={`font-mono-tabular text-sm font-semibold ${
-                              value ? "text-accent-strong" : "text-fg"
+                              isPick ? "text-accent-strong" : "text-fg"
                             }`}
                           >
                             {box.price ? box.price.toFixed(2) : "—"}
@@ -151,28 +156,19 @@ export default async function Home({
   const baseQuery = { date: dateKey, status, ...(query ? { q: query } : {}) };
 
   return (
-    <div className="flex-1 bg-bg text-fg">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-          <div className="flex items-baseline gap-3">
-            <h1 className="font-display text-2xl font-extrabold tracking-tight text-fg">
-              SPORTS<span className="text-accent">BET</span>
-            </h1>
-            <span className="font-mono-tabular text-xs uppercase tracking-widest text-fg-muted">
-              Live Odds Board
-            </span>
-          </div>
-          <div className="flex items-center gap-2 font-mono-tabular text-xs text-fg-muted">
+    <div className="flex flex-1 flex-col bg-bg text-fg">
+      <SiteHeader
+        active="board"
+        right={
+          <span className="flex items-center gap-2 font-mono-tabular text-xs text-fg-muted">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
             </span>
-            {lastCapturedAt
-              ? `MAJ ${formatKickoff(lastCapturedAt)}`
-              : "en attente de la première synchro"}
-          </div>
-        </div>
-      </header>
+            {lastCapturedAt ? `MAJ ${formatKickoff(lastCapturedAt)}` : "en attente de la première synchro"}
+          </span>
+        }
+      />
 
       <div className="border-b border-border bg-bg-elevated">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-4">
@@ -228,7 +224,7 @@ export default async function Home({
         </div>
       </div>
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto w-full max-w-6xl px-6 py-10">
         {events.length > 0 ? (
           <MatchGroups groups={bySport} />
         ) : query ? (
@@ -265,11 +261,7 @@ export default async function Home({
         )}
       </main>
 
-      <footer className="mt-auto border-t border-border px-6 py-6 text-center font-mono-tabular text-xs text-fg-muted">
-        Cotes fournies par The Odds API, probabilités modèle calculées à
-        partir des statistiques football-data.org — usage informatif
-        uniquement.
-      </footer>
+      <PageFooter />
     </div>
   );
 }
