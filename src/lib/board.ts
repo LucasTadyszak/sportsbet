@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { addDays, parisDateKey, parisStartOfDay } from "@/lib/dates";
+import { addDays, parisStartOfDay } from "@/lib/dates";
 import { consensusProbabilities } from "@/lib/probability";
 
 export type OddsLine = {
@@ -115,6 +115,47 @@ export function isValueBet(price: number | null, modelProbability: number | null
   return price * modelProbability >= VALUE_BET_MARGIN;
 }
 
+function toBoardEvent(event: {
+  id: string;
+  sport: { title: string };
+  homeTeam: string;
+  awayTeam: string;
+  commenceTime: Date;
+  odds: Parameters<typeof dedupeLatestPerLine>[0];
+  prediction: ModelPrediction | null;
+}): BoardEvent {
+  return {
+    id: event.id,
+    sportTitle: event.sport.title,
+    homeTeam: event.homeTeam,
+    awayTeam: event.awayTeam,
+    commenceTime: event.commenceTime,
+    h2h: dedupeLatestPerLine(event.odds),
+    prediction: event.prediction,
+  };
+}
+
+const UPCOMING_FALLBACK_LIMIT = 30;
+
+/** The next matches overall, regardless of the day/status/search being viewed. */
+async function getUpcomingFallback(): Promise<BoardEvent[]> {
+  const events = await prisma.event.findMany({
+    where: { commenceTime: { gte: new Date() } },
+    orderBy: { commenceTime: "asc" },
+    take: UPCOMING_FALLBACK_LIMIT,
+    include: {
+      sport: true,
+      prediction: true,
+      odds: {
+        where: { marketKey: "h2h" },
+        orderBy: { capturedAt: "desc" },
+        include: { bookmaker: true },
+      },
+    },
+  });
+  return events.map(toBoardEvent);
+}
+
 function statusWindow(status: StatusFilter, dayStart: Date, dayEnd: Date) {
   const now = new Date();
   if (status === "upcoming") {
@@ -131,7 +172,7 @@ export async function getBoard(opts: {
   dateKey: string;
   status: StatusFilter;
   query: string;
-}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null; nearestEventDateKey: string | null }> {
+}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null; upcomingFallback: BoardEvent[] }> {
   const dayStart = parisStartOfDay(opts.dateKey);
   const dayEnd = parisStartOfDay(addDays(opts.dateKey, 1));
   const search = opts.query.trim();
@@ -140,7 +181,7 @@ export async function getBoard(opts: {
   // day/status/search can legitimately have zero matches right after a successful
   // sync (e.g. no kickoffs today), and this indicator should still reflect that a
   // sync did happen, rather than looking exactly like "never synced".
-  const [events, lastCaptured] = await Promise.all([
+  const [rawEvents, lastCaptured] = await Promise.all([
     prisma.event.findMany({
       where: {
         commenceTime: statusWindow(opts.status, dayStart, dayEnd),
@@ -168,38 +209,15 @@ export async function getBoard(opts: {
     prisma.odds.aggregate({ _max: { capturedAt: true } }),
   ]);
 
-  const board: BoardEvent[] = events.map((event) => ({
-    id: event.id,
-    sportTitle: event.sport.title,
-    homeTeam: event.homeTeam,
-    awayTeam: event.awayTeam,
-    commenceTime: event.commenceTime,
-    h2h: dedupeLatestPerLine(event.odds),
-    prediction: event.prediction,
-  }));
+  const events = rawEvents.map(toBoardEvent);
 
-  // The viewed day/status/search can legitimately come back empty even with plenty of
-  // matches elsewhere (e.g. no kickoff today); point at the closest day that does have
-  // one instead of leaving the visitor to guess how many days to click through.
-  let nearestEventDateKey: string | null = null;
-  if (board.length === 0) {
-    const [next, previous] = await Promise.all([
-      prisma.event.findFirst({
-        where: { commenceTime: { gte: dayEnd } },
-        orderBy: { commenceTime: "asc" },
-        select: { commenceTime: true },
-      }),
-      prisma.event.findFirst({
-        where: { commenceTime: { lt: dayStart } },
-        orderBy: { commenceTime: "desc" },
-        select: { commenceTime: true },
-      }),
-    ]);
-    const nearest = next?.commenceTime ?? previous?.commenceTime ?? null;
-    if (nearest) nearestEventDateKey = parisDateKey(nearest);
-  }
+  // The viewed day/status can legitimately come back empty even with plenty of matches
+  // elsewhere (e.g. no kickoff today); show the actual next matches directly instead of
+  // just pointing at another day to click through to. Not applied to a search query,
+  // since "no result for this search" isn't fixed by showing unrelated matches.
+  const upcomingFallback = events.length === 0 && !search ? await getUpcomingFallback() : [];
 
-  return { events: board, lastCapturedAt: lastCaptured._max.capturedAt, nearestEventDateKey };
+  return { events, lastCapturedAt: lastCaptured._max.capturedAt, upcomingFallback };
 }
 
 export function groupBySport(events: BoardEvent[]): [string, BoardEvent[]][] {
