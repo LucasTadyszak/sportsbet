@@ -44,8 +44,24 @@ src/lib/refreshStats.ts     # orchestration : refreshTeamStats() puis recalcule 
 scripts/refresh-stats.ts    # point d'entrée CLI pour un cron (Render Cron Job)
 src/app/api/refresh-stats/  # endpoint HTTP protégé par CRON_SECRET pour déclencher un refresh
 
-src/app/page.tsx            # tableau des cotes + probabilités modèle (server component)
+# UI
+src/lib/dates.ts            # jours/formatage ancrés sur Europe/Paris
+src/lib/probability.ts      # de-vig d'une cote -> probabilité implicite, consensus multi-bookmaker
+src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (liste + détail d'un match)
+src/app/page.tsx            # liste des matchs groupée par compétition (server component)
+src/app/match/[id]/page.tsx # page détail : cotes par bookmaker + probabilités (implicites et modèle)
+src/app/match/[id]/Tabs.tsx # bascule client Résumé / Probabilités
 ```
+
+Board inspiré de [ZoneStat](https://www.zonestat.fr/football) : liste des matchs
+groupée par compétition (repliable), navigation par jour, filtres Tout /
+À venir / En cours, recherche par équipe, et une page détail par match
+(`/match/[id]`) avec un onglet **Résumé** (comparatif de cotes par
+bookmaker, marchés 1X2 et totaux) et un onglet **Probabilités** qui affiche
+deux lectures côte à côte : les probabilités *implicites* (retirer la marge
+de chaque bookmaker puis moyenner — `src/lib/probability.ts`) et les
+probabilités du *modèle statistique* basé sur football-data.org (voir plus
+bas).
 
 Tout ce qu'un sync ramène est conservé en base, y compris ce qui ne change
 pas d'un appel à l'autre :
@@ -83,8 +99,9 @@ une probabilité 1N2 pour chaque match à venir avec un modèle de Poisson
 simplifié : force offensive/défensive de chaque équipe relative à la moyenne
 de buts de la compétition, avantage du terrain fixe (×1.35), puis somme de la
 grille de scores Poisson indépendants. Le résultat (`MatchPrediction`) est
-affiché sous chaque cote sur le tableau, et une cote est surlignée comme
-*value bet* quand `cote × probabilité modèle ≥ 1.05`.
+affiché dans l'onglet **Probabilités** de la page match, à côté des
+probabilités implicites du marché, et une cote du tableau **Résumé** est
+surlignée comme *value bet* quand `cote × probabilité modèle ≥ 1.05`.
 
 C'est un modèle simple et volontairement transparent (pas de corrélation
 de score à la Dixon-Coles, pas de séparation domicile/extérieur dans les
@@ -172,3 +189,7 @@ curl "http://localhost:3000/api/refresh-stats?secret=$CRON_SECRET"
   fixer à la main `Team.footballDataTeamId` pour une équipe que les
   heuristiques ne rapprochent jamais correctement (nouveau championnat,
   nom trop différent), plutôt que d'attendre qu'un futur alias la corrige.
+- Fonctionnalités façon ZoneStat qui demandent encore plus de données que ce
+  que `TeamStats` couvre déjà (classement, forme, buts pour/contre) : top
+  buteurs, compositions probables, vote communautaire (nécessiterait aussi
+  des comptes utilisateurs).
