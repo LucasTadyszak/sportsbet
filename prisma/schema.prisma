@@ -1,0 +1,91 @@
+// Prisma schema for the SportsBet MVP: live odds board fed by The Odds API.
+// https://the-odds-api.com/liveapi/guides/v4/
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// A sport/competition as exposed by The Odds API (e.g. "soccer_epl", "basketball_nba").
+model Sport {
+  key    String  @id // Odds API sport_key
+  group  String // e.g. "Soccer", "Basketball"
+  title  String
+  active Boolean @default(true)
+
+  events Event[]
+
+  @@map("sports")
+}
+
+// A single fixture/match.
+model Event {
+  id           String   @id // Odds API event id
+  sportKey     String
+  sport        Sport    @relation(fields: [sportKey], references: [key])
+  commenceTime DateTime
+  homeTeam     String
+  awayTeam     String
+  updatedAt    DateTime @updatedAt
+
+  odds Odds[]
+
+  @@index([sportKey, commenceTime])
+  @@map("events")
+}
+
+// A bookmaker as exposed by The Odds API (e.g. "pinnacle", "bet365").
+model Bookmaker {
+  key   String @id
+  title String
+
+  odds Odds[]
+
+  @@map("bookmakers")
+}
+
+// One captured price for one outcome of one market, from one bookmaker, for one event.
+// A new row is only inserted when the price actually changed since the last capture,
+// which builds a cheap line-movement history for free.
+model Odds {
+  id           BigInt   @id @default(autoincrement())
+  eventId      String
+  event        Event    @relation(fields: [eventId], references: [id])
+  bookmakerKey String
+  bookmaker    Bookmaker @relation(fields: [bookmakerKey], references: [key])
+  marketKey    String // "h2h" | "spreads" | "totals"
+  outcomeName  String // team name, or "Over" / "Under"
+  price        Float // decimal odds
+  point        Float? // spread/total line, null for h2h
+  lastUpdate   DateTime // bookmaker-reported timestamp from the API payload
+  capturedAt   DateTime @default(now())
+
+  @@index([eventId, marketKey, bookmakerKey])
+  @@map("odds")
+}
+
+// Tracks The Odds API's own usage headers so we never blow through the plan's quota.
+model ApiUsageLog {
+  id                 BigInt   @id @default(autoincrement())
+  provider           String // "the-odds-api"
+  endpoint           String
+  requestsUsed       Int?
+  requestsRemaining  Int?
+  requestsLastCost   Int?
+  capturedAt         DateTime @default(now())
+
+  @@map("api_usage_log")
+}
+
+// Throttling guard: last successful fetch per resource key, so a refresh route
+// can no-op if it ran recently instead of spending API credits.
+model FetchLog {
+  resourceKey  String   @id // e.g. "odds:soccer_epl"
+  lastFetchedAt DateTime @default(now())
+
+  @@map("fetch_log")
+}

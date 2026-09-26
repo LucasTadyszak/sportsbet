@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #090b0a;
+  --bg-elevated: #10140f;
+  --bg-row: #0d110d;
+  --border: #1e2620;
+  --fg: #edf2ee;
+  --fg-muted: #8b968e;
+  --accent: #2be08a;
+  --accent-dim: #123322;
+  --gold: #f2b93d;
+  --rise: #2be08a;
+  --fall: #f24d4d;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-row: var(--bg-row);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-gold: var(--gold);
+  --color-rise: var(--rise);
+  --color-fall: var(--fall);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body), sans-serif;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(43, 224, 138, 0.08), transparent 45%),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.015) 0px,
+      rgba(255, 255, 255, 0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: var(--font-display), sans-serif;
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
