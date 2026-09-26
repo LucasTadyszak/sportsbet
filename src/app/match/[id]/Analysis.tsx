@@ -12,8 +12,9 @@ import {
   marketLabel,
   outcomeLabel,
 } from "@/lib/labels";
-import { ELO_BLEND_WEIGHT, STAKING, isStakedTier } from "@/lib/methodology/config";
+import { ELO_BLEND_WEIGHT, SIGNALS, STAKING, isStakedTier } from "@/lib/methodology/config";
 import type { StoredEdgeSignals } from "@/lib/refreshEdges";
+import { Icon, type IconName } from "@/components/Icon";
 import { ReasonList, TierBadge } from "@/components/Verdict";
 
 type BookTitles = Map<string, string>;
@@ -25,26 +26,55 @@ function signalsOf(edge: Edge): StoredEdgeSignals {
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
-  return <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">{children}</h3>;
+  return (
+    <h3 className="flex items-center gap-2.5 font-display text-sm font-semibold uppercase tracking-widest text-fg">
+      <span className="h-4 w-1 rounded-full bg-accent" aria-hidden />
+      {children}
+    </h3>
+  );
 }
 
-function SignalCard({ index, title, children }: { index: number; title: string; children: ReactNode }) {
+type Tone = "for" | "against" | "neutral";
+
+const TONE_CHIP: Record<Tone, { label: string; icon: IconName; className: string }> = {
+  for: { label: "Pour", icon: "check", className: "bg-rise/10 text-rise" },
+  against: { label: "Contre", icon: "x", className: "bg-fall/10 text-fall" },
+  neutral: { label: "Neutre", icon: "minus", className: "bg-bg-row text-fg-muted" },
+};
+
+/** One market signal, with an explicit for / against / neutral read — never color alone. */
+function SignalCard({ index, title, icon, tone, children }: { index: number; title: string; icon: IconName; tone: Tone; children: ReactNode }) {
+  const chip = TONE_CHIP[tone];
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-bg-row px-4 py-3">
-      <span className="font-mono-tabular text-[11px] uppercase tracking-wide text-fg-muted">
-        Signal {index} · {title}
-      </span>
-      <div className="text-sm text-fg">{children}</div>
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-bg-elevated px-4 py-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-bg-row text-fg">
+            <Icon name={icon} className="h-3.5 w-3.5" />
+          </span>
+          {index} · {title}
+        </span>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.className}`}>
+          <Icon name={chip.icon} className="h-3 w-3" />
+          {chip.label}
+        </span>
+      </div>
+      <div className="text-sm leading-relaxed text-fg">{children}</div>
     </div>
   );
 }
 
+const toneOf = (value: number | null | undefined, threshold: number): Tone =>
+  value === null || value === undefined ? "neutral" : value >= threshold ? "for" : value <= -threshold ? "against" : "neutral";
+
 function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }) {
   const s = signalsOf(edge);
   const title = (key: string) => bookTitles.get(key) ?? key;
+  const sharpTone: Tone =
+    (s.predictedMove ?? 0) <= -SIGNALS.predictedMoveAgainst ? "against" : toneOf(s.sharpDivergence, SIGNALS.sharpDivergence);
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      <SignalCard index={1} title="Mouvement de ligne">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <SignalCard index={1} title="Mouvement de ligne" icon="trending-up" tone={toneOf(s.nudge, 0.0005)}>
         {s.open === null ? (
           <span className="text-fg-muted">Pas assez d&apos;historique pour une cote d&apos;ouverture.</span>
         ) : (
@@ -54,17 +84,17 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
           </>
         )}
       </SignalCard>
-      <SignalCard index={2} title="Steam">
+      <SignalCard index={2} title="Steam" icon="zap" tone={s.steam ? (s.steam.direction === 1 ? "for" : "against") : "neutral"}>
         {s.steam ? (
           <>
-            {s.steam.direction === 1 ? "↑ Vers ce côté" : "↓ Contre ce côté"} — {s.steam.books.map(title).join(", ")} ont bougé
-            ensemble en moins de 5 min ({formatKickoff(new Date(s.steam.at))}).
+            {s.steam.books.map(title).join(", ")} ont bougé {s.steam.direction === 1 ? "vers" : "contre"} ce côté, ensemble, en
+            moins de 5 min ({formatKickoff(new Date(s.steam.at))}).
           </>
         ) : (
           <span className="text-fg-muted">Aucun mouvement synchronisé de plusieurs books sur les dernières heures.</span>
         )}
       </SignalCard>
-      <SignalCard index={3} title="Reverse line movement">
+      <SignalCard index={3} title="Reverse line movement" icon="swap" tone={s.rlm ? (s.rlm.sharpSide === 1 ? "for" : "against") : "neutral"}>
         {s.rlm ? (
           <>
             Pinnacle {formatPts(s.rlm.sharpMove)} contre {formatPts(s.rlm.publicMove)} pour les books grand public :
@@ -74,7 +104,12 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
           <span className="text-fg-muted">Pinnacle et les books grand public vont dans le même sens (ou ne bougent pas).</span>
         )}
       </SignalCard>
-      <SignalCard index={4} title="Consensus multi-books">
+      <SignalCard
+        index={4}
+        title="Consensus multi-books"
+        icon="scale"
+        tone={s.best?.flag === "stale" ? "for" : s.best?.flag === "juiced" ? "against" : "neutral"}
+      >
         {s.best ? (
           <>
             Meilleure cote {formatOdds(s.best.price)} chez {title(s.best.bookmakerKey)}
@@ -91,7 +126,7 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
           <span className="text-fg-muted">Aucun bookmaker jouable ne cote cette issue.</span>
         )}
       </SignalCard>
-      <SignalCard index={5} title="Divergence sharp & CLV prévue">
+      <SignalCard index={5} title="Sharps & clôture prévue" icon="target" tone={sharpTone}>
         {s.sharpDivergence === null ? (
           <span className="text-fg-muted">Pinnacle ne cote pas ce marché : pas de référence sharp.</span>
         ) : (
@@ -111,9 +146,9 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
 function BooksTable({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }) {
   const books = [...signalsOf(edge).books].sort((a, b) => b.price - a.price);
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
       <table className="w-full min-w-[520px] border-collapse text-sm">
-        <thead>
+        <thead className="bg-bg-row/60">
           <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
             <th className="px-4 py-2 font-normal">Bookmaker</th>
             <th className="px-3 py-2 font-normal">Rôle</th>
@@ -125,7 +160,7 @@ function BooksTable({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }
         </thead>
         <tbody>
           {books.map((b) => (
-            <tr key={b.bookmakerKey} className="border-t border-border">
+            <tr key={b.bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
               <td className="px-4 py-2 text-fg">
                 {bookTitles.get(b.bookmakerKey) ?? b.bookmakerKey}
                 {b.bettable ? "" : <span className="ml-1.5 text-xs text-fg-muted">(référence)</span>}
@@ -136,9 +171,13 @@ function BooksTable({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }
               <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPts(b.divergence)}</td>
               <td className="px-4 py-2 text-xs">
                 {b.flag === "stale" ? (
-                  <span className="text-rise">▲ en retard (+EV)</span>
+                  <span className="inline-flex items-center gap-1 font-medium text-rise">
+                    <Icon name="arrow-up" className="h-3 w-3" /> en retard (+EV)
+                  </span>
                 ) : b.flag === "juiced" ? (
-                  <span className="text-fall">▼ rabotée</span>
+                  <span className="inline-flex items-center gap-1 font-medium text-fall">
+                    <Icon name="arrow-down" className="h-3 w-3" /> rabotée
+                  </span>
                 ) : (
                   <span className="text-fg-muted">—</span>
                 )}
@@ -171,51 +210,58 @@ function MarketAnalysis({
     <section className="flex flex-col gap-4">
       <SectionTitle>{marketLabel(recommended.marketKey, recommended.point)}</SectionTitle>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-bg-row px-5 py-4">
+      <div
+        className={`flex flex-col gap-4 rounded-xl border border-border px-5 py-4 ${
+          staked ? "border-l-4 border-l-accent bg-accent-dim/40" : "bg-bg-row/50"
+        }`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-fg-muted">{staked ? "Le modèle prend" : "Le modèle pencherait pour"}</span>
-            <span className="font-display text-lg font-bold text-fg">{label(recommended)}</span>
+            <span className="font-display text-xl font-bold text-fg">{label(recommended)}</span>
           </div>
           <TierBadge tier={recommended.tier} />
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
             <span className="block text-xs text-fg-muted">Proba modèle / marché</span>
-            <span className="font-mono-tabular">
+            <span className="font-mono-tabular text-[15px] font-semibold">
               {formatPct(recommended.modelProb, 1)} / {formatPct(recommended.marketProb, 1)}
             </span>
           </div>
           <div>
             <span className="block text-xs text-fg-muted">Edge</span>
-            <span className="font-mono-tabular">{formatPts(recommended.edge)}</span>
+            <span className="font-mono-tabular text-[15px] font-semibold">{formatPts(recommended.edge)}</span>
           </div>
           <div>
             <span className="block text-xs text-fg-muted">Meilleure cote · EV</span>
-            <span className="font-mono-tabular">
+            <span className="font-mono-tabular text-[15px] font-semibold">
               {formatOdds(recommended.bestPrice)} · {formatSignedPct(recommended.ev)}
             </span>
           </div>
           <div>
             <span className="block text-xs text-fg-muted">Mise conseillée</span>
-            <span className="font-mono-tabular">
+            <span className="font-mono-tabular text-[15px] font-semibold">
               {staked ? `${formatUnits(recommended.stakeUnits)} (¼ Kelly)` : "aucune"}
             </span>
           </div>
         </div>
         {pick ? (
-          <p className="text-xs text-fg-muted">
+          <p className="flex items-start gap-1.5 text-xs text-fg-muted">
+            <Icon name="clock" className="mt-px h-3.5 w-3.5" />
+            <span>
             Journalisé {formatKickoff(pick.publishedAt)} : {outcomeLabel(pick.marketKey, pick.outcomeName, pick.point, match.homeTeam, match.awayTeam)} @
             {formatOdds(pick.price)} chez {bookTitles.get(pick.bookmakerKey) ?? pick.bookmakerKey} ({pick.tier.replace("_", " ")},{" "}
             {formatUnits(pick.stakeUnits)}) — ce snapshot ne change plus.
+            </span>
           </p>
         ) : null}
         <ReasonList reasons={recommended.reasons} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
         <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead>
+          <thead className="bg-bg-row/60">
             <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
               <th className="px-4 py-2 font-normal">Issue</th>
               <th className="px-3 py-2 text-right font-normal" title="Elo + modèle de buts, sans information de marché">Modèle brut</th>
@@ -230,8 +276,11 @@ function MarketAnalysis({
           </thead>
           <tbody>
             {edges.map((e) => (
-              <tr key={e.id} className={`border-t border-border ${e.isRecommended ? "bg-bg-row" : ""}`}>
-                <td className="px-4 py-2 text-fg">{label(e)}</td>
+              <tr
+                key={e.id}
+                className={`border-t border-border transition-colors duration-150 hover:bg-bg-row/50 ${e.isRecommended ? "font-medium" : ""}`}
+              >
+                <td className="whitespace-nowrap px-4 py-2 text-fg">{label(e)}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular text-fg-muted">{formatPct(e.modelRawProb, 1)}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular text-fg-muted">{formatPct(e.modelBaseProb, 1)}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPct(e.modelProb, 1)}</td>
@@ -278,11 +327,11 @@ function ModelBreakdown({ prediction, match }: { prediction: MatchPrediction; ma
   const elo = (x: number | null) => (x === null ? "—" : Math.round(x).toString());
   const signedElo = (x: number | null | undefined) => (x === null || x === undefined ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(0)}`);
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       <SectionTitle>Le modèle, pièce par pièce</SectionTitle>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-bg-row px-4 py-3 text-sm">
-          <span className="font-mono-tabular text-[11px] uppercase tracking-wide text-fg-muted">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg-row/50 px-4 py-3.5 text-sm leading-relaxed">
+          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Colonne vertébrale : Elo {c.league?.eloTuned ? "(K et avantage terrain ajustés sur la ligue)" : "(constantes par défaut)"}
           </span>
           <span>
@@ -297,8 +346,8 @@ function ModelBreakdown({ prediction, match }: { prediction: MatchPrediction; ma
           </span>
           <span>Écart Elo effectif {signedElo(c.eloDiff)} → 1 / X / 2 : {three(prediction.eloHomeWin, prediction.eloDraw, prediction.eloAwayWin)}</span>
         </div>
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-bg-row px-4 py-3 text-sm">
-          <span className="font-mono-tabular text-[11px] uppercase tracking-wide text-fg-muted">
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg-row/50 px-4 py-3.5 text-sm leading-relaxed">
+          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Modèle de buts {c.goalsFitted ? "(Dixon-Coles ajusté sur les résultats)" : "(Poisson sur le classement, repli)"}
           </span>
           <span>

@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 /*
- * "Énergique" light theme: white + orange (#F97316) + dark ink (#111827).
+ * "Énergique" light theme: orange (#F97316) + dark ink on a cool slate
+ * dashboard base. The page sits on slate-50 and every card is white, so
+ * content reads as raised above the page (never the other way round).
  * --accent is the vivid brand orange, used for fills/borders/icons — on white
  * it only reaches ~2.8:1 contrast, so it is never used for small text.
  * --accent-strong is the same hue deepened for text/links/highlights, which
@@ -9,12 +11,12 @@
  */
 :root {
   color-scheme: light;
-  --bg: #ffffff;
-  --bg-elevated: #f9fafb;
-  --bg-row: #f3f4f6;
-  --border: #e5e7eb;
-  --fg: #111827;
-  --fg-muted: #4b5563;
+  --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --bg-row: #f1f5f9;
+  --border: #e2e8f0;
+  --fg: #0f172a;
+  --fg-muted: #475569; /* ~7:1 on white and on --bg */
   --accent: #f97316;
   --accent-strong: #c2410c;
   --accent-dim: #ffedd5;
@@ -51,20 +53,52 @@
   --font-mono: var(--font-mono);
 }
 
+/* A raised surface: white card, hairline border (set on the element), whisper of shadow. */
+@utility shadow-card {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body), sans-serif;
-  background-image:
-    radial-gradient(circle at 15% 0%, rgba(249, 115, 22, 0.07), transparent 45%),
-    repeating-linear-gradient(
-      to bottom,
-      rgba(17, 24, 39, 0.025) 0px,
-      rgba(17, 24, 39, 0.025) 1px,
-      transparent 1px,
-      transparent 3px
-    );
+  background-image: radial-gradient(circle at 12% -10%, rgba(249, 115, 22, 0.08), transparent 40%);
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base rules live in the base layer so utilities (e.g. an inset focus ring) can still override them. */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Tailwind v4 resets buttons to the default cursor; everything clickable should say so. */
+  button:not(:disabled),
+  summary,
+  [role="tab"],
+  label[for] {
+    cursor: pointer;
+  }
+
+  /* One consistent, always-visible keyboard focus ring. */
+  :focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 .font-display {
@@ -74,4 +108,16 @@ body {
 .font-mono-tabular {
   font-family: var(--font-mono), monospace;
   font-variant-numeric: tabular-nums;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Horizontal nav that scrolls instead of wrapping on small screens. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

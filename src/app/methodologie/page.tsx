@@ -14,6 +14,7 @@ import {
   sportProfile,
 } from "@/lib/methodology/config";
 import { TIER_INFO } from "@/lib/labels";
+import { Icon } from "@/components/Icon";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 
 export const metadata = { title: "Méthodologie — SportsBet" };
@@ -23,20 +24,23 @@ const pct = (x: number) => `${+(x * 100).toFixed(1)} %`;
 
 function Block({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section id={id} className="flex scroll-mt-6 flex-col gap-3">
-      <h2 className="font-display text-xl font-semibold text-fg">{title}</h2>
-      <div className="flex flex-col gap-3 text-sm leading-relaxed text-fg">{children}</div>
+    <section id={id} className="flex scroll-mt-28 flex-col gap-4">
+      <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-fg sm:text-2xl">
+        <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+        {title}
+      </h2>
+      <div className="flex flex-col gap-4 text-[15px] leading-7 text-fg sm:text-base">{children}</div>
     </section>
   );
 }
 
 function Params({ rows }: { rows: [string, ReactNode][] }) {
   return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 rounded-lg border border-border bg-bg-elevated px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <dl className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-bg-elevated text-sm shadow-card">
       {rows.map(([label, value]) => (
-        <div key={label} className="contents">
+        <div key={label} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <dt className="text-fg-muted">{label}</dt>
-          <dd className="font-mono-tabular text-fg sm:text-right">{value}</dd>
+          <dd className="font-mono-tabular font-medium text-fg sm:text-right">{value}</dd>
         </div>
       ))}
     </dl>
@@ -60,20 +64,35 @@ export default function MethodologyPage() {
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="method" />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 py-10">
-        <div className="flex flex-col gap-3">
-          <h1 className="font-display text-3xl font-bold">Méthodologie</h1>
-          <p className="text-sm text-fg-muted">
-            Version du modèle : <span className="font-mono-tabular text-fg">{MODEL_VERSION}</span>. Toutes les valeurs de
-            cette page sont lues directement dans la configuration du pipeline : ce qui est écrit ici est ce qui tourne.
-          </p>
-          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {SECTIONS.map(([id, label]) => (
-              <a key={id} href={`#${id}`} className="text-accent-strong underline-offset-2 hover:underline">
-                {label}
-              </a>
-            ))}
+      <main className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <nav aria-label="Sommaire" className="rounded-xl border border-border bg-bg-elevated p-3 shadow-card">
+            <p className="flex items-center gap-2 px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+              <Icon name="book-open" className="h-3.5 w-3.5" /> Sommaire
+            </p>
+            <ol className="flex flex-col">
+              {SECTIONS.map(([id, label]) => (
+                <li key={id}>
+                  <a
+                    href={`#${id}`}
+                    className="flex min-h-9 items-center rounded-md px-2 text-sm text-fg-muted transition-colors duration-200 hover:bg-bg-row hover:text-fg"
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ol>
           </nav>
+        </aside>
+
+        <div className="flex min-w-0 max-w-3xl flex-col gap-12">
+        <div className="flex flex-col gap-3">
+          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Méthodologie</h1>
+          <p className="text-[15px] leading-relaxed text-fg-muted">
+            Version du modèle : <span className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-sm text-fg">{MODEL_VERSION}</span>.
+            Toutes les valeurs de cette page sont lues directement dans la configuration du pipeline : ce qui est écrit ici
+            est ce qui tourne.
+          </p>
         </div>
 
         <Block id="principe" title="Le principe">
@@ -313,6 +332,7 @@ export default function MethodologyPage() {
             </li>
           </ul>
         </Block>
+        </div>
       </main>
       <PageFooter />
     </div>

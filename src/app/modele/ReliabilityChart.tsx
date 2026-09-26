@@ -30,7 +30,7 @@ export function ReliabilityChart({ model, market }: { model: ReliabilityBin[]; m
           <span key={s.id} className="inline-flex items-center gap-2">
             <svg width="18" height="10" aria-hidden>
               <line x1="0" y1="5" x2="18" y2="5" stroke={s.color} strokeWidth="2" strokeLinecap="round" />
-              <circle cx="9" cy="5" r="4" fill={s.color} stroke="var(--bg)" strokeWidth="2" />
+              <circle cx="9" cy="5" r="4" fill={s.color} stroke="var(--bg-elevated)" strokeWidth="2" />
             </svg>
             {s.label}
           </span>
@@ -75,7 +75,7 @@ export function ReliabilityChart({ model, market }: { model: ReliabilityBin[]; m
             />
             {s.bins.map((b) => (
               <g key={b.lo}>
-                <circle cx={x(b.avgPredicted)} cy={y(b.observed)} r="4" fill={s.color} stroke="var(--bg)" strokeWidth="2" />
+                <circle cx={x(b.avgPredicted)} cy={y(b.observed)} r="4" fill={s.color} stroke="var(--bg-elevated)" strokeWidth="2" />
                 <circle
                   cx={x(b.avgPredicted)}
                   cy={y(b.observed)}

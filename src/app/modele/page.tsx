@@ -4,7 +4,7 @@ import { formatKickoff } from "@/lib/dates";
 import { TIER_INFO, formatPct, formatPts, formatSignedPct, marketLabel } from "@/lib/labels";
 import { CALIBRATION } from "@/lib/methodology/config";
 import { calibrationBand, type CalibrationBand } from "@/lib/methodology/metrics";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { StatTile } from "@/components/Verdict";
 import { ReliabilityChart } from "./ReliabilityChart";
 
@@ -34,8 +34,11 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="font-display text-lg font-semibold text-fg">{title}</h2>
-        {description ? <p className="mt-1 max-w-3xl text-sm text-fg-muted">{description}</p> : null}
+        <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
+          <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+          {title}
+        </h2>
+        {description ? <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-fg-muted">{description}</p> : null}
       </div>
       {children}
     </section>
@@ -44,9 +47,9 @@ function Section({ title, description, children }: { title: string; description?
 
 function Table({ head, children, minWidth = 640 }: { head: string[]; children: ReactNode; minWidth?: number }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
       <table className="w-full border-collapse text-sm" style={{ minWidth }}>
-        <thead>
+        <thead className="bg-bg-row/60">
           <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
             {head.map((h, i) => (
               <th key={h} className={`px-3 py-2 font-normal ${i === 0 ? "pl-4" : "text-right"}`}>
@@ -83,7 +86,7 @@ function CoverageCell({ count, row }: { count: number; row: CoverageRow }) {
 
 function ScoreRow({ label, scores, best }: { label: string; scores: ForecastScores | null; best: boolean }) {
   return (
-    <tr className="border-t border-border">
+    <tr className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
       <Cell first>
         {label}
         {best ? <span className="ml-2 text-xs text-fg-muted">(meilleur Brier)</span> : null}
@@ -110,15 +113,12 @@ export default async function ModelHealthPage() {
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="model" />
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-10">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-2xl font-bold">Santé du modèle</h1>
-          <p className="max-w-3xl text-sm text-fg-muted">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6">
+        <PageIntro title="Santé du modèle">
             Le bulletin que le modèle se rédige lui-même chaque nuit : est-il calibré, bat-il la clôture, et quelles données
             lui manquent. Chaque pick gradé ajuste les prévisions du lendemain.{" "}
             {health.lastCalibration ? `Dernière calibration : ${formatKickoff(health.lastCalibration)}.` : "Pas encore de calibration calculée."}
-          </p>
-        </div>
+        </PageIntro>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatTile
@@ -127,10 +127,10 @@ export default async function ModelHealthPage() {
             hint="la mesure qui compte"
             tone={journal.avgClv === null ? undefined : journal.avgClv >= 0 ? "rise" : "fall"}
           />
-          <StatTile label="Bat la clôture" value={formatPct(journal.beatClose)} />
+          <StatTile label="Bat la clôture" value={formatPct(journal.beatClose)} icon="target" />
           <StatTile label="ROI" value={formatSignedPct(journal.roi)} tone={journal.roi === null ? undefined : journal.roi >= 0 ? "rise" : "fall"} />
           <StatTile label="Brier des picks" value={journal.brier === null ? "—" : journal.brier.toFixed(3)} hint="0.250 = pile ou face" />
-          <StatTile label="Picks gradés" value={String(health.gradedPicks)} hint={journal.gap === null ? undefined : `écart de calibration ${formatPts(journal.gap)}`} />
+          <StatTile label="Picks gradés" icon="check" value={String(health.gradedPicks)} hint={journal.gap === null ? undefined : `écart de calibration ${formatPts(journal.gap)}`} />
         </div>
 
         <Section
@@ -151,8 +151,8 @@ export default async function ModelHealthPage() {
           {health.reliability.model.length === 0 && health.reliability.market.length === 0 ? (
             <p className="text-sm text-fg-muted">Pas encore de match gradé.</p>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-bg-elevated p-4 shadow-card">
                 <ReliabilityChart model={health.reliability.model} market={health.reliability.market} />
                 <p className="text-xs text-fg-muted">
                   Tant que peu de matchs sont gradés, chaque point ne repose que sur quelques issues (colonne « Issues ») et la
@@ -166,7 +166,7 @@ export default async function ModelHealthPage() {
                     const m = health.reliability.model.find((b) => b.lo === lo);
                     const k = health.reliability.market.find((b) => b.lo === lo);
                     return (
-                      <tr key={lo} className="border-t border-border">
+                      <tr key={lo} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
                         <Cell first>
                           {Math.round(lo * 100)}–{Math.round(lo * 100) + 10} %
                         </Cell>
@@ -192,7 +192,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Championnat · marché", "Picks", "Proba annoncée", "Réussite", "Écart", "État", "Décalage appliqué", "ROI", "CLV"]} minWidth={900}>
               {health.bySportMarket.map((row) => (
-                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border">
+                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
                   <Cell first>
                     {row.sportTitle} · {marketLabel(row.marketKey)}
                   </Cell>
@@ -222,7 +222,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Verdict", "Picks", "Proba annoncée", "Réussite", "Écart", "Brier", "ROI", "CLV", "Bat la clôture"]} minWidth={860}>
               {health.byTier.map((row) => (
-                <tr key={row.tier} className="border-t border-border">
+                <tr key={row.tier} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
                   <Cell first>{TIER_INFO[row.tier]?.name ?? row.tier}</Cell>
                   <Cell muted>{row.n}</Cell>
                   <Cell>{formatPct(row.avgPredicted, 1)}</Cell>
@@ -247,7 +247,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Championnat · marché", "Matchs", "Échelle appliquée", "Pente brute"]} minWidth={520}>
               {health.edgeScales.map((row) => (
-                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border">
+                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
                   <Cell first>
                     {row.sportTitle} · {marketLabel(row.marketKey)}
                   </Cell>
@@ -269,7 +269,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Championnat", "Matchs", "Modèle", "Données complètes", "Pinnacle", "Exchange", "Totaux"]} minWidth={760}>
               {health.coverage.map((row) => (
-                <tr key={row.sportKey} className="border-t border-border">
+                <tr key={row.sportKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
                   <Cell first>{row.sportTitle}</Cell>
                   <Cell muted>{row.events}</Cell>
                   <CoverageCell count={row.withModel} row={row} />
@@ -289,7 +289,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Compétition", "Matchs", "K", "Avantage terrain", "Nul (base / largeur)", "Buts/équipe", "Avantage buts", "Rho", "Réglage"]} minWidth={860}>
               {health.leagues.map((l) => (
-                <tr key={l.competitionCode} className="border-t border-border">
+                <tr key={l.competitionCode} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
                   <Cell first>{l.competitionCode}</Cell>
                   <Cell muted>{l.matchesUsed}</Cell>
                   <Cell>{l.kFactor}</Cell>

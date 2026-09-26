@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getUpcomingVerdicts } from "@/lib/journal";
 import { formatKickoff } from "@/lib/dates";
 import { formatOdds, formatPts, mainPassReason, marketLabel, outcomeLabel, reasonLabel } from "@/lib/labels";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -21,34 +21,37 @@ export default async function PassesPage() {
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="passes" />
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-2xl font-bold">Centre des passes</h1>
-          <p className="max-w-3xl text-sm text-fg-muted">
-            Tous les marchés que le modèle ne mise pas, et pourquoi. Les petits edges et les longshots ne coûtent rien à
-            passer aujourd&apos;hui, et beaucoup à jouer sur la durée. Un MARGINAL est tentant mais a une raison d&apos;être
-            douteux ; un PASS n&apos;a simplement pas d&apos;edge.
-          </p>
-        </div>
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
+        <PageIntro title="Centre des passes">
+          Tous les marchés que le modèle ne mise pas, et pourquoi. Les petits edges et les longshots ne coûtent rien à passer
+          aujourd&apos;hui, et beaucoup à jouer sur la durée. Un MARGINAL est tentant mais a une raison d&apos;être douteux ; un
+          PASS n&apos;a simplement pas d&apos;edge.
+        </PageIntro>
 
         {reasonCounts.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {reasonCounts.map(([reason, count]) => (
-              <span key={reason} className="rounded-md border border-border bg-bg-elevated px-2.5 py-1 text-xs text-fg-muted">
-                <span className="font-mono-tabular font-semibold text-fg">{count}</span> · {reasonLabel(reason)}
+              <span
+                key={reason}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-elevated py-1 pl-1 pr-3 text-xs text-fg-muted shadow-card"
+              >
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-bg-row px-1.5 font-mono-tabular font-semibold text-fg">
+                  {count}
+                </span>
+                {reasonLabel(reason)}
               </span>
             ))}
           </div>
         ) : null}
 
         {passes.length === 0 ? (
-          <EmptyState title="Rien à afficher">
+          <EmptyState title="Rien à afficher" icon="inbox">
             Aucun verdict calculé sur les matchs à venir (il faut des cotes récentes et un modèle pour les deux équipes).
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
             <table className="w-full min-w-[760px] border-collapse text-sm">
-              <thead>
+              <thead className="bg-bg-row/60">
                 <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
                   <th className="px-4 py-2 font-normal">Match</th>
                   <th className="px-3 py-2 font-normal">Marché · penchant</th>
@@ -60,7 +63,7 @@ export default async function PassesPage() {
               </thead>
               <tbody>
                 {passes.map((p) => (
-                  <tr key={p.edgeId} className="border-t border-border align-top">
+                  <tr key={p.edgeId} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/50">
                     <td className="px-4 py-2.5">
                       <Link href={`/match/${p.eventId}`} className="text-fg hover:text-accent-strong">
                         {p.homeTeam} – {p.awayTeam}

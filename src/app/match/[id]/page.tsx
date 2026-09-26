@@ -12,6 +12,7 @@ import { formatKickoff } from "@/lib/dates";
 import { outcomeLabel } from "@/lib/labels";
 import { isStakedTier } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
+import { Icon } from "@/components/Icon";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
@@ -51,9 +52,9 @@ function OddsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
       <table className="w-full min-w-[420px] border-collapse text-sm">
-        <thead>
+        <thead className="bg-bg-row/60">
           <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
             <th className="px-5 py-2 font-normal">Bookmaker</th>
             {outcomes.map((outcome) => (
@@ -65,7 +66,7 @@ function OddsTable({
         </thead>
         <tbody>
           {bookmakers.map(([bookmakerKey, bookmakerTitle]) => (
-            <tr key={bookmakerKey} className="border-t border-border">
+            <tr key={bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
               <td className="px-5 py-2.5 text-fg-muted">{bookmakerTitle}</td>
               {outcomes.map((outcome) => {
                 const line = lines.find((l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome);
@@ -190,7 +191,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               ].map((slot) => (
                 <div
                   key={slot.label}
-                  className="flex flex-col items-center gap-1 rounded-lg border border-border bg-bg-row px-3 py-4 text-center"
+                  className="flex flex-col items-center gap-1 rounded-xl border border-border bg-bg-row/50 px-3 py-4 text-center"
                 >
                   <span className="font-mono-tabular text-xs uppercase text-fg-muted">{slot.label}</span>
                   <span className="truncate text-xs text-fg-muted">{slot.name}</span>
@@ -235,8 +236,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                 return (
                   <div
                     key={slot.label}
-                    className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-4 text-center ${
-                      isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
+                    className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-4 text-center ${
+                      isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row/50"
                     }`}
                   >
                     <span className="font-mono-tabular text-xs uppercase text-fg-muted">{slot.label}</span>
@@ -279,7 +280,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                 {outcomes.map((outcome) => (
                   <div
                     key={outcome.name}
-                    className="flex flex-1 items-center justify-between gap-3 rounded-lg border border-border bg-bg-row px-4 py-2.5"
+                    className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-border bg-bg-row/50 px-4 py-2.5"
                   >
                     <span className="text-sm text-fg">
                       {outcome.name === "Over" ? `Plus de ${point} buts` : `Moins de ${point} buts`}
@@ -312,35 +313,41 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="board" />
-      <div className="mx-auto w-full max-w-4xl px-6 py-6">
-        <Link href="/" className="text-sm text-fg-muted transition hover:text-fg">
-          ‹ Retour au tableau
+      <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-4 sm:px-6">
+        <Link
+          href="/"
+          className="inline-flex min-h-10 items-center gap-1 rounded-md pr-2 text-sm font-medium text-fg-muted transition-colors duration-200 hover:text-fg"
+        >
+          <Icon name="chevron-left" /> Retour au tableau
         </Link>
       </div>
 
-      <div className="mx-auto w-full max-w-4xl px-6 pb-10">
-        <div className="rounded-t-lg border border-border bg-bg-elevated px-6 py-6 text-center">
-          <p className="font-mono-tabular text-xs uppercase tracking-widest text-fg-muted">
-            {match.sportTitle}
+      <div className="mx-auto w-full max-w-4xl px-4 pb-12 sm:px-6">
+        <div className="overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-card">
+        <div className="relative px-5 py-7 text-center sm:px-8">
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-accent" />
+          <p className="text-xs font-semibold uppercase tracking-widest text-fg-muted">{match.sportTitle}</p>
+          <h1 className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 font-display text-xl font-bold text-fg sm:text-2xl">
+            <span className="text-right">{match.homeTeam}</span>
+            <span className="text-sm font-medium text-fg-muted">vs</span>
+            <span className="text-left">{match.awayTeam}</span>
+          </h1>
+          <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-fg-muted">
+            <Icon name="clock" className="h-3.5 w-3.5" />
+            <time className="capitalize">{formatKickoff(match.commenceTime)}</time>
           </p>
-          <p className="mt-2 font-display text-xl font-bold text-fg">
-            {match.homeTeam} <span className="text-fg-muted">vs</span> {match.awayTeam}
-          </p>
-          <time className="mt-1 block font-mono-tabular text-sm text-fg-muted">
-            {formatKickoff(match.commenceTime)}
-          </time>
-          <div className="mx-auto mt-4 flex max-w-xs justify-center gap-2">
+          <div className="mx-auto mt-5 flex max-w-xs justify-center gap-2">
             {boxes.map((box) => {
               const isPick = h2hPick?.outcomeName === boxOutcomeName[box.label];
               return (
                 <div
                   key={box.label}
                   title={isPick && h2hPick ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}` : undefined}
-                  className={`flex flex-1 flex-col items-center rounded-md border px-2 py-1.5 ${
-                    isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row"
+                  className={`flex flex-1 flex-col items-center rounded-lg border px-2 py-2 ${
+                    isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-elevated"
                   }`}
                 >
-                  <span className="font-mono-tabular text-[10px] uppercase text-fg-muted">{box.label}</span>
+                  <span className={`text-[10px] font-semibold uppercase ${isPick ? "text-accent-strong" : "text-fg-muted"}`}>{box.label}</span>
                   <span
                     className={`font-mono-tabular text-sm font-semibold ${
                       isPick ? "text-accent-strong" : "text-fg"
@@ -366,16 +373,17 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               )}
             </div>
           ) : null}
-        </div>
+          </div>
 
-        <div className="rounded-b-lg border border-t-0 border-border bg-bg-elevated">
-          <MatchTabs
-            tabs={[
-              { id: "resume", label: "Résumé", content: resume },
-              { id: "analyse", label: "Analyse", content: <Analysis match={match} picks={picks} bookTitles={bookTitles} /> },
-              { id: "probabilites", label: "Probabilités", content: probabilites },
-            ]}
-          />
+          <div className="border-t border-border">
+            <MatchTabs
+              tabs={[
+                { id: "resume", label: "Résumé", content: resume },
+                { id: "analyse", label: "Analyse", content: <Analysis match={match} picks={picks} bookTitles={bookTitles} /> },
+                { id: "probabilites", label: "Probabilités", content: probabilites },
+              ]}
+            />
+          </div>
         </div>
       </div>
       <PageFooter />

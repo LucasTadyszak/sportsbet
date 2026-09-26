@@ -10,7 +10,7 @@ import {
   marketLabel,
   outcomeLabel,
 } from "@/lib/labels";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { EmptyState, StatTile, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -38,16 +38,13 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="track" />
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-2xl font-bold">Historique — chaque pick gradé</h1>
-          <p className="max-w-3xl text-sm text-fg-muted">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
+        <PageIntro title="Historique — chaque pick gradé">
             Chaque recommandation est figée au moment de sa publication, gradée automatiquement une fois le match terminé
             (score à 90 minutes) et comparée à la cote de clôture. Les défaites restent affichées, les remboursements ne
             comptent pas comme des victoires. La CLV (closing line value) — avoir pris un meilleur prix que celui de la
             clôture — est la mesure qui prédit le mieux la rentabilité sur la durée ; le bilan V/D, beaucoup moins.
-          </p>
-        </div>
+        </PageIntro>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile
@@ -71,13 +68,14 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
           <StatTile label="En attente" value={String(summary.pending)} hint={summary.voids ? `${summary.voids} annulé(s)` : undefined} />
         </div>
 
-        <nav className="flex w-fit gap-1 rounded-lg border border-border bg-bg-row p-1">
+        <nav aria-label="Filtrer les picks" className="flex w-full gap-1 rounded-lg border border-border bg-bg-row p-1 sm:w-fit">
           {FILTERS.map((f) => (
             <Link
               key={f.value}
               href={f.value === "all" ? "/historique" : { pathname: "/historique", query: { filtre: f.value } }}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                filter === f.value ? "bg-accent text-fg" : "text-fg-muted hover:text-fg"
+              aria-current={filter === f.value ? "page" : undefined}
+              className={`flex min-h-9 flex-1 items-center justify-center rounded-md px-3.5 text-sm font-medium transition-colors duration-200 sm:flex-none ${
+                filter === f.value ? "bg-bg-elevated text-fg shadow-card" : "text-fg-muted hover:text-fg"
               }`}
             >
               {f.label}
@@ -91,9 +89,9 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
             d&apos;envoi. Le job nocturne (<code className="text-fg">npm run nightly</code>) les grade ensuite.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
             <table className="w-full min-w-[900px] border-collapse text-sm">
-              <thead>
+              <thead className="bg-bg-row/60">
                 <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
                   <th className="px-4 py-2 font-normal">Match</th>
                   <th className="px-3 py-2 font-normal">Pari</th>
@@ -108,7 +106,7 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
               </thead>
               <tbody>
                 {picks.map((p) => (
-                  <tr key={p.id} className="border-t border-border align-top">
+                  <tr key={p.id} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/50">
                     <td className="px-4 py-2.5">
                       <Link href={`/match/${p.eventId}`} className="text-fg hover:text-accent-strong">
                         {p.event.homeTeam} – {p.event.awayTeam}

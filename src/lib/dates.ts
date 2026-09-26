@@ -67,3 +67,13 @@ export function formatDayLabel(dateKey: string): string {
     month: "short",
   }).format(new Date(Date.UTC(y, m - 1, d, 12)));
 }
+
+/** "20:45" in Paris time — the board already groups by day, so rows only need the hour. */
+export function formatTime(date: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+/** "sam. 27 sept." in Paris time. */
+export function formatShortDay(date: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "short", day: "numeric", month: "short" }).format(date);
+}

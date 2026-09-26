@@ -6,13 +6,13 @@ export function MatchTabs({ tabs }: { tabs: { id: string; label: string; content
   const [active, setActive] = useState(tabs[0]?.id);
 
   const tabClass = (isActive: boolean) =>
-    `border-b-2 py-3 text-sm font-semibold transition ${
-      isActive ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"
+    `-mb-px min-h-11 border-b-2 px-1 text-sm font-semibold transition-colors duration-200 ${
+      isActive ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-border hover:text-fg"
     }`;
 
   return (
     <div>
-      <div className="flex gap-6 border-b border-border px-5" role="tablist">
+      <div className="no-scrollbar flex gap-6 overflow-x-auto border-b border-border bg-bg-row/40 px-5" role="tablist">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -26,7 +26,9 @@ export function MatchTabs({ tabs }: { tabs: { id: string; label: string; content
           </button>
         ))}
       </div>
-      <div className="p-5">{tabs.find((tab) => tab.id === active)?.content}</div>
+      <div className="p-4 sm:p-6" role="tabpanel">
+        {tabs.find((tab) => tab.id === active)?.content}
+      </div>
     </div>
   );
 }
