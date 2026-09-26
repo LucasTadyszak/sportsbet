@@ -6,7 +6,15 @@ declare global {
 }
 
 function createClient() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const connectionString = process.env.DATABASE_URL ?? "";
+  // Render (and most managed Postgres hosts) require TLS on external connections and
+  // just close the socket on a plain one, rather than refusing it up front. A local
+  // dev database has no TLS listener at all, so only force it for non-local hosts.
+  const isLocal = /^postgres(ql)?:\/\/[^/]*@?(localhost|127\.0\.0\.1)/.test(connectionString);
+  const adapter = new PrismaPg({
+    connectionString,
+    ssl: isLocal ? undefined : { rejectUnauthorized: false },
+  });
   return new PrismaClient({ adapter });
 }
 
