@@ -136,49 +136,49 @@ export async function getBoard(opts: {
   const dayEnd = parisStartOfDay(addDays(opts.dateKey, 1));
   const search = opts.query.trim();
 
-  const events = await prisma.event.findMany({
-    where: {
-      commenceTime: statusWindow(opts.status, dayStart, dayEnd),
-      ...(search
-        ? {
-            OR: [
-              { homeTeam: { contains: search, mode: "insensitive" } },
-              { awayTeam: { contains: search, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { commenceTime: "asc" },
-    take: 200,
-    include: {
-      sport: true,
-      prediction: true,
-      odds: {
-        where: { marketKey: "h2h" },
-        orderBy: { capturedAt: "desc" },
-        include: { bookmaker: true },
+  // Deliberately not derived from the filtered `events` below: the currently viewed
+  // day/status/search can legitimately have zero matches right after a successful
+  // sync (e.g. no kickoffs today), and this indicator should still reflect that a
+  // sync did happen, rather than looking exactly like "never synced".
+  const [events, lastCaptured] = await Promise.all([
+    prisma.event.findMany({
+      where: {
+        commenceTime: statusWindow(opts.status, dayStart, dayEnd),
+        ...(search
+          ? {
+              OR: [
+                { homeTeam: { contains: search, mode: "insensitive" } },
+                { awayTeam: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {}),
       },
-    },
-  });
+      orderBy: { commenceTime: "asc" },
+      take: 200,
+      include: {
+        sport: true,
+        prediction: true,
+        odds: {
+          where: { marketKey: "h2h" },
+          orderBy: { capturedAt: "desc" },
+          include: { bookmaker: true },
+        },
+      },
+    }),
+    prisma.odds.aggregate({ _max: { capturedAt: true } }),
+  ]);
 
-  let lastCapturedAt: Date | null = null;
-  const board: BoardEvent[] = events.map((event) => {
-    const h2h = dedupeLatestPerLine(event.odds);
-    for (const line of h2h) {
-      if (!lastCapturedAt || line.capturedAt > lastCapturedAt) lastCapturedAt = line.capturedAt;
-    }
-    return {
-      id: event.id,
-      sportTitle: event.sport.title,
-      homeTeam: event.homeTeam,
-      awayTeam: event.awayTeam,
-      commenceTime: event.commenceTime,
-      h2h,
-      prediction: event.prediction,
-    };
-  });
+  const board: BoardEvent[] = events.map((event) => ({
+    id: event.id,
+    sportTitle: event.sport.title,
+    homeTeam: event.homeTeam,
+    awayTeam: event.awayTeam,
+    commenceTime: event.commenceTime,
+    h2h: dedupeLatestPerLine(event.odds),
+    prediction: event.prediction,
+  }));
 
-  return { events: board, lastCapturedAt };
+  return { events: board, lastCapturedAt: lastCaptured._max.capturedAt };
 }
 
 export function groupBySport(events: BoardEvent[]): [string, BoardEvent[]][] {

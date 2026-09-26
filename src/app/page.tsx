@@ -137,7 +137,9 @@ export default async function Home({
             <p className="font-display text-lg font-semibold text-fg">
               {query || status !== "all"
                 ? "Aucun match ne correspond à ces filtres"
-                : "Aucune cote en base pour l'instant"}
+                : lastCapturedAt
+                  ? "Aucun match programmé ce jour-là"
+                  : "Aucune cote en base pour l'instant"}
             </p>
             <p className="mx-auto mt-2 max-w-md text-sm text-fg-muted">
               {query || status !== "all" ? (
@@ -145,6 +147,18 @@ export default async function Home({
                   Essaie{" "}
                   <Link href="/" className="text-accent-strong underline underline-offset-2">
                     de réinitialiser les filtres
+                  </Link>
+                  .
+                </>
+              ) : lastCapturedAt ? (
+                <>
+                  Les cotes sont bien synchronisées ({formatKickoff(lastCapturedAt)}), mais aucun match
+                  n&apos;est programmé pour ce jour côté The Odds API. Essaie{" "}
+                  <Link
+                    href={{ pathname: "/", query: { ...baseQuery, date: addDays(dateKey, 1) } }}
+                    className="text-accent-strong underline underline-offset-2"
+                  >
+                    le jour suivant
                   </Link>
                   .
                 </>
