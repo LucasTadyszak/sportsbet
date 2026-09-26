@@ -4,7 +4,7 @@ import { getOddsForSport, type OddsApiEvent } from "@/lib/oddsApi";
 const DEFAULT_SPORT_KEYS = ["soccer_epl", "soccer_uefa_champs_league"];
 const REFRESH_INTERVAL_MINUTES = Number(process.env.ODDS_REFRESH_INTERVAL_MINUTES ?? 30);
 
-function trackedSportKeys(): string[] {
+export function trackedSportKeys(): string[] {
   const fromEnv = process.env.ODDS_SPORT_KEYS;
   if (!fromEnv) return DEFAULT_SPORT_KEYS;
   return fromEnv

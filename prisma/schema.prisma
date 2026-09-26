@@ -32,7 +32,8 @@ model Event {
   awayTeam     String
   updatedAt    DateTime @updatedAt
 
-  odds Odds[]
+  odds       Odds[]
+  prediction MatchPrediction?
 
   @@index([sportKey, commenceTime])
   @@map("events")
@@ -52,9 +53,9 @@ model Bookmaker {
 // A new row is only inserted when the price actually changed since the last capture,
 // which builds a cheap line-movement history for free.
 model Odds {
-  id           BigInt   @id @default(autoincrement())
+  id           BigInt    @id @default(autoincrement())
   eventId      String
-  event        Event    @relation(fields: [eventId], references: [id])
+  event        Event     @relation(fields: [eventId], references: [id])
   bookmakerKey String
   bookmaker    Bookmaker @relation(fields: [bookmakerKey], references: [key])
   marketKey    String // "h2h" | "spreads" | "totals"
@@ -62,7 +63,7 @@ model Odds {
   price        Float // decimal odds
   point        Float? // spread/total line, null for h2h
   lastUpdate   DateTime // bookmaker-reported timestamp from the API payload
-  capturedAt   DateTime @default(now())
+  capturedAt   DateTime  @default(now())
 
   @@index([eventId, marketKey, bookmakerKey])
   @@map("odds")
@@ -70,13 +71,13 @@ model Odds {
 
 // Tracks The Odds API's own usage headers so we never blow through the plan's quota.
 model ApiUsageLog {
-  id                 BigInt   @id @default(autoincrement())
-  provider           String // "the-odds-api"
-  endpoint           String
-  requestsUsed       Int?
-  requestsRemaining  Int?
-  requestsLastCost   Int?
-  capturedAt         DateTime @default(now())
+  id                BigInt   @id @default(autoincrement())
+  provider          String // "the-odds-api"
+  endpoint          String
+  requestsUsed      Int?
+  requestsRemaining Int?
+  requestsLastCost  Int?
+  capturedAt        DateTime @default(now())
 
   @@map("api_usage_log")
 }
@@ -84,8 +85,53 @@ model ApiUsageLog {
 // Throttling guard: last successful fetch per resource key, so a refresh route
 // can no-op if it ran recently instead of spending API credits.
 model FetchLog {
-  resourceKey  String   @id // e.g. "odds:soccer_epl"
+  resourceKey   String   @id // e.g. "odds:soccer_epl"
   lastFetchedAt DateTime @default(now())
 
   @@map("fetch_log")
+}
+
+// Season standings for one team in one competition, as exposed by
+// football-data.org (https://www.football-data.org/documentation/api). Used
+// as the statistical base for the Poisson probability model below.
+model TeamStats {
+  id              String   @id @default(cuid())
+  competitionCode String // football-data.org competition code, e.g. "PL", "CL"
+  teamId          Int // football-data.org team id
+  name            String // full name, e.g. "Manchester City FC"
+  shortName       String?
+  tla             String? // three-letter abbreviation, e.g. "MCI"
+  position        Int?
+  playedGames     Int
+  won             Int
+  draw            Int
+  lost            Int
+  points          Int
+  goalsFor        Int
+  goalsAgainst    Int
+  form            String? // comma-separated recent results, e.g. "W,W,D,L,W"
+  season          Int // competition season start year
+  updatedAt       DateTime @updatedAt
+
+  @@unique([competitionCode, teamId])
+  @@index([competitionCode, name])
+  @@map("team_stats")
+}
+
+// Model-estimated outcome probabilities for one event, derived from
+// TeamStats via a Poisson goals model. Recomputed whenever fresher stats
+// or a fresher event come in; not a betting recommendation, informational only.
+model MatchPrediction {
+  id                 String   @id @default(cuid())
+  eventId            String   @unique
+  event              Event    @relation(fields: [eventId], references: [id])
+  homeWinProbability Float
+  drawProbability    Float
+  awayWinProbability Float
+  expectedHomeGoals  Float
+  expectedAwayGoals  Float
+  modelVersion       String   @default("poisson-v1")
+  computedAt         DateTime @default(now())
+
+  @@map("match_predictions")
 }

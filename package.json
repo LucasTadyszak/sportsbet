@@ -11,7 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "refresh:odds": "tsx scripts/refresh-odds.ts"
+    "refresh:odds": "tsx scripts/refresh-odds.ts",
+    "refresh:stats": "tsx scripts/refresh-stats.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

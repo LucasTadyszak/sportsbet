@@ -12,6 +12,12 @@ type OddsLine = {
   capturedAt: Date;
 };
 
+type Prediction = {
+  homeWinProbability: number;
+  drawProbability: number;
+  awayWinProbability: number;
+};
+
 type BoardEvent = {
   id: string;
   sportTitle: string;
@@ -19,6 +25,7 @@ type BoardEvent = {
   awayTeam: string;
   commenceTime: Date;
   h2h: OddsLine[];
+  prediction: Prediction | null;
 };
 
 async function getBoard(): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null }> {
@@ -30,6 +37,7 @@ async function getBoard(): Promise<{ events: BoardEvent[]; lastCapturedAt: Date 
     take: 40,
     include: {
       sport: true,
+      prediction: true,
       odds: {
         where: { marketKey: "h2h" },
         orderBy: { capturedAt: "desc" },
@@ -64,6 +72,13 @@ async function getBoard(): Promise<{ events: BoardEvent[]; lastCapturedAt: Date 
       awayTeam: event.awayTeam,
       commenceTime: event.commenceTime,
       h2h: Array.from(latestByLine.values()),
+      prediction: event.prediction
+        ? {
+            homeWinProbability: event.prediction.homeWinProbability,
+            drawProbability: event.prediction.drawProbability,
+            awayWinProbability: event.prediction.awayWinProbability,
+          }
+        : null,
     };
   });
 
@@ -87,6 +102,28 @@ function bestPriceByOutcome(lines: OddsLine[]) {
     if (current === undefined || line.price > current) best.set(line.outcomeName, line.price);
   }
   return best;
+}
+
+function formatPercent(probability: number) {
+  return `${Math.round(probability * 100)}%`;
+}
+
+/** Model probability for a given h2h outcome name ("Draw", or one of the two team names). */
+function modelProbabilityFor(outcomeName: string, event: BoardEvent): number | null {
+  if (!event.prediction) return null;
+  if (outcomeName === event.homeTeam) return event.prediction.homeWinProbability;
+  if (outcomeName === event.awayTeam) return event.prediction.awayWinProbability;
+  if (outcomeName === "Draw") return event.prediction.drawProbability;
+  return null;
+}
+
+// A price is flagged as "value" when it pays out more than the model's implied fair odds,
+// with a small margin so borderline cases (model noise, bookmaker margin) aren't flagged.
+const VALUE_BET_MARGIN = 1.05;
+
+function isValueBet(price: number, modelProbability: number | null): boolean {
+  if (modelProbability === null || modelProbability <= 0) return false;
+  return price * modelProbability >= VALUE_BET_MARGIN;
 }
 
 export default async function Home() {
@@ -135,7 +172,12 @@ export default async function Home() {
                 npm run refresh:odds
               </code>{" "}
               (nécessite <code className="text-fg">ODDS_API_KEY</code> et{" "}
-              <code className="text-fg">DATABASE_URL</code> dans <code className="text-fg">.env</code>).
+              <code className="text-fg">DATABASE_URL</code> dans <code className="text-fg">.env</code>), puis{" "}
+              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent">
+                npm run refresh:stats
+              </code>{" "}
+              pour les probabilités (nécessite{" "}
+              <code className="text-fg">FOOTBALL_DATA_API_KEY</code>).
             </p>
           </div>
         ) : (
@@ -177,11 +219,19 @@ export default async function Home() {
                               <thead>
                                 <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
                                   <th className="px-5 py-2 font-normal">Bookmaker</th>
-                                  {outcomes.map((outcome) => (
-                                    <th key={outcome} className="px-3 py-2 text-right font-normal">
-                                      {outcome}
-                                    </th>
-                                  ))}
+                                  {outcomes.map((outcome) => {
+                                    const modelProbability = modelProbabilityFor(outcome, event);
+                                    return (
+                                      <th key={outcome} className="px-3 py-2 text-right font-normal">
+                                        <div>{outcome}</div>
+                                        {modelProbability !== null && (
+                                          <div className="mt-0.5 font-mono-tabular text-[10px] normal-case tracking-normal text-accent">
+                                            {formatPercent(modelProbability)}
+                                          </div>
+                                        )}
+                                      </th>
+                                    );
+                                  })}
                                 </tr>
                               </thead>
                               <tbody>
@@ -193,6 +243,8 @@ export default async function Home() {
                                         (l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome
                                       );
                                       const isBest = line && best.get(outcome) === line.price;
+                                      const modelProbability = modelProbabilityFor(outcome, event);
+                                      const value = line && isValueBet(line.price, modelProbability);
                                       return (
                                         <td
                                           key={outcome}
@@ -200,7 +252,20 @@ export default async function Home() {
                                             isBest ? "font-semibold text-gold" : "text-fg"
                                           }`}
                                         >
-                                          {line ? line.price.toFixed(2) : "—"}
+                                          <span
+                                            className={
+                                              value
+                                                ? "rounded border border-accent/60 bg-accent-dim px-1.5 py-0.5"
+                                                : ""
+                                            }
+                                            title={
+                                              value
+                                                ? "Value bet : cote supérieure à la probabilité modèle"
+                                                : undefined
+                                            }
+                                          >
+                                            {line ? line.price.toFixed(2) : "—"}
+                                          </span>
                                         </td>
                                       );
                                     })}
@@ -221,7 +286,8 @@ export default async function Home() {
       </main>
 
       <footer className="mt-auto border-t border-border px-6 py-6 text-center font-mono-tabular text-xs text-fg-muted">
-        Cotes fournies par The Odds API — usage informatif uniquement.
+        Cotes fournies par The Odds API, probabilités calculées à partir des
+        statistiques football-data.org — usage informatif uniquement.
       </footer>
     </div>
   );
