@@ -170,6 +170,20 @@ npm run db:migrate     # crée les tables (prisma migrate dev)
 npm run dev            # http://localhost:3000
 ```
 
+Après un `git pull` qui touche `prisma/schema.prisma`, arrêter `npm run dev`
+puis :
+
+```bash
+npm install                 # dépendances + client Prisma régénéré (src/generated/prisma, hors git)
+npm run db:migrate:deploy   # applique les nouvelles migrations (ne réinitialise jamais la base)
+npm run dev
+```
+
+Le client Prisma n'est pas versionné et Prisma 7 ne le régénère plus pendant
+`migrate` : sans ces étapes, le serveur tourne avec l'ancien client et plante sur
+les nouveaux modèles (« Unknown field … for include statement »). `predev` et les
+deux scripts `db:migrate*` le régénèrent désormais d'office.
+
 Variables utiles en plus des clés :
 
 - `ODDS_REGIONS` (défaut `eu`, qui contient Pinnacle et Betfair) : régions The
