@@ -14,28 +14,54 @@ declare global {
  * directly) is assumed not to require it; anything else (e.g. Render's external
  * endpoint, which does) gets it.
  */
-function needsSsl(connectionString: string | undefined): boolean {
-  if (!connectionString) return false;
+function needsSsl(host: string): boolean {
+  return host !== "localhost" && host !== "127.0.0.1" && host !== "::1";
+}
+
+/**
+ * `pg` reads `sslmode`/`sslcert`/etc. straight out of the connection string and lets
+ * that silently override whatever `ssl` object is passed alongside it (Prisma/CLI
+ * tools need `sslmode=require` in the URL itself to reach Render, since they don't go
+ * through this file at all) — so a URL carrying those params would otherwise discard
+ * the explicit `rejectUnauthorized: false` below and fall back to strict certificate
+ * verification, which happens to work against Render today only because its cert is
+ * CA-signed, not because anything here asked for that. Stripping them keeps the app's
+ * own TLS decision in `needsSsl` authoritative regardless of what the URL says.
+ */
+function stripSslParams(connectionString: string): string {
   try {
-    const host = new URL(connectionString).hostname;
-    return host !== "localhost" && host !== "127.0.0.1" && host !== "::1";
+    const url = new URL(connectionString);
+    for (const key of ["sslmode", "sslcert", "sslkey", "sslrootcert", "uselibpqcompat"]) {
+      url.searchParams.delete(key);
+    }
+    return url.toString();
   } catch {
-    return false;
+    return connectionString;
   }
 }
 
 function createClient() {
-  const connectionString = process.env.DATABASE_URL;
+  const rawConnectionString = process.env.DATABASE_URL;
+  if (!rawConnectionString) throw new Error("DATABASE_URL is not set");
+
+  const host = (() => {
+    try {
+      return new URL(rawConnectionString).hostname;
+    } catch {
+      return "";
+    }
+  })();
+
   const pool = new Pool({
-    connectionString,
+    connectionString: stripSslParams(rawConnectionString),
     // Without this, an idle connection silently dropped by the OS/network (laptop
     // sleep, NAT/firewall timeout) or by the DB server sits in the pool looking fine
     // until a query picks it up and fails with Prisma P1017 "Server has closed the
     // connection". TCP keepalive lets the OS notice and drop it long before that.
     keepAlive: true,
     // rejectUnauthorized: false because Render's (and most managed providers') cert
-    // chain isn't in Node's default trust store.
-    ssl: needsSsl(connectionString) ? { rejectUnauthorized: false } : undefined,
+    // chain isn't necessarily in Node's default trust store.
+    ssl: needsSsl(host) ? { rejectUnauthorized: false } : undefined,
   });
   // Without a listener, node-postgres treats a dropped idle client's error as
   // unhandled and can crash the process; logging it here lets the pool quietly

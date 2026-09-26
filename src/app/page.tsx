@@ -135,14 +135,14 @@ export default async function Home({
         {events.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-bg-elevated px-6 py-16 text-center">
             <p className="font-display text-lg font-semibold text-fg">
-              {query || status !== "all"
+              {query
                 ? "Aucun match ne correspond à ces filtres"
                 : lastCapturedAt
                   ? "Aucun match programmé ce jour-là"
                   : "Aucune cote en base pour l'instant"}
             </p>
             <p className="mx-auto mt-2 max-w-md text-sm text-fg-muted">
-              {query || status !== "all" ? (
+              {query ? (
                 <>
                   Essaie{" "}
                   <Link href="/" className="text-accent-strong underline underline-offset-2">
@@ -158,7 +158,7 @@ export default async function Home({
                     <>
                       Le match le plus proche est{" "}
                       <Link
-                        href={{ pathname: "/", query: { ...baseQuery, date: nearestEventDateKey } }}
+                        href={{ pathname: "/", query: { date: nearestEventDateKey, status: "all" } }}
                         className="text-accent-strong underline underline-offset-2"
                       >
                         {formatDayLabel(nearestEventDateKey).toLowerCase()}
