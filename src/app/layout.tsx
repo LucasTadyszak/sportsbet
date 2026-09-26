@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -23,6 +23,10 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "SportsBet — Live Odds Board",
   description: "Live bookmaker odds board, pulled from The Odds API.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#F97316",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

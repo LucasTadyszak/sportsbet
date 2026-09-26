@@ -86,7 +86,7 @@ export default async function Home({
                   href={{ pathname: "/", query: { ...baseQuery, status: tab.value } }}
                   className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                     status === tab.value
-                      ? "bg-accent text-bg"
+                      ? "bg-accent text-fg"
                       : "text-fg-muted hover:text-fg"
                   }`}
                 >
@@ -122,7 +122,7 @@ export default async function Home({
               {query || status !== "all" ? (
                 <>
                   Essaie{" "}
-                  <Link href="/" className="text-accent underline underline-offset-2">
+                  <Link href="/" className="text-accent-strong underline underline-offset-2">
                     de réinitialiser les filtres
                   </Link>
                   .
@@ -130,7 +130,7 @@ export default async function Home({
               ) : (
                 <>
                   Lance une première synchronisation avec{" "}
-                  <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent">
+                  <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">
                     npm run refresh:odds
                   </code>{" "}
                   (nécessite <code className="text-fg">ODDS_API_KEY</code> et{" "}

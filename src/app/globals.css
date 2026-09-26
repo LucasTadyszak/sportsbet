@@ -1,17 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * "Énergique" light theme: white + orange (#F97316) + dark ink (#111827).
+ * --accent is the vivid brand orange, used for fills/borders/icons — on white
+ * it only reaches ~2.8:1 contrast, so it is never used for small text.
+ * --accent-strong is the same hue deepened for text/links/highlights, which
+ * clears WCAG AA (~5:1) on white and on --accent-dim.
+ */
 :root {
-  --bg: #090b0a;
-  --bg-elevated: #10140f;
-  --bg-row: #0d110d;
-  --border: #1e2620;
-  --fg: #edf2ee;
-  --fg-muted: #8b968e;
-  --accent: #2be08a;
-  --accent-dim: #123322;
-  --gold: #f2b93d;
-  --rise: #2be08a;
-  --fall: #f24d4d;
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-elevated: #f9fafb;
+  --bg-row: #f3f4f6;
+  --border: #e5e7eb;
+  --fg: #111827;
+  --fg-muted: #4b5563;
+  --accent: #f97316;
+  --accent-strong: #c2410c;
+  --accent-dim: #ffedd5;
+  --fall: #dc2626;
 }
 
 @theme inline {
@@ -22,9 +29,8 @@
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-dim: var(--accent-dim);
-  --color-gold: var(--gold);
-  --color-rise: var(--rise);
   --color-fall: var(--fall);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
@@ -36,11 +42,11 @@ body {
   color: var(--fg);
   font-family: var(--font-body), sans-serif;
   background-image:
-    radial-gradient(circle at 15% 0%, rgba(43, 224, 138, 0.08), transparent 45%),
+    radial-gradient(circle at 15% 0%, rgba(249, 115, 22, 0.07), transparent 45%),
     repeating-linear-gradient(
       to bottom,
-      rgba(255, 255, 255, 0.015) 0px,
-      rgba(255, 255, 255, 0.015) 1px,
+      rgba(17, 24, 39, 0.025) 0px,
+      rgba(17, 24, 39, 0.025) 1px,
       transparent 1px,
       transparent 3px
     );

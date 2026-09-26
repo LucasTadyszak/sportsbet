@@ -56,7 +56,7 @@ function OddsTable({ lines, outcomeOrder }: { lines: OddsLine[]; outcomeOrder: s
                   <td
                     key={outcome}
                     className={`px-3 py-2.5 text-right font-mono-tabular ${
-                      isBest ? "font-semibold text-gold" : "text-fg"
+                      isBest ? "font-semibold text-accent-strong" : "text-fg"
                     }`}
                   >
                     {line ? line.price.toFixed(2) : "—"}
@@ -143,9 +143,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "1", name: match.homeTeam, data: home, color: "text-accent" },
+                { label: "1", name: match.homeTeam, data: home, color: "text-accent-strong" },
                 { label: "X", name: "Nul", data: draw, color: "text-fg-muted" },
-                { label: "2", name: match.awayTeam, data: away, color: "text-gold" },
+                { label: "2", name: match.awayTeam, data: away, color: "text-fg" },
               ].map((slot) => (
                 <div
                   key={slot.label}
@@ -166,7 +166,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               segments={[
                 { pct: (home?.probability ?? 0) * 100, color: "bg-accent" },
                 { pct: (draw?.probability ?? 0) * 100, color: "bg-fg-muted" },
-                { pct: (away?.probability ?? 0) * 100, color: "bg-gold" },
+                { pct: (away?.probability ?? 0) * 100, color: "bg-fg" },
               ]}
             />
           </div>
@@ -192,10 +192,10 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                       {outcome.name === "Over" ? `Plus de ${point} buts` : `Moins de ${point} buts`}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
-                      <span className="font-mono-tabular text-sm font-semibold text-accent">
+                      <span className="font-mono-tabular text-sm font-semibold text-accent-strong">
                         {Math.round(outcome.probability * 100)}%
                       </span>
-                      <span className="rounded bg-accent-dim px-2 py-0.5 font-mono-tabular text-xs font-semibold text-gold">
+                      <span className="rounded bg-accent-dim px-2 py-0.5 font-mono-tabular text-xs font-semibold text-accent-strong">
                         {outcome.price ? outcome.price.toFixed(2) : "—"}
                       </span>
                     </span>
