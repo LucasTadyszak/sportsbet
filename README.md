@@ -29,6 +29,18 @@ src/app/page.tsx           # tableau des cotes en direct (server component)
 src/app/api/refresh-odds/  # endpoint HTTP protégé par CRON_SECRET pour déclencher un refresh
 ```
 
+Board inspiré de [ZoneStat](https://www.zonestat.fr/football) : liste des matchs
+groupée par compétition (repliable), navigation par jour, filtres Tout /
+À venir / En cours, recherche par équipe, et une page détail par match
+(`/match/[id]`) avec un onglet **Résumé** (comparatif de cotes par
+bookmaker, marchés 1X2 et totaux) et un onglet **Probabilités** (probabilités
+implicites 1X2 et plus/moins de X buts, calculées en retirant la marge de
+chaque bookmaker puis en moyennant — `src/lib/probability.ts`). Contrairement
+à ZoneStat, il n'y a pas de modèle statistique propriétaire (matrice de
+score, classement, buteurs, compositions, votes) : ça nécessiterait une
+source de données de résultats/statistiques en plus des cotes de The Odds
+API — voir la roadmap plus bas.
+
 Deux garde-fous repris de l'ancien prototype pour ne pas cramer le quota
 gratuit de The Odds API :
 - **`FetchLog`** : chaque sport n'est re-fetché que toutes les
@@ -98,3 +110,8 @@ curl "http://localhost:3000/api/refresh-odds?secret=$CRON_SECRET"
 - Historique/graphique de mouvement de cotes par match (la table `Odds`
   est déjà pensée pour ça).
 - Alerting (Slack/Telegram) sur value bet au-dessus d'un seuil.
+- Fonctionnalités façon ZoneStat qui demandent une nouvelle source de
+  données (scores, stats d'équipes/joueurs, compositions) en plus des cotes :
+  matrice de score (modèle de buts sur l'historique des résultats),
+  classement, forme récente, top buteurs, compositions probables, vote
+  communautaire (nécessiterait aussi des comptes utilisateurs).
