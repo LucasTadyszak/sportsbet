@@ -2,6 +2,8 @@ import Link from "next/link";
 import {
   getBoard,
   groupBySport,
+  groupOddsErrors,
+  oddsErrorsFor,
   resultBoxes,
   stakedVerdict,
   type BoardEvent,
@@ -18,13 +20,14 @@ import {
   isValidDateKey,
   parisDateKey,
 } from "@/lib/dates";
-import { outcomeCode, outcomeLabel } from "@/lib/labels";
+import { oddsErrorsLabel, outcomeCode, outcomeLabel } from "@/lib/labels";
 import { userLabel } from "@/lib/methodology/verdict";
 import { selectionFor } from "@/lib/selection";
 import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +60,8 @@ function MatchRow({ event }: { event: BoardEvent }) {
   const kickedOff = hasKickedOff(event.commenceTime);
   const h2hPick = stakedVerdict(event.verdicts, "h2h");
   const picks = [h2hPick, stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
+  // 1X2 errors are flagged on their box; the board shows no totals prices, so those get a chip.
+  const totalsErrors = groupOddsErrors(event.oddsErrors.filter((e) => e.marketKey === "totals"));
 
   // Not a link itself: the team names hold the link, stretched over the whole row, so the
   // 1/X/2 prices can be buttons of their own that add a price to the bet slip.
@@ -76,12 +81,12 @@ function MatchRow({ event }: { event: BoardEvent }) {
       <div className="min-w-0">
         <Link
           href={`/match/${event.id}`}
-          className="block after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
+          className="flex flex-col gap-1 text-[15px] font-semibold text-fg after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
         >
-          <p className="truncate text-[15px] font-semibold text-fg">{event.homeTeam}</p>
-          <p className="truncate text-[15px] font-semibold text-fg">{event.awayTeam}</p>
+          <TeamName name={event.homeTeam} crest={event.homeCrest} />
+          <TeamName name={event.awayTeam} crest={event.awayCrest} />
         </Link>
-        {picks.length > 0 ? (
+        {picks.length > 0 || totalsErrors.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {picks.map((pick) => (
               <span key={pick.marketKey} className="inline-flex items-center gap-1.5 rounded-full bg-bg-row py-0.5 pl-0.5 pr-2">
@@ -92,6 +97,21 @@ function MatchRow({ event }: { event: BoardEvent }) {
                 </span>
               </span>
             ))}
+            {totalsErrors.map((errors) => {
+              const [first] = errors;
+              return (
+                <span
+                  key={`${first.outcomeName}|${first.point}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-bg-row py-0.5 pl-1.5 pr-2"
+                >
+                  <Icon name="flame" label="Erreur de cote" className="h-3 w-3 text-flame" />
+                  <span className="tabular text-xs font-medium text-fg">
+                    {outcomeCode("totals", first.outcomeName, first.point, event.homeTeam, event.awayTeam)}
+                    <span className="text-fg-muted"> @ {Math.max(...errors.map((e) => e.price)).toFixed(2)}</span>
+                  </span>
+                </span>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -112,6 +132,7 @@ function MatchRow({ event }: { event: BoardEvent }) {
                   ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}`
                   : undefined
               }
+              oddsError={oddsErrorsLabel(oddsErrorsFor(event.oddsErrors, "h2h", box.outcomeName))}
               className="flex-1 py-1.5 sm:w-16 sm:flex-none"
             />
           ) : (
@@ -171,6 +192,11 @@ function countPicks(events: BoardEvent[]): number {
   );
 }
 
+/** Flames on the board: every price (1/X/2 box or totals chip) at least one French book has an odds error on. */
+function countOddsErrors(events: BoardEvent[]): number {
+  return events.reduce((n, e) => n + groupOddsErrors(e.oddsErrors).length, 0);
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -188,6 +214,7 @@ export default async function Home({
   const upcomingBySport = groupBySport(upcomingFallback);
   const shown = events.length > 0 ? events : upcomingFallback;
   const pickCount = countPicks(shown);
+  const errorCount = countOddsErrors(shown);
 
   const baseQuery = { date: dateKey, status, ...(query ? { q: query } : {}) };
   const navButton =
@@ -287,6 +314,20 @@ export default async function Home({
                 <>
                   {" · "}
                   <span className="font-semibold text-accent-strong">{pickCount}</span> pick{pickCount > 1 ? "s" : ""} du modèle
+                </>
+              ) : null}
+              {errorCount > 0 ? (
+                <>
+                  {" · "}
+                  <span
+                    className="inline-flex items-center gap-1 align-bottom"
+                    title="Cote d'un bookmaker français au-dessus de la cote juste du marché"
+                  >
+                    <Icon name="flame" className="h-3.5 w-3.5 text-flame" />
+                    <span>
+                      <span className="font-semibold text-fg">{errorCount}</span> erreur{errorCount > 1 ? "s" : ""} de cote
+                    </span>
+                  </span>
                 </>
               ) : null}
             </span>

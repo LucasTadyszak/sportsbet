@@ -18,6 +18,7 @@ export function OddsButton({
   isPick = false,
   isBest = false,
   hint,
+  oddsError,
   disabled = false,
   className = "",
 }: {
@@ -30,6 +31,8 @@ export function OddsButton({
   /** The best price of its column, in an odds table. */
   isBest?: boolean;
   hint?: string;
+  /** What the flame says when the rest of the market shows this price to be an odds error (src/lib/board.ts). */
+  oddsError?: string;
   disabled?: boolean;
   className?: string;
 }) {
@@ -46,20 +49,21 @@ export function OddsButton({
   const buttonProps = {
     type: "button" as const,
     "aria-pressed": selected,
-    "aria-label": `Ma sélection : ${offer}`,
+    "aria-label": `Ma sélection : ${offer}${oddsError ? " — erreur de cote" : ""}`,
     title: disabled
       ? "Match commencé : cette cote n'est plus proposée"
-      : [hint, selected ? "Retirer de ma sélection" : "Ajouter à ma sélection"].filter(Boolean).join(" — "),
+      : [hint, oddsError, selected ? "Retirer de ma sélection" : "Ajouter à ma sélection"].filter(Boolean).join(" — "),
     disabled,
     onClick: () => betSlip.toggle(selection),
   };
   const price = formatOdds(selection.price);
+  const flame = oddsError ? <Icon name="flame" className="h-3 w-3 shrink-0 text-flame" /> : null;
 
   if (variant === "box") {
     return (
       <button
         {...buttonProps}
-        className={`flex flex-col items-center rounded-lg border px-2 transition-colors duration-200 ${
+        className={`relative flex flex-col items-center rounded-lg border px-2 transition-colors duration-200 ${
           selected
             ? "border-fg bg-fg enabled:hover:bg-fg/90"
             : isPick
@@ -75,6 +79,7 @@ export function OddsButton({
           {selected ? <Icon name="check" className="h-2.5 w-2.5" /> : null}
           {label}
         </span>
+        {flame ? <span className="absolute right-1 top-1">{flame}</span> : null}
         <span className={`font-mono-tabular text-sm font-semibold ${selected ? "text-white" : isPick ? "text-accent-strong" : "text-fg"}`}>
           {price}
         </span>
@@ -96,6 +101,7 @@ export function OddsButton({
         } ${className}`}
       >
         {selected ? <Icon name="check" className="h-3 w-3" /> : null}
+        {flame}
         {price}
       </button>
     );

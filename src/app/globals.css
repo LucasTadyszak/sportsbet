@@ -22,6 +22,8 @@
   --accent-dim: #ffedd5;
   --fall: #dc2626;
   --rise: #15803d; /* won / positive CLV text — ~5:1 on white */
+  /* Odds-error flame: an icon only (never text), ≥3.8:1 on white, --bg-row and --accent-dim. */
+  --flame: #e03a0c;
   /* Status (model health bands) — always paired with an icon + label, never color alone. */
   --status-good: #0ca30c;
   --status-warning: #fab219;
@@ -55,6 +57,7 @@
   --color-accent-dim: var(--accent-dim);
   --color-fall: var(--fall);
   --color-rise: var(--rise);
+  --color-flame: var(--flame);
   --color-status-good: var(--status-good);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);

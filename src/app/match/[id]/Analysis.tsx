@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Edge, MatchPrediction, Pick } from "@/generated/prisma/client";
 import type { MatchDetail } from "@/lib/board";
+import { isFrenchBook } from "@/lib/bookmakers";
 import { formatKickoff } from "@/lib/dates";
 import {
   DATA_QUALITY_LABELS,
@@ -18,8 +19,6 @@ import { Icon, type IconName } from "@/components/Icon";
 import { ReasonList, TierBadge } from "@/components/Verdict";
 
 type BookTitles = Map<string, string>;
-
-const ROLE_LABELS: Record<string, string> = { sharp: "Sharp", exchange: "Exchange", soft: "Grand public" };
 
 function signalsOf(edge: Edge): StoredEdgeSignals {
   return edge.signals as unknown as StoredEdgeSignals;
@@ -67,6 +66,14 @@ function SignalCard({ index, title, icon, tone, children }: { index: number; tit
 const toneOf = (value: number | null | undefined, threshold: number): Tone =>
   value === null || value === undefined ? "neutral" : value >= threshold ? "for" : value <= -threshold ? "against" : "neutral";
 
+/** Books that moved together, naming only the French ones: "Winamax, Betclic et 2 autres bookmakers". */
+function steamBooks(books: string[], title: (key: string) => string): string {
+  const french = books.filter(isFrenchBook).map(title);
+  const others = books.length - french.length;
+  if (french.length === 0) return `${books.length} bookmakers`;
+  return others === 0 ? french.join(", ") : `${french.join(", ")} et ${others} autre${others > 1 ? "s" : ""} bookmaker${others > 1 ? "s" : ""}`;
+}
+
 function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }) {
   const s = signalsOf(edge);
   const title = (key: string) => bookTitles.get(key) ?? key;
@@ -87,8 +94,8 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
       <SignalCard index={2} title="Steam" icon="zap" tone={s.steam ? (s.steam.direction === 1 ? "for" : "against") : "neutral"}>
         {s.steam ? (
           <>
-            {s.steam.books.map(title).join(", ")} ont bougé {s.steam.direction === 1 ? "vers" : "contre"} ce côté, ensemble, en
-            moins de 5 min ({formatKickoff(new Date(s.steam.at))}).
+            {steamBooks(s.steam.books, title)} {s.steam.books.length > 1 ? "ont" : "a"} bougé{" "}
+            {s.steam.direction === 1 ? "vers" : "contre"} ce côté, ensemble, en moins de 5 min ({formatKickoff(new Date(s.steam.at))}).
           </>
         ) : (
           <span className="text-fg-muted">Aucun mouvement synchronisé de plusieurs books sur les dernières heures.</span>
@@ -144,48 +151,57 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
 }
 
 function BooksTable({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }) {
-  const books = [...signalsOf(edge).books].sort((a, b) => b.price - a.price);
+  const all = signalsOf(edge).books;
+  const books = all.filter((b) => isFrenchBook(b.bookmakerKey)).sort((a, b) => b.price - a.price);
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
-      <table className="w-full min-w-[520px] border-collapse text-sm">
-        <thead className="bg-bg-row/60">
-          <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-            <th className="px-4 py-2 font-normal">Bookmaker</th>
-            <th className="px-3 py-2 font-normal">Rôle</th>
-            <th className="px-3 py-2 text-right font-normal">Cote</th>
-            <th className="px-3 py-2 text-right font-normal">Proba sans marge</th>
-            <th className="px-3 py-2 text-right font-normal">Consensus − book</th>
-            <th className="px-4 py-2 font-normal">Signal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {books.map((b) => (
-            <tr key={b.bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
-              <td className="px-4 py-2 text-fg">
-                {bookTitles.get(b.bookmakerKey) ?? b.bookmakerKey}
-                {b.bettable ? "" : <span className="ml-1.5 text-xs text-fg-muted">(référence)</span>}
-              </td>
-              <td className="px-3 py-2 text-fg-muted">{ROLE_LABELS[b.role] ?? b.role}</td>
-              <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatOdds(b.price)}</td>
-              <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPct(b.fair, 1)}</td>
-              <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPts(b.divergence)}</td>
-              <td className="px-4 py-2 text-xs">
-                {b.flag === "stale" ? (
-                  <span className="inline-flex items-center gap-1 font-medium text-rise">
-                    <Icon name="arrow-up" className="h-3 w-3" /> en retard (+EV)
-                  </span>
-                ) : b.flag === "juiced" ? (
-                  <span className="inline-flex items-center gap-1 font-medium text-fall">
-                    <Icon name="arrow-down" className="h-3 w-3" /> rabotée
-                  </span>
-                ) : (
-                  <span className="text-fg-muted">—</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-2">
+      {books.length === 0 ? (
+        <p className="text-sm text-fg-muted">Aucun bookmaker français ne cote ce marché.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
+          <table className="w-full min-w-[520px] border-collapse text-sm">
+            <thead className="bg-bg-row/60">
+              <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
+                <th className="px-4 py-2 font-normal">Bookmaker</th>
+                <th className="px-3 py-2 text-right font-normal">Cote</th>
+                <th className="px-3 py-2 text-right font-normal">Proba sans marge</th>
+                <th className="px-3 py-2 text-right font-normal">Consensus − book</th>
+                <th className="px-4 py-2 font-normal">Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {books.map((b) => (
+                <tr key={b.bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                  <td className="px-4 py-2 text-fg">
+                    {bookTitles.get(b.bookmakerKey) ?? b.bookmakerKey}
+                    {b.bettable ? "" : <span className="ml-1.5 text-xs text-fg-muted">(pas de compte)</span>}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatOdds(b.price)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPct(b.fair, 1)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPts(b.divergence)}</td>
+                  <td className="px-4 py-2 text-xs">
+                    {b.flag === "stale" ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-rise">
+                        <Icon name="arrow-up" className="h-3 w-3" /> en retard (+EV)
+                      </span>
+                    ) : b.flag === "juiced" ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-fall">
+                        <Icon name="arrow-down" className="h-3 w-3" /> rabotée
+                      </span>
+                    ) : (
+                      <span className="text-fg-muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-fg-muted">
+        Le consensus compte les {all.length} bookmakers de la dernière synchro, français ou non (Pinnacle compté double) ;
+        seuls les bookmakers français sont listés.
+      </p>
     </div>
   );
 }

@@ -91,6 +91,16 @@ export function outcomeCode(marketKey: string, outcomeName: string, point: numbe
   return outcomeName;
 }
 
+/** What the flame says: "Erreur de cote : Winamax à 2.45, cote juste 2.20 (EV +11.4%)". */
+export function oddsErrorLabel(error: { bookmakerTitle: string; price: number; fairProb: number; ev: number }): string {
+  return `Erreur de cote : ${error.bookmakerTitle} à ${formatOdds(error.price)}, cote juste ${formatOdds(1 / error.fairProb)} (EV ${formatSignedPct(error.ev)})`;
+}
+
+/** The flame's tooltip for every book flagged on one price; undefined when none is. */
+export function oddsErrorsLabel(errors: Parameters<typeof oddsErrorLabel>[0][]): string | undefined {
+  return errors.length > 0 ? errors.map(oddsErrorLabel).join("\n") : undefined;
+}
+
 export const DATA_QUALITY_LABELS: Record<string, string> = {
   full: "Complètes",
   partial: "Partielles",

@@ -8,6 +8,7 @@ import {
   ELO_BLEND_WEIGHT,
   GOALS,
   MODEL_VERSION,
+  ODDS_ERROR,
   PINNACLE_CONSENSUS_WEIGHT,
   SIGNALS,
   STAKING,
@@ -178,10 +179,30 @@ export default function MethodologyPage() {
             Smarkets) : leur prix est mélangé au modèle à {pct(ANCHOR_WEIGHT)}.
           </p>
           <p>
-            Pinnacle et les exchanges ne sont pas accessibles depuis la France : ils servent de référence et ne sont jamais
-            proposés comme « meilleure cote ». Les bookmakers jouables se règlent avec la variable
-            <code className="mx-1 rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-xs">BETTABLE_BOOKMAKERS</code>.
+            Seuls les <strong>bookmakers français</strong> agréés par l&apos;ANJ (Winamax, Betclic, Unibet…) sont affichés et
+            proposés comme « meilleure cote ». Pinnacle, les exchanges et les autres books européens ne sont pas accessibles
+            depuis la France : ils ne servent qu&apos;à construire le consensus. La variable
+            <code className="mx-1 rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-xs">BETTABLE_BOOKMAKERS</code>
+            restreint la meilleure cote aux comptes que tu détiens.
           </p>
+          <p>
+            <Icon name="flame" className="mr-1 inline h-4 w-4 align-[-2px] text-flame" />
+            <strong>Erreur de cote.</strong> Une cote d&apos;un bookmaker français est signalée par une flamme sur le tableau et
+            dans le comparatif des cotes quand elle dépasse nettement la <em>cote juste</em>, l&apos;inverse de la probabilité
+            sans marge donnée par tous les <em>autres</em> bookmakers de la même synchro (Pinnacle compté double, la cote
+            suspecte n&apos;entrant pas dans sa propre référence). Il faut à la fois une espérance nettement positive et un vrai
+            écart de probabilité : sur une cote de longshot, un peu de bruit de de-vig suffit à gonfler l&apos;espérance. Le
+            modèle n&apos;y joue aucun rôle : c&apos;est le marché lui-même qui dit que la cote est fausse. Une telle cote se
+            corrige vite, et un bookmaker peut annuler un pari pris sur une erreur manifeste.
+          </p>
+          <Params
+            rows={[
+              ["Espérance à la cote affichée", `≥ +${pct(ODDS_ERROR.minEv)}`],
+              ["Écart de probabilité minimal", pts(ODDS_ERROR.minGap)],
+              ["Autres bookmakers requis pour la référence", String(ODDS_ERROR.minBooks)],
+              ["Matchs concernés", "avant le coup d'envoi uniquement"],
+            ]}
+          />
         </Block>
 
         <Block id="signaux" title="3. Les cinq signaux du marché">
