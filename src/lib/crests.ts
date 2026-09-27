@@ -1,48 +1,57 @@
-// Club crests, as football-data.org publishes them with its standings (TeamStats.crest).
-// An Odds API team name reaches its crest through the Team registry, which remembers the
-// football-data.org team each name was matched to (src/lib/teamNameMatch.ts); a name that
-// was never matched simply has no crest.
+// Club logos and kit colours, keyed by Odds API team name. The logo is TheSportsDB's badge
+// first (Team.logo, looked up by src/lib/refreshLogos.ts), since it covers every league; else
+// the crest football-data.org publishes with its standings (TeamStats.crest). Kit colours come
+// from football-data.org's team list (TeamStats.clubColors). Both football-data.org fields are
+// reached through the football-data.org team the name was matched to
+// (src/lib/teamNameMatch.ts). A name with none of them simply has no logo and no colours.
 import { prisma } from "@/lib/prisma";
+import { servableLogo } from "@/lib/logoMatch";
+import { parseClubColors } from "@/lib/teamColors";
 
-// next.config.ts only lets next/image load crests from football-data.org's own CDN, and a
-// URL from anywhere else would make the page throw: such a crest is dropped instead.
-const CREST_HOST = "crests.football-data.org";
+/** How a club shows on the board: its logo, and its kit colours (src/lib/teamColors.ts). */
+export type TeamLook = { crest: string | null; colors: string[] };
 
-function isServableCrest(url: string): boolean {
-  try {
-    const { protocol, hostname } = new URL(url);
-    return protocol === "https:" && hostname === CREST_HOST;
-  } catch {
-    return false;
-  }
-}
-
-/** Crest URL of every given Odds API team name that has one. */
-export async function crestsByTeamName(names: string[]): Promise<Map<string, string>> {
-  const crests = new Map<string, string>();
+/** Logo and kit colours of every given Odds API team name that has either. */
+export async function teamLooksByName(names: string[]): Promise<Map<string, TeamLook>> {
+  const looks = new Map<string, TeamLook>();
   const unique = Array.from(new Set(names));
-  if (unique.length === 0) return crests;
+  if (unique.length === 0) return looks;
 
   const teams = await prisma.team.findMany({
-    where: { name: { in: unique }, footballDataTeamId: { not: null } },
-    select: { name: true, footballDataTeamId: true },
+    where: { name: { in: unique } },
+    select: { name: true, logo: true, footballDataTeamId: true },
   });
-  const teamIds = Array.from(new Set(teams.map((t) => t.footballDataTeamId as number)));
-  if (teamIds.length === 0) return crests;
 
-  // A club in several tracked competitions has one TeamStats row per competition, same crest.
-  const stats = await prisma.teamStats.findMany({
-    where: { teamId: { in: teamIds }, crest: { not: null } },
-    select: { teamId: true, crest: true },
-  });
-  const crestById = new Map<number, string>();
-  for (const row of stats) {
-    if (row.crest && isServableCrest(row.crest)) crestById.set(row.teamId, row.crest);
+  // A club in several tracked competitions has one TeamStats row per competition, same crest and kit.
+  const teamIds = Array.from(new Set(teams.flatMap((t) => (t.footballDataTeamId === null ? [] : [t.footballDataTeamId]))));
+  const fromStats = new Map<number, TeamLook>();
+  if (teamIds.length > 0) {
+    const stats = await prisma.teamStats.findMany({
+      where: { teamId: { in: teamIds }, OR: [{ crest: { not: null } }, { clubColors: { not: null } }] },
+      select: { teamId: true, crest: true, clubColors: true },
+    });
+    for (const row of stats) {
+      const look = fromStats.get(row.teamId) ?? { crest: null, colors: [] };
+      look.crest ??= servableLogo(row.crest);
+      if (look.colors.length === 0) look.colors = parseClubColors(row.clubColors);
+      fromStats.set(row.teamId, look);
+    }
   }
 
   for (const team of teams) {
-    const crest = crestById.get(team.footballDataTeamId as number);
-    if (crest) crests.set(team.name, crest);
+    const stats = team.footballDataTeamId === null ? undefined : fromStats.get(team.footballDataTeamId);
+    const crest = servableLogo(team.logo) ?? stats?.crest ?? null;
+    const colors = stats?.colors ?? [];
+    if (crest || colors.length > 0) looks.set(team.name, { crest, colors });
+  }
+  return looks;
+}
+
+/** Logo URL of every given Odds API team name that has one. */
+export async function crestsByTeamName(names: string[]): Promise<Map<string, string>> {
+  const crests = new Map<string, string>();
+  for (const [name, look] of await teamLooksByName(names)) {
+    if (look.crest) crests.set(name, look.crest);
   }
   return crests;
 }
