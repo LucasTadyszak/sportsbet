@@ -6,6 +6,7 @@ import { STAKING } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
 import { Icon } from "@/components/Icon";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, ReasonList, StatTile, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +40,10 @@ function PickCard({ v }: { v: VerdictListItem }) {
             <span aria-hidden>·</span>
             {v.sportTitle}
           </span>
-          <span className="truncate font-display text-base font-semibold text-fg">
-            {v.homeTeam} <span className="font-normal text-fg-muted">vs</span> {v.awayTeam}
+          <span className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg">
+            <TeamName name={v.homeTeam} crest={v.homeCrest} />
+            <span className="shrink-0 font-normal text-fg-muted">vs</span>
+            <TeamName name={v.awayTeam} crest={v.awayCrest} />
           </span>
         </div>
         <TierBadge tier={v.tier} />

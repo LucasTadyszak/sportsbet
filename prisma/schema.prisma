@@ -121,6 +121,7 @@ model TeamStats {
   name            String // full name, e.g. "Manchester City FC"
   shortName       String?
   tla             String? // three-letter abbreviation, e.g. "MCI"
+  crest           String? // club crest URL, e.g. "https://crests.football-data.org/65.png"
   position        Int?
   playedGames     Int
   won             Int

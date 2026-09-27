@@ -9,6 +9,7 @@ export type FootballDataTeam = {
   name: string;
   shortName: string | null;
   tla: string | null;
+  crest?: string | null; // e.g. "https://crests.football-data.org/65.png"
 };
 
 export type FootballDataStandingRow = {

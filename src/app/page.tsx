@@ -2,6 +2,8 @@ import Link from "next/link";
 import {
   getBoard,
   groupBySport,
+  groupOddsErrors,
+  oddsErrorsFor,
   resultBoxes,
   stakedVerdict,
   type BoardEvent,
@@ -16,10 +18,11 @@ import {
   isValidDateKey,
   parisDateKey,
 } from "@/lib/dates";
-import { outcomeCode, outcomeLabel } from "@/lib/labels";
+import { oddsErrorLabel, outcomeCode, outcomeLabel } from "@/lib/labels";
 import { userLabel } from "@/lib/methodology/verdict";
 import { Icon } from "@/components/Icon";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +60,8 @@ function MatchRow({ event }: { event: BoardEvent }) {
   const boxes = resultBoxes(event.h2h, event.homeTeam, event.awayTeam);
   const h2hPick = stakedVerdict(event.verdicts, "h2h");
   const picks = [h2hPick, stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
+  // 1X2 errors are flagged on their box; the board shows no totals prices, so those get a chip.
+  const totalsErrors = groupOddsErrors(event.oddsErrors.filter((e) => e.marketKey === "totals"));
 
   return (
     <Link
@@ -75,9 +80,11 @@ function MatchRow({ event }: { event: BoardEvent }) {
       </div>
 
       <div className="min-w-0">
-        <p className="truncate text-[15px] font-semibold text-fg">{event.homeTeam}</p>
-        <p className="truncate text-[15px] font-semibold text-fg">{event.awayTeam}</p>
-        {picks.length > 0 ? (
+        <div className="flex flex-col gap-1 text-[15px] font-semibold text-fg">
+          <TeamName name={event.homeTeam} crest={event.homeCrest} />
+          <TeamName name={event.awayTeam} crest={event.awayCrest} />
+        </div>
+        {picks.length > 0 || totalsErrors.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {picks.map((pick) => (
               <span key={pick.marketKey} className="inline-flex items-center gap-1.5 rounded-full bg-bg-row py-0.5 pl-0.5 pr-2">
@@ -88,6 +95,22 @@ function MatchRow({ event }: { event: BoardEvent }) {
                 </span>
               </span>
             ))}
+            {totalsErrors.map((errors) => {
+              const [first] = errors;
+              return (
+                <span
+                  key={`${first.outcomeName}|${first.point}`}
+                  title={errors.map(oddsErrorLabel).join("\n")}
+                  className="inline-flex items-center gap-1 rounded-full bg-bg-row py-0.5 pl-1.5 pr-2"
+                >
+                  <Icon name="flame" label="Erreur de cote" className="h-3 w-3 text-flame" />
+                  <span className="tabular text-xs font-medium text-fg">
+                    {outcomeCode("totals", first.outcomeName, first.point, event.homeTeam, event.awayTeam)}
+                    <span className="text-fg-muted"> @ {Math.max(...errors.map((e) => e.price)).toFixed(2)}</span>
+                  </span>
+                </span>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -96,18 +119,20 @@ function MatchRow({ event }: { event: BoardEvent }) {
         {boxes.map((box) => {
           const outcomeName = BOX_OUTCOME_NAME[box.label](event);
           const isPick = h2hPick !== null && h2hPick.outcomeName === outcomeName;
+          const errors = oddsErrorsFor(event.oddsErrors, "h2h", outcomeName);
+          const tooltip = [
+            isPick && h2hPick ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}` : null,
+            ...errors.map(oddsErrorLabel),
+          ].filter((line) => line !== null);
           return (
             <div
               key={box.label}
-              title={
-                isPick && h2hPick
-                  ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}`
-                  : undefined
-              }
-              className={`flex flex-1 flex-col items-center rounded-lg border px-2 py-1.5 transition-colors duration-200 sm:w-16 sm:flex-none ${
+              title={tooltip.length > 0 ? tooltip.join("\n") : undefined}
+              className={`relative flex flex-1 flex-col items-center rounded-lg border px-2 py-1.5 transition-colors duration-200 sm:w-16 sm:flex-none ${
                 isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-elevated group-hover/row:border-fg-muted/30"
               }`}
             >
+              {errors.length > 0 ? <Icon name="flame" label="Erreur de cote" className="absolute right-1 top-1 h-3 w-3 text-flame" /> : null}
               <span className={`text-[10px] font-semibold uppercase ${isPick ? "text-accent-strong" : "text-fg-muted"}`}>
                 {box.label}
               </span>
@@ -164,6 +189,11 @@ function countPicks(events: BoardEvent[]): number {
   );
 }
 
+/** Flames on the board: every price (1/X/2 box or totals chip) at least one French book has an odds error on. */
+function countOddsErrors(events: BoardEvent[]): number {
+  return events.reduce((n, e) => n + groupOddsErrors(e.oddsErrors).length, 0);
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -181,6 +211,7 @@ export default async function Home({
   const upcomingBySport = groupBySport(upcomingFallback);
   const shown = events.length > 0 ? events : upcomingFallback;
   const pickCount = countPicks(shown);
+  const errorCount = countOddsErrors(shown);
 
   const baseQuery = { date: dateKey, status, ...(query ? { q: query } : {}) };
   const navButton =
@@ -279,6 +310,20 @@ export default async function Home({
                 <>
                   {" · "}
                   <span className="font-semibold text-accent-strong">{pickCount}</span> pick{pickCount > 1 ? "s" : ""} du modèle
+                </>
+              ) : null}
+              {errorCount > 0 ? (
+                <>
+                  {" · "}
+                  <span
+                    className="inline-flex items-center gap-1 align-bottom"
+                    title="Cote d'un bookmaker français au-dessus de la cote juste du marché"
+                  >
+                    <Icon name="flame" className="h-3.5 w-3.5 text-flame" />
+                    <span>
+                      <span className="font-semibold text-fg">{errorCount}</span> erreur{errorCount > 1 ? "s" : ""} de cote
+                    </span>
+                  </span>
                 </>
               ) : null}
             </span>
