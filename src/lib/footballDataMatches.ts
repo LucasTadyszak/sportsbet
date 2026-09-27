@@ -9,6 +9,28 @@ import { canFetch, markFetched } from "@/lib/footballDataStats";
 // Seasons the plan doesn't give access to are skipped (logged), not fatal.
 const SEASONS_BACK = Number(process.env.FOOTBALL_DATA_SEASONS_BACK ?? 1);
 const BACKFILL_COMPLETE_MIN_FINISHED = 100;
+const FIXTURE_MATCH_WINDOW_MS = 36 * 60 * 60 * 1000;
+
+/**
+ * The stored Fixture of an Odds API event: same two teams (ids remembered on the Team
+ * registry once their names were matched) kicking off within a day and a half of it.
+ */
+export async function findEventFixture(event: { homeTeam: string; awayTeam: string; commenceTime: Date }) {
+  const teams = await prisma.team.findMany({ where: { name: { in: [event.homeTeam, event.awayTeam] } } });
+  const homeId = teams.find((t) => t.name === event.homeTeam)?.footballDataTeamId;
+  const awayId = teams.find((t) => t.name === event.awayTeam)?.footballDataTeamId;
+  if (homeId == null || awayId == null) return null;
+  return prisma.fixture.findFirst({
+    where: {
+      homeTeamId: homeId,
+      awayTeamId: awayId,
+      utcDate: {
+        gte: new Date(event.commenceTime.getTime() - FIXTURE_MATCH_WINDOW_MS),
+        lte: new Date(event.commenceTime.getTime() + FIXTURE_MATCH_WINDOW_MS),
+      },
+    },
+  });
+}
 
 /** The score bookmakers settle on: after 90 minutes, i.e. regularTime when there was extra time. */
 export function ninetyMinuteScore(match: FootballDataMatch): { home: number; away: number } | null {

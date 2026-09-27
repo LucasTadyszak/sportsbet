@@ -4,6 +4,7 @@
 // an EventGrade with the model's and the market's closing probabilities side by side.
 import { prisma } from "@/lib/prisma";
 import { bookClassifier } from "@/lib/bookmakers";
+import { findEventFixture } from "@/lib/footballDataMatches";
 import { loadMarketHistories, mainTotalsLine } from "@/lib/oddsHistory";
 import { analyzeMarket, type MarketView } from "@/lib/methodology/signals";
 import { closingLineValue, profitUnits, settleH2h, settleTotals, type Settlement } from "@/lib/methodology/settlement";
@@ -11,26 +12,8 @@ import { closingLineValue, profitUnits, settleH2h, settleTotals, type Settlement
 // Kickoff + 2h15 covers 90 minutes, half-time and stoppages before we look for a result.
 const GRADE_AFTER_MS = 135 * 60 * 1000;
 const GRADE_LOOKBACK_DAYS = 30;
-const FIXTURE_MATCH_WINDOW_MS = 36 * 60 * 60 * 1000;
 
 export type GradingSummary = { eventsGraded: number; picksGraded: number; picksVoided: number; unresolved: number };
-
-async function findFixture(event: { homeTeam: string; awayTeam: string; commenceTime: Date }) {
-  const teams = await prisma.team.findMany({ where: { name: { in: [event.homeTeam, event.awayTeam] } } });
-  const homeId = teams.find((t) => t.name === event.homeTeam)?.footballDataTeamId;
-  const awayId = teams.find((t) => t.name === event.awayTeam)?.footballDataTeamId;
-  if (homeId == null || awayId == null) return null;
-  return prisma.fixture.findFirst({
-    where: {
-      homeTeamId: homeId,
-      awayTeamId: awayId,
-      utcDate: {
-        gte: new Date(event.commenceTime.getTime() - FIXTURE_MATCH_WINDOW_MS),
-        lte: new Date(event.commenceTime.getTime() + FIXTURE_MATCH_WINDOW_MS),
-      },
-    },
-  });
-}
 
 /** Closing fair probability of an outcome: Pinnacle's close if it was quoting, else the consensus close. */
 function closingFor(view: MarketView | null, outcome: string): { prob: number; source: "pinnacle" | "consensus" } | null {
@@ -52,7 +35,7 @@ export async function gradeFinishedEvents(now = new Date()): Promise<GradingSumm
   const summary: GradingSummary = { eventsGraded: 0, picksGraded: 0, picksVoided: 0, unresolved: 0 };
 
   for (const event of events) {
-    const fixture = await findFixture(event);
+    const fixture = await findEventFixture(event);
     if (fixture && (fixture.status === "CANCELLED" || fixture.status === "AWARDED")) {
       const voided = await prisma.pick.updateMany({
         where: { eventId: event.id, status: "pending" },

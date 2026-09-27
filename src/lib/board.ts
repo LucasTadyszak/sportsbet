@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { Edge, MatchPrediction } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addDays, parisStartOfDay } from "@/lib/dates";
+import { findEventFixture } from "@/lib/footballDataMatches";
 import { consensusProbabilities } from "@/lib/probability";
 import { isStakedTier } from "@/lib/methodology/config";
 import type { OutcomeEdge } from "@/lib/selection";
@@ -75,6 +76,8 @@ export type MatchDetail = Omit<BoardEvent, "edges"> & {
   totals: OddsLine[];
   edges: Edge[];
   predictionDetail: MatchPrediction | null;
+  /** Once football-data.org reports the match finished — there is no live score feed. */
+  finalScore: FinalScore | null;
 };
 
 export type StatusFilter = "all" | "upcoming" | "live";
@@ -302,6 +305,14 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
   });
   if (!event) return null;
 
+  let finalScore: FinalScore | null = null;
+  if (event.commenceTime.getTime() <= Date.now()) {
+    const fixture = await findEventFixture(event);
+    if (fixture?.status === "FINISHED" && fixture.homeGoals !== null && fixture.awayGoals !== null) {
+      finalScore = { home: fixture.homeGoals, away: fixture.awayGoals };
+    }
+  }
+
   const lines = dedupeLatestPerLine(event.odds);
   return {
     id: event.id,
@@ -315,6 +326,7 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
     predictionDetail: event.prediction,
     edges: event.edges,
     verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
+    finalScore,
   };
 });
 

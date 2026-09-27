@@ -21,6 +21,7 @@ import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
+import { ScoreMatrix } from "./ScoreMatrix";
 import { MatchTabs } from "./Tabs";
 
 export const dynamic = "force-dynamic";
@@ -397,6 +398,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                 { id: "resume", label: "Résumé", content: resume },
                 { id: "analyse", label: "Analyse", content: <Analysis match={match} picks={picks} bookTitles={bookTitles} /> },
                 { id: "probabilites", label: "Probabilités", content: probabilites },
+                { id: "matrice", label: "Matrice", content: <ScoreMatrix match={match} /> },
               ]}
             />
           </div>
