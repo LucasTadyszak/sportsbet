@@ -1,4 +1,5 @@
 // French wording and number formatting for everything the methodology produces.
+import type { LiveStatus } from "@/lib/liveMatches";
 import type { ComboBlocker, OutcomeVerdict, SingleStake } from "@/lib/methodology/stake";
 import type { ReasonCode } from "@/lib/methodology/verdict";
 
@@ -138,6 +139,27 @@ export const STATUS_LABELS: Record<string, string> = {
 /** "mar. 29 sept." → "Mar. 29 sept." (CSS capitalize would give "Mar. 29 Sept."). */
 export function upperFirst(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Where a followed match stands (src/lib/liveMatches.ts): its clock while on, how it ended once over. */
+export function liveStatusLabel(live: { status: LiveStatus; halftime: boolean; minute: string | null; reason: string | null }): string {
+  switch (live.status) {
+    case "live":
+      return live.halftime ? "Mi-temps" : (live.minute ?? "En cours");
+    case "finished":
+      // The API's short labels: "FT", "AET" (after extra time), "Pen" (on penalties).
+      if (/pen/i.test(live.reason ?? "")) return "Tirs au but";
+      if (/aet|extra/i.test(live.reason ?? "")) return "Après prol.";
+      return "Terminé";
+    case "postponed":
+      return "Reporté";
+    case "cancelled":
+      return "Annulé";
+    case "abandoned":
+      return "Arrêté";
+    case "scheduled":
+      return "À venir";
+  }
 }
 
 export function formatPct(x: number | null | undefined, digits = 0): string {

@@ -10,6 +10,8 @@ const LOGO_SOURCES = [
   { hostname: "r2.thesportsdb.com", pathPrefix: "/" },
   // Older TheSportsDB records still point at the main site rather than its image CDN.
   { hostname: "www.thesportsdb.com", pathPrefix: "/images/" },
+  // Team and league logos of the matches Free API Live Football Data brings (src/lib/liveMatches.ts).
+  { hostname: "images.fotmob.com", pathPrefix: "/image_resources/logo/" },
 ];
 
 /** The URL if next/image may load it (see next.config.ts), else null. */

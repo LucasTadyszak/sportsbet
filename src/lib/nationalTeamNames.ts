@@ -78,6 +78,12 @@ const VARIANTS = new Map<string, string>(Object.entries({
 // Women's, youth and Olympic sides share the country's name but not its results.
 const NOT_SENIOR_MEN = /\b(women|womens|ladies|w|u\d{2}|olympic)\b/;
 
+/** One spelling per country: the normalised dataset name of a known variant, else the name normalised. */
+export function canonicalCountryName(raw: string): string {
+  const normalized = normalizeCountryName(raw);
+  return VARIANTS.get(normalized) ?? normalized;
+}
+
 export type NationalTeamIndex = Map<string, string>;
 
 /** Dataset team names by normalised name. */

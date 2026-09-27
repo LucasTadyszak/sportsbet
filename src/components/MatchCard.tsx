@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { groupOddsErrors, oddsErrorsFor, resultBoxes, stakedVerdict, type BoardEvent } from "@/lib/board";
+import { boardPhase, groupOddsErrors, oddsErrorsFor, resultBoxes, stakedVerdict, type BoardEvent, type LiveScore } from "@/lib/board";
 import { bookClassifier } from "@/lib/bookmakers";
 import { competitionTheme, type CompetitionTheme } from "@/lib/competitions";
 import { formatShortDay, formatTime, hasKickedOff } from "@/lib/dates";
-import { formatPct, oddsErrorsLabel, outcomeCode, outcomeLabel, upperFirst } from "@/lib/labels";
+import { formatPct, liveStatusLabel, oddsErrorsLabel, outcomeCode, outcomeLabel, upperFirst } from "@/lib/labels";
 import { userLabel } from "@/lib/methodology/verdict";
 import { selectionFor, type OutcomeEdge } from "@/lib/selection";
 import { CompetitionBand } from "@/components/Competition";
@@ -12,35 +12,75 @@ import { OddsButton } from "@/components/OddsButton";
 import { TeamCrest } from "@/components/TeamCrest";
 import { TierBadge } from "@/components/Verdict";
 
-// No live score feed (The Odds API is pre-match only): "live" means kicked off recently enough to still be on.
-const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
-
-function isLive(commenceTime: Date): boolean {
-  const elapsedMs = Date.now() - commenceTime.getTime();
-  return elapsedMs >= 0 && elapsedMs <= LIVE_WINDOW_MS;
-}
-
-function LiveBadge() {
+/** "En cours", or the match clock ("37'", "Mi-temps") when the live feed gives it. */
+function LiveBadge({ label = "En cours" }: { label?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-fall/10 px-2.5 py-1 text-xs font-semibold text-fall">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-fall/10 px-2.5 py-1 text-xs font-semibold tabular text-fall">
       <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fall opacity-60" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-fall" />
       </span>
-      En cours
+      {label}
     </span>
   );
 }
 
-/** Kickoff hour and day, or the live badge once the match is on. */
-export function KickoffTime({ commenceTime, inverted = false }: { commenceTime: Date; inverted?: boolean }) {
-  if (isLive(commenceTime)) return <LiveBadge />;
+/** The score, big, as the kick-off hour is otherwise. */
+function Scoreline({ home, away, inverted }: { home: number; away: number; inverted: boolean }) {
+  return (
+    <span className={`whitespace-nowrap font-display text-2xl font-extrabold leading-none tabular ${inverted ? "text-white" : "text-fg"}`}>
+      <span className="sr-only">Score : </span>
+      {home}
+      <span aria-hidden className={`px-1 ${inverted ? "text-white/60" : "text-fg-muted"}`}>
+        –
+      </span>
+      <span className="sr-only"> à </span>
+      {away}
+    </span>
+  );
+}
+
+/**
+ * Kick-off hour and day; once the match is on, the live badge — with the score and clock when Free
+ * API Live Football Data follows it; once it's over, the final score, or why there is none.
+ */
+export function KickoffTime({
+  commenceTime,
+  live = null,
+  inverted = false,
+}: {
+  commenceTime: Date;
+  live?: LiveScore | null;
+  inverted?: boolean;
+}) {
+  const phase = boardPhase({ commenceTime, live });
+  const muted = inverted ? "text-white/80" : "text-fg-muted";
+  const score = live && live.homeScore !== null && live.awayScore !== null ? { home: live.homeScore, away: live.awayScore } : null;
+  if (live && score && (phase === "live" || live.status === "finished" || live.status === "abandoned")) {
+    return (
+      <>
+        <Scoreline home={score.home} away={score.away} inverted={inverted} />
+        {phase === "live" ? (
+          <LiveBadge label={liveStatusLabel(live)} />
+        ) : (
+          <span className={`whitespace-nowrap text-xs font-medium ${muted}`}>{liveStatusLabel(live)}</span>
+        )}
+      </>
+    );
+  }
+  if (phase === "live") return <LiveBadge label={live ? liveStatusLabel(live) : undefined} />;
+  // Postponed or cancelled: the hour it was meant to be played at, struck through.
+  const off = live?.status === "postponed" || live?.status === "cancelled";
   return (
     <>
-      <time className={`font-display text-2xl font-extrabold leading-none tabular ${inverted ? "text-white" : "text-fg"}`}>
+      <time
+        className={`font-display text-2xl font-extrabold leading-none tabular ${off ? `line-through decoration-2 ${muted}` : inverted ? "text-white" : "text-fg"}`}
+      >
         {formatTime(commenceTime)}
       </time>
-      <span className={`text-xs ${inverted ? "text-white/80" : "text-fg-muted"}`}>{upperFirst(formatShortDay(commenceTime))}</span>
+      <span className={`whitespace-nowrap text-xs ${off ? "font-semibold text-fall" : muted}`}>
+        {live && live.status !== "scheduled" ? liveStatusLabel(live) : upperFirst(formatShortDay(commenceTime))}
+      </span>
     </>
   );
 }
@@ -204,38 +244,62 @@ export function PickChips({ event }: { event: BoardEvent }) {
   );
 }
 
+const TEAMS_ROW = "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2";
+
 /**
  * A match as a block, bookmaker-style: the competition's band on top, both clubs dressed
  * in their colours, and the 1/X/2 prices as big tiles that go into the bet slip. The team
- * link is stretched over the whole block, so only the tiles take their own clicks.
+ * link is stretched over the whole block, so only the tiles take their own clicks. A match
+ * The Odds API doesn't price (src/lib/liveCompetitions.ts) has no tiles and no match page:
+ * just its teams, and its kick-off or score.
  */
 export function MatchCard({ event }: { event: BoardEvent }) {
   const theme = competitionTheme(event.sportKey, event.sportTitle);
   const homeKit = kitOrTheme(event.homeColors, theme, "home");
   const awayKit = kitOrTheme(event.awayColors, theme, "away");
+  const teams = (
+    <>
+      <TeamSide name={event.homeTeam} crest={event.homeCrest} kit={homeKit} />
+      <span className="flex min-w-16 flex-col items-center gap-1 pt-3">
+        <KickoffTime commenceTime={event.commenceTime} live={event.live} />
+      </span>
+      <TeamSide name={event.awayTeam} crest={event.awayCrest} kit={awayKit} />
+    </>
+  );
 
   return (
-    <article className="group/card relative isolate flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-row shadow-card transition-[border-color,box-shadow] duration-200 hover:border-fg/20 hover:shadow-lg">
+    <article
+      className={`group/card relative isolate flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-row shadow-card ${
+        event.priced ? "transition-[border-color,box-shadow] duration-200 hover:border-fg/20 hover:shadow-lg" : ""
+      }`}
+    >
       <KitStripes colors={homeKit} side="home" />
       <KitStripes colors={awayKit} side="away" />
 
       <CompetitionBand theme={theme} logo={event.sportLogo} />
 
       <div className="mx-1.5 mb-1.5 flex flex-1 flex-col gap-4 rounded-b-xl bg-bg-elevated px-3.5 pb-3.5 pt-5 sm:px-4">
-        <Link
-          href={`/match/${event.id}`}
-          className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
-        >
-          <TeamSide name={event.homeTeam} crest={event.homeCrest} kit={homeKit} />
-          <span className="flex min-w-16 flex-col items-center gap-1 pt-3">
-            <KickoffTime commenceTime={event.commenceTime} />
-          </span>
-          <TeamSide name={event.awayTeam} crest={event.awayCrest} kit={awayKit} />
-        </Link>
+        {event.priced ? (
+          <>
+            <Link
+              href={`/match/${event.id}`}
+              className={`${TEAMS_ROW} after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong`}
+            >
+              {teams}
+            </Link>
 
-        <ResultTiles event={event} className="relative z-10 mt-auto" />
+            <ResultTiles event={event} className="relative z-10 mt-auto" />
 
-        <PickChips event={event} />
+            <PickChips event={event} />
+          </>
+        ) : (
+          <>
+            <div className={TEAMS_ROW}>{teams}</div>
+            {boardPhase(event) === "upcoming" ? (
+              <p className="mt-auto text-center text-xs text-fg-muted">Pas de cotes suivies pour ce match</p>
+            ) : null}
+          </>
+        )}
       </div>
     </article>
   );

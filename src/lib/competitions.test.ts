@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { byRank, competitionTheme, knownThemes } from "@/lib/competitions";
 import { NATIONAL_TEAM_COMPETITIONS } from "@/lib/leagueMapping";
+import { LIVE_COMPETITIONS } from "@/lib/liveCompetitions";
 
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => {
@@ -35,6 +36,11 @@ test("every national-team competition followed has its own name on the board", (
   for (const sportKey of Object.keys(NATIONAL_TEAM_COMPETITIONS)) {
     assert.notEqual(competitionTheme(sportKey, "Odds API title").name, "Odds API title", sportKey);
   }
+});
+
+test("every competition shown from Free API Live Football Data has its own look on the board", () => {
+  const themed = new Set(knownThemes().map((theme) => theme.sportKey));
+  for (const { sportKey } of LIVE_COMPETITIONS) assert.ok(themed.has(sportKey), sportKey);
 });
 
 test("the biggest competitions come first", () => {
