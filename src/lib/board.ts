@@ -7,6 +7,7 @@ import { addDays, parisStartOfDay } from "@/lib/dates";
 import { findEventFixture } from "@/lib/footballDataMatches";
 import { isStakedTier } from "@/lib/methodology/config";
 import { detectOddsErrors, marketConsensus, type BookQuote } from "@/lib/methodology/oddsErrors";
+import type { OutcomeEdge } from "@/lib/selection";
 
 export type OddsLine = {
   bookmakerKey: string;
@@ -53,6 +54,29 @@ export type BoardVerdict = {
   stakeUnits: number;
 };
 
+// The Edge columns the board reads: its verdicts, and what a slip selection carries.
+type BoardEdge = OutcomeEdge & Pick<Edge, "bestPrice" | "edge" | "stakeUnits" | "isRecommended">;
+
+const BOARD_EDGE_FIELDS = {
+  marketKey: true,
+  outcomeName: true,
+  point: true,
+  tier: true,
+  reasons: true,
+  modelProb: true,
+  bestPrice: true,
+  edge: true,
+  stakeUnits: true,
+  isRecommended: true,
+  computedAt: true,
+} as const;
+
+// Every 1X2 outcome's verdict (for the selections), plus the recommended side of each market.
+const BOARD_EDGES = {
+  where: { OR: [{ isRecommended: true }, { marketKey: "h2h" }] },
+  select: BOARD_EDGE_FIELDS,
+};
+
 export type BoardEvent = {
   id: string;
   sportTitle: string;
@@ -67,12 +91,14 @@ export type BoardEvent = {
   oddsErrors: OddsError[];
   prediction: ModelPrediction | null;
   verdicts: BoardVerdict[];
+  /** The model's verdict on each priced outcome, so a price clicked into the slip can be sized. */
+  edges: OutcomeEdge[];
 };
 
 /** The 90-minute score (what bookmakers settle on and the goals model predicts). */
 export type FinalScore = { home: number; away: number };
 
-export type MatchDetail = BoardEvent & {
+export type MatchDetail = Omit<BoardEvent, "edges"> & {
   /** Latest totals price of every French book. */
   totals: OddsLine[];
   fair: FairMarket[];
@@ -191,28 +217,45 @@ export function oddsErrorsFor(errors: OddsError[], marketKey: string, outcomeNam
   return errors.filter((e) => e.marketKey === marketKey && e.outcomeName === outcomeName && e.point === point);
 }
 
-export function bestPriceByOutcome(lines: OddsLine[]): Map<string, number> {
-  const best = new Map<string, number>();
+/** The line (bookmaker) quoting the highest price for each outcome. */
+export function bestLineByOutcome(lines: OddsLine[]): Map<string, OddsLine> {
+  const best = new Map<string, OddsLine>();
   for (const line of lines) {
     const current = best.get(line.outcomeName);
-    if (current === undefined || line.price > current) best.set(line.outcomeName, line.price);
+    if (current === undefined || line.price > current.price) best.set(line.outcomeName, line);
   }
   return best;
 }
 
-export type ResultBox = { label: "1" | "X" | "2"; price: number | null };
+export function bestPriceByOutcome(lines: OddsLine[]): Map<string, number> {
+  return new Map(Array.from(bestLineByOutcome(lines), ([outcome, line]) => [outcome, line.price]));
+}
 
-/** The three 1/X/2 boxes ZoneStat shows for a match, using the best (French) price per outcome. */
-export function resultBoxes(h2h: OddsLine[], homeTeam: string, awayTeam: string): ResultBox[] {
-  const best = bestPriceByOutcome(h2h);
+export type ResultBox = { label: "1" | "X" | "2"; outcomeName: string; best: OddsLine | null };
+
+/**
+ * The three 1/X/2 boxes ZoneStat shows for a match: the best price per outcome among the
+ * books one can actually bet at (src/lib/bookmakers.ts), since a box is also what gets
+ * clicked into the bet slip — any displayed (French) book's best price when none of those
+ * quotes it.
+ */
+export function resultBoxes(
+  h2h: OddsLine[],
+  homeTeam: string,
+  awayTeam: string,
+  isBettable: (bookmakerKey: string) => boolean
+): ResultBox[] {
+  const bettable = bestLineByOutcome(h2h.filter((line) => isBettable(line.bookmakerKey)));
+  const any = bestLineByOutcome(h2h);
+  const best = (outcomeName: string) => bettable.get(outcomeName) ?? any.get(outcomeName) ?? null;
   return [
-    { label: "1", price: best.get(homeTeam) ?? null },
-    { label: "X", price: best.get("Draw") ?? null },
-    { label: "2", price: best.get(awayTeam) ?? null },
+    { label: "1", outcomeName: homeTeam, best: best(homeTeam) },
+    { label: "X", outcomeName: "Draw", best: best("Draw") },
+    { label: "2", outcomeName: awayTeam, best: best(awayTeam) },
   ];
 }
 
-function toVerdict(edge: Edge): BoardVerdict {
+function toVerdict(edge: Pick<Edge, "marketKey" | "outcomeName" | "point" | "tier" | "bestPrice" | "edge" | "stakeUnits">): BoardVerdict {
   return {
     marketKey: edge.marketKey,
     outcomeName: edge.outcomeName,
@@ -231,7 +274,7 @@ type EventRow = {
   awayTeam: string;
   commenceTime: Date;
   prediction: ModelPrediction | null;
-  edges: Edge[];
+  edges: BoardEdge[];
 };
 
 function toBoardEvent(event: EventRow, lines: OddsLine[], crests: Map<string, string>, now: Date): BoardEvent {
@@ -247,6 +290,7 @@ function toBoardEvent(event: EventRow, lines: OddsLine[], crests: Map<string, st
     oddsErrors: readMarket(lines, event, now).oddsErrors,
     prediction: event.prediction,
     verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
+    edges: event.edges,
   };
 }
 
@@ -275,7 +319,7 @@ async function getUpcomingFallback(): Promise<BoardEvent[]> {
     include: {
       sport: true,
       prediction: true,
-      edges: { where: { isRecommended: true } },
+      edges: BOARD_EDGES,
     },
   });
   return toBoardEvents(events);
@@ -324,7 +368,7 @@ export async function getBoard(opts: {
       include: {
         sport: true,
         prediction: true,
-        edges: { where: { isRecommended: true } },
+        edges: BOARD_EDGES,
       },
     }),
     prisma.odds.aggregate({ _max: { capturedAt: true } }),

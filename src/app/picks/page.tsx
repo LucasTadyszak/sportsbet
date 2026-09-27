@@ -4,7 +4,10 @@ import { formatKickoff } from "@/lib/dates";
 import { formatOdds, formatPct, formatPts, formatSignedPct, formatUnits, marketLabel, outcomeLabel } from "@/lib/labels";
 import { STAKING } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
+import { selectionFor } from "@/lib/selection";
+import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
+import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, ReasonList, StatTile, TierBadge } from "@/components/Verdict";
@@ -25,10 +28,26 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function PickCard({ v }: { v: VerdictListItem }) {
   const top = userLabel(v.tier) === "Top pick";
   const confirmations = v.reasons.filter((r) => r.startsWith("CONFIRM_") || r === "TOO_CONFIDENT" || r === "PARTIAL_DATA");
+  const selection =
+    v.bestPrice !== null && v.bestBookmakerKey !== null
+      ? selectionFor(
+          { id: v.eventId, homeTeam: v.homeTeam, awayTeam: v.awayTeam, commenceTime: v.commenceTime },
+          {
+            marketKey: v.marketKey,
+            outcomeName: v.outcomeName,
+            point: v.point,
+            price: v.bestPrice,
+            bookmakerKey: v.bestBookmakerKey,
+            bookmakerTitle: v.bestBookmakerTitle ?? v.bestBookmakerKey,
+            capturedAt: v.computedAt,
+          },
+          [v]
+        )
+      : null;
+  // The match link is stretched over the card, so the price can be a button of its own.
   return (
-    <Link
-      href={`/match/${v.eventId}`}
-      className={`group flex flex-col gap-4 rounded-xl border border-border border-l-4 bg-bg-elevated p-5 shadow-card transition-colors duration-200 hover:border-accent/70 ${
+    <div
+      className={`group relative flex flex-col gap-4 rounded-xl border border-border border-l-4 bg-bg-elevated p-5 shadow-card transition-colors duration-200 hover:border-accent/70 ${
         top ? "border-l-accent" : "border-l-accent/40"
       }`}
     >
@@ -40,11 +59,14 @@ function PickCard({ v }: { v: VerdictListItem }) {
             <span aria-hidden>·</span>
             {v.sportTitle}
           </span>
-          <span className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg">
+          <Link
+            href={`/match/${v.eventId}`}
+            className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg after:absolute after:inset-0 after:rounded-xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
+          >
             <TeamName name={v.homeTeam} crest={v.homeCrest} />
             <span className="shrink-0 font-normal text-fg-muted">vs</span>
             <TeamName name={v.awayTeam} crest={v.awayCrest} />
-          </span>
+          </Link>
         </div>
         <TierBadge tier={v.tier} />
       </div>
@@ -57,8 +79,12 @@ function PickCard({ v }: { v: VerdictListItem }) {
           </span>
           {v.bestBookmakerTitle ? <span className="text-xs text-fg-muted">chez {v.bestBookmakerTitle}</span> : null}
         </div>
-        <div className="flex flex-col items-end">
-          <span className="font-mono-tabular text-2xl font-bold text-accent-strong">{formatOdds(v.bestPrice)}</span>
+        <div className="relative z-10 flex shrink-0 flex-col items-end gap-1">
+          {selection ? (
+            <OddsButton variant="pick" selection={selection} />
+          ) : (
+            <span className="font-mono-tabular text-2xl font-bold text-accent-strong">{formatOdds(v.bestPrice)}</span>
+          )}
           <span className="text-xs font-medium text-fg-muted">mise {formatUnits(v.stakeUnits)}</span>
         </div>
       </div>
@@ -83,7 +109,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
           Analyse <Icon name="chevron-right" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
         </span>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -115,6 +141,8 @@ export default async function PicksPage() {
             <StatTile label="EV moyenne" value={formatSignedPct(avgEv)} icon="trending-up" />
           </div>
         ) : null}
+
+        {verdicts.length > 0 ? <BankrollPrompt /> : null}
 
         {verdicts.length === 0 ? (
           <EmptyState title="Aucun pick pour l'instant" icon="target">

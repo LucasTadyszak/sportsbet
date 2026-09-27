@@ -9,18 +9,23 @@ import {
   type BoardEvent,
   type StatusFilter,
 } from "@/lib/board";
+import { bookClassifier } from "@/lib/bookmakers";
 import {
   addDays,
   formatDayLabel,
   formatKickoff,
   formatShortDay,
   formatTime,
+  hasKickedOff,
   isValidDateKey,
   parisDateKey,
 } from "@/lib/dates";
-import { oddsErrorLabel, outcomeCode, outcomeLabel } from "@/lib/labels";
+import { oddsErrorsLabel, outcomeCode, outcomeLabel } from "@/lib/labels";
 import { userLabel } from "@/lib/methodology/verdict";
+import { selectionFor } from "@/lib/selection";
+import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
+import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
@@ -38,12 +43,6 @@ function isLive(commenceTime: Date): boolean {
   return elapsedMs >= 0 && elapsedMs <= 3 * 60 * 60 * 1000;
 }
 
-const BOX_OUTCOME_NAME: Record<"1" | "X" | "2", (event: BoardEvent) => string> = {
-  "1": (event) => event.homeTeam,
-  X: () => "Draw",
-  "2": (event) => event.awayTeam,
-};
-
 function LiveBadge() {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-fall">
@@ -57,17 +56,17 @@ function LiveBadge() {
 }
 
 function MatchRow({ event }: { event: BoardEvent }) {
-  const boxes = resultBoxes(event.h2h, event.homeTeam, event.awayTeam);
+  const boxes = resultBoxes(event.h2h, event.homeTeam, event.awayTeam, bookClassifier().isBettable);
+  const kickedOff = hasKickedOff(event.commenceTime);
   const h2hPick = stakedVerdict(event.verdicts, "h2h");
   const picks = [h2hPick, stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
   // 1X2 errors are flagged on their box; the board shows no totals prices, so those get a chip.
   const totalsErrors = groupOddsErrors(event.oddsErrors.filter((e) => e.marketKey === "totals"));
 
+  // Not a link itself: the team names hold the link, stretched over the whole row, so the
+  // 1/X/2 prices can be buttons of their own that add a price to the bet slip.
   return (
-    <Link
-      href={`/match/${event.id}`}
-      className="group/row grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-x-4 gap-y-3 px-4 py-3.5 transition-colors duration-200 hover:bg-bg-row/70 focus-visible:-outline-offset-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto_1rem] sm:px-5"
-    >
+    <div className="group/row relative grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-x-4 gap-y-3 px-4 py-3.5 transition-colors duration-200 hover:bg-bg-row/70 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto_1rem] sm:px-5">
       <div className="flex flex-col">
         {isLive(event.commenceTime) ? (
           <LiveBadge />
@@ -80,10 +79,13 @@ function MatchRow({ event }: { event: BoardEvent }) {
       </div>
 
       <div className="min-w-0">
-        <div className="flex flex-col gap-1 text-[15px] font-semibold text-fg">
+        <Link
+          href={`/match/${event.id}`}
+          className="flex flex-col gap-1 text-[15px] font-semibold text-fg after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
+        >
           <TeamName name={event.homeTeam} crest={event.homeCrest} />
           <TeamName name={event.awayTeam} crest={event.awayCrest} />
-        </div>
+        </Link>
         {picks.length > 0 || totalsErrors.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {picks.map((pick) => (
@@ -100,7 +102,6 @@ function MatchRow({ event }: { event: BoardEvent }) {
               return (
                 <span
                   key={`${first.outcomeName}|${first.point}`}
-                  title={errors.map(oddsErrorLabel).join("\n")}
                   className="inline-flex items-center gap-1 rounded-full bg-bg-row py-0.5 pl-1.5 pr-2"
                 >
                   <Icon name="flame" label="Erreur de cote" className="h-3 w-3 text-flame" />
@@ -115,30 +116,32 @@ function MatchRow({ event }: { event: BoardEvent }) {
         ) : null}
       </div>
 
-      <div className="col-span-2 flex gap-1.5 sm:col-span-1">
+      <div className="relative z-10 col-span-2 flex gap-1.5 sm:col-span-1">
         {boxes.map((box) => {
-          const outcomeName = BOX_OUTCOME_NAME[box.label](event);
-          const isPick = h2hPick !== null && h2hPick.outcomeName === outcomeName;
-          const errors = oddsErrorsFor(event.oddsErrors, "h2h", outcomeName);
-          const tooltip = [
-            isPick && h2hPick ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}` : null,
-            ...errors.map(oddsErrorLabel),
-          ].filter((line) => line !== null);
-          return (
+          const isPick = h2hPick?.outcomeName === box.outcomeName;
+          return box.best ? (
+            <OddsButton
+              key={box.label}
+              variant="box"
+              label={box.label}
+              selection={selectionFor(event, box.best, event.edges)}
+              isPick={isPick}
+              disabled={kickedOff}
+              hint={
+                isPick && h2hPick
+                  ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}`
+                  : undefined
+              }
+              oddsError={oddsErrorsLabel(oddsErrorsFor(event.oddsErrors, "h2h", box.outcomeName))}
+              className="flex-1 py-1.5 sm:w-16 sm:flex-none"
+            />
+          ) : (
             <div
               key={box.label}
-              title={tooltip.length > 0 ? tooltip.join("\n") : undefined}
-              className={`relative flex flex-1 flex-col items-center rounded-lg border px-2 py-1.5 transition-colors duration-200 sm:w-16 sm:flex-none ${
-                isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-elevated group-hover/row:border-fg-muted/30"
-              }`}
+              className="flex flex-1 flex-col items-center rounded-lg border border-border bg-bg-elevated px-2 py-1.5 sm:w-16 sm:flex-none"
             >
-              {errors.length > 0 ? <Icon name="flame" label="Erreur de cote" className="absolute right-1 top-1 h-3 w-3 text-flame" /> : null}
-              <span className={`text-[10px] font-semibold uppercase ${isPick ? "text-accent-strong" : "text-fg-muted"}`}>
-                {box.label}
-              </span>
-              <span className={`font-mono-tabular text-sm font-semibold ${isPick ? "text-accent-strong" : "text-fg"}`}>
-                {box.price ? box.price.toFixed(2) : "—"}
-              </span>
+              <span className="text-[10px] font-semibold uppercase text-fg-muted">{box.label}</span>
+              <span className="font-mono-tabular text-sm font-semibold text-fg-muted">—</span>
             </div>
           );
         })}
@@ -148,7 +151,7 @@ function MatchRow({ event }: { event: BoardEvent }) {
         name="chevron-right"
         className="hidden h-4 w-4 text-fg-muted transition-transform duration-200 group-hover/row:translate-x-0.5 sm:block"
       />
-    </Link>
+    </div>
   );
 }
 
@@ -302,6 +305,7 @@ export default async function Home({
       </div>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+        {shown.some((event) => !hasKickedOff(event.commenceTime)) ? <BankrollPrompt className="mb-6" /> : null}
         {shown.length > 0 ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="text-fg-muted">

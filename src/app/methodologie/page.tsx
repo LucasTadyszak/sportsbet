@@ -276,6 +276,20 @@ export default function MethodologyPage() {
             en unités (1 u = 1 % de la bankroll), arrondi au quart d&apos;unité et plafonné par palier :
           </p>
           <Params rows={Object.entries(STAKING.tierCapUnits).map(([tier, cap]) => [TIER_INFO[tier]?.name ?? tier, `${cap} u max`])} />
+          <p>
+            <strong>Ta sélection.</strong> Indique ta bankroll (elle reste dans ton navigateur) et clique sur les cotes qui
+            t&apos;intéressent — sur le tableau, la fiche d&apos;un match ou les picks : « Ma sélection » affiche pour chacune le
+            pourcentage de ta bankroll à miser, et son montant. C&apos;est le même calcul que pour les picks, mais à la cote que tu
+            as choisie : le verdict du modèle sur cette issue doit être misé (HERO à GOOD BET), la cote ne pas dépasser{" "}
+            {STAKING.maxPrice.toFixed(2)} et l&apos;EV à cette cote atteindre +{pct(STAKING.minEv)} ; sinon, 0 %, avec la raison
+            (et la cote minimale quand seule la marge bloque). Une cote que le modèle ne chiffre pas (compétition non couverte,
+            ligne de totaux secondaire) n&apos;a pas de mise conseillée.
+          </p>
+          <p>
+            En <strong>combiné</strong>, les cotes et les probabilités du modèle se multiplient (matchs supposés indépendants) et
+            la mise est le même Kelly fractionné sur la probabilité jointe, plafonné par la sélection au palier le plus bas.
+            Chaque sélection doit valoir une mise à elle seule, et deux sélections du même match ne se combinent pas.
+          </p>
         </Block>
 
         <Block id="calibration" title="6. Le journal et la boucle de calibration">

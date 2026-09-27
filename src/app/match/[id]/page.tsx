@@ -2,19 +2,24 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
+  bestPriceByOutcome,
   getMatchDetail,
   oddsErrorsFor,
   resultBoxes,
   resultProbabilities,
   totalsProbabilities,
+  type MatchDetail,
   type OddsError,
   type OddsLine,
 } from "@/lib/board";
-import { formatKickoff } from "@/lib/dates";
-import { oddsErrorLabel, outcomeLabel } from "@/lib/labels";
+import { bookClassifier } from "@/lib/bookmakers";
+import { formatKickoff, hasKickedOff } from "@/lib/dates";
+import { oddsErrorsLabel, outcomeLabel } from "@/lib/labels";
 import { ODDS_ERROR, isStakedTier } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
+import { selectionFor } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
+import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 import { TeamCrest } from "@/components/TeamCrest";
 import { TierBadge } from "@/components/Verdict";
@@ -37,7 +42,7 @@ type PickCell = { bookmakerKey: string | null; outcomeName: string; point: numbe
 function OddsErrorFlame({ errors, className = "h-3.5 w-3.5" }: { errors: OddsError[]; className?: string }) {
   if (errors.length === 0) return null;
   return (
-    <span title={errors.map(oddsErrorLabel).join("\n")} className="inline-flex">
+    <span title={oddsErrorsLabel(errors)} className="inline-flex">
       <Icon name="flame" label="Erreur de cote" className={`${className} text-flame`} />
     </span>
   );
@@ -56,11 +61,16 @@ function OddsErrorLegend() {
 }
 
 function OddsTable({
+  match,
   lines,
   outcomeOrder,
   pick,
   errors,
+  kickedOff,
 }: {
+  match: MatchDetail;
+  /** Pre-match prices can't be taken once the match has started. */
+  kickedOff: boolean;
   lines: OddsLine[];
   outcomeOrder: string[];
   /** The price the methodology would take in this market, highlighted. */
@@ -70,11 +80,7 @@ function OddsTable({
 }) {
   const outcomes = outcomeOrder.filter((name) => lines.some((l) => l.outcomeName === name));
   const bookmakers = Array.from(new Map(lines.map((l) => [l.bookmakerKey, l.bookmakerTitle])).entries());
-  const best = new Map<string, number>();
-  for (const line of lines) {
-    const current = best.get(line.outcomeName);
-    if (current === undefined || line.price > current) best.set(line.outcomeName, line.price);
-  }
+  const best = bestPriceByOutcome(lines);
 
   if (bookmakers.length === 0) {
     return <p className="text-sm text-fg-muted">Aucun bookmaker français ne cote encore ce marché.</p>;
@@ -99,25 +105,23 @@ function OddsTable({
               <td className="px-5 py-2.5 text-fg-muted">{bookmakerTitle}</td>
               {outcomes.map((outcome) => {
                 const line = lines.find((l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome);
-                const isBest = line && best.get(outcome) === line.price;
-                const isPick = pick && pick.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
+                const isPick = pick?.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
                 const cellErrors = errors.filter((e) => e.bookmakerKey === bookmakerKey && e.outcomeName === outcome);
                 return (
-                  <td
-                    key={outcome}
-                    className={`px-3 py-2.5 text-right font-mono-tabular ${
-                      isBest ? "font-semibold text-accent-strong" : "text-fg"
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <OddsErrorFlame errors={cellErrors} />
-                      <span
-                        className={isPick ? "rounded border border-accent bg-accent-dim px-1.5 py-0.5" : undefined}
-                        title={isPick ? "La cote que le modèle prendrait" : undefined}
-                      >
-                        {line ? line.price.toFixed(2) : "—"}
-                      </span>
-                    </span>
+                  <td key={outcome} className="px-2 py-1.5 text-right">
+                    {line ? (
+                      <OddsButton
+                        variant="cell"
+                        selection={selectionFor(match, line, match.edges)}
+                        isBest={best.get(outcome) === line.price}
+                        isPick={isPick}
+                        hint={isPick ? "La cote que le modèle prendrait" : undefined}
+                        oddsError={oddsErrorsLabel(cellErrors)}
+                        disabled={kickedOff}
+                      />
+                    ) : (
+                      <span className="px-2 font-mono-tabular text-fg-muted">—</span>
+                    )}
                   </td>
                 );
               })}
@@ -173,9 +177,19 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const hasResults = Boolean(home || draw || away);
 
   const totalsProbs = totalsProbabilities(match);
+  const kickedOff = hasKickedOff(match.commenceTime);
 
   const resume = (
     <div className="flex flex-col gap-6">
+      {kickedOff ? null : (
+        <p className="flex items-start gap-2 rounded-lg bg-accent-dim/50 px-3.5 py-2.5 text-sm text-fg">
+          <Icon name="wallet" className="mt-0.5 h-4 w-4 text-accent-strong" />
+          <span>
+            Clique sur une cote pour l&apos;ajouter à ta sélection : on t&apos;indique quel pourcentage de ta bankroll tu peux y
+            miser.
+          </span>
+        </p>
+      )}
       <p className="text-xs text-fg-muted">Cotes des bookmakers français agréés par l&apos;ANJ, les seuls où parier depuis la France.</p>
 
       <section>
@@ -183,6 +197,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           Résultat (1X2)
         </h3>
         <OddsTable
+          match={match}
+          kickedOff={kickedOff}
           lines={match.h2h}
           outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]}
           pick={pickCell(h2hPick)}
@@ -198,6 +214,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               Total de buts — {point}
             </h3>
             <OddsTable
+              match={match}
+              kickedOff={kickedOff}
               lines={lines}
               outcomeOrder={["Over", "Under"]}
               pick={totalsPick?.point === point ? pickCell(totalsPick) : null}
@@ -349,12 +367,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 
-  const boxes = resultBoxes(match.h2h, match.homeTeam, match.awayTeam);
-  const boxOutcomeName: Record<"1" | "X" | "2", string> = {
-    "1": match.homeTeam,
-    X: "Draw",
-    "2": match.awayTeam,
-  };
+  const boxes = resultBoxes(match.h2h, match.homeTeam, match.awayTeam, bookClassifier().isBettable);
 
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
@@ -390,29 +403,27 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           </p>
           <div className="mx-auto mt-5 flex max-w-xs justify-center gap-2">
             {boxes.map((box) => {
-              const isPick = h2hPick?.outcomeName === boxOutcomeName[box.label];
-              const errors = oddsErrorsFor(match.oddsErrors, "h2h", boxOutcomeName[box.label]);
-              const tooltip = [
-                isPick && h2hPick ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}` : null,
-                ...errors.map(oddsErrorLabel),
-              ].filter((line) => line !== null);
-              return (
-                <div
+              const isPick = h2hPick?.outcomeName === box.outcomeName;
+              return box.best ? (
+                <OddsButton
                   key={box.label}
-                  title={tooltip.length > 0 ? tooltip.join("\n") : undefined}
-                  className={`relative flex flex-1 flex-col items-center rounded-lg border px-2 py-2 ${
-                    isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-elevated"
-                  }`}
-                >
-                  {errors.length > 0 ? <Icon name="flame" label="Erreur de cote" className="absolute right-1 top-1 h-3 w-3 text-flame" /> : null}
-                  <span className={`text-[10px] font-semibold uppercase ${isPick ? "text-accent-strong" : "text-fg-muted"}`}>{box.label}</span>
-                  <span
-                    className={`font-mono-tabular text-sm font-semibold ${
-                      isPick ? "text-accent-strong" : "text-fg"
-                    }`}
-                  >
-                    {box.price ? box.price.toFixed(2) : "—"}
-                  </span>
+                  variant="box"
+                  label={box.label}
+                  selection={selectionFor(match, box.best, match.edges)}
+                  isPick={isPick}
+                  disabled={kickedOff}
+                  hint={
+                    isPick && h2hPick
+                      ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}`
+                      : undefined
+                  }
+                  oddsError={oddsErrorsLabel(oddsErrorsFor(match.oddsErrors, "h2h", box.outcomeName))}
+                  className="flex-1 py-2"
+                />
+              ) : (
+                <div key={box.label} className="flex flex-1 flex-col items-center rounded-lg border border-border bg-bg-elevated px-2 py-2">
+                  <span className="text-[10px] font-semibold uppercase text-fg-muted">{box.label}</span>
+                  <span className="font-mono-tabular text-sm font-semibold text-fg-muted">—</span>
                 </div>
               );
             })}

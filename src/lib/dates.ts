@@ -39,6 +39,11 @@ export function addDays(dateKey: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Kicked off already: its pre-match odds are no longer on offer. */
+export function hasKickedOff(commenceTime: Date, now = new Date()): boolean {
+  return commenceTime.getTime() <= now.getTime();
+}
+
 export function isValidDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(parisStartOfDay(value).getTime());
 }
