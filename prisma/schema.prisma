@@ -81,6 +81,33 @@ model NationalTeam {
   @@map("national_teams")
 }
 
+// Every match of a competition followed through Free API Live Football Data (FotMob ids, see
+// src/lib/liveCompetitions.ts), priced by The Odds API or not: the season's fixtures from each
+// league's list, and while a match is on, its score and clock from the live feed
+// (src/lib/refreshLiveMatches.ts). The board shows them all, a priced one alongside its Event
+// (src/lib/matchPairing.ts).
+model LiveMatch {
+  id            Int       @id // the API's match id (its `eventid`)
+  leagueId      Int // league id of the followed competition it was listed under
+  kickoff       DateTime
+  homeTeamId    Int? // the API's team ids: their logos
+  homeTeam      String
+  awayTeamId    Int?
+  awayTeam      String
+  homeScore     Int? // once the match has started
+  awayScore     Int?
+  status        String // scheduled | live | finished | postponed | cancelled | abandoned
+  halftime      Boolean   @default(false)
+  minute        String? // match clock while live, e.g. "37'"
+  reason        String? // the API's short status label: "FT", "AET", "Pen"…
+  liveUpdatedAt DateTime? // last time the live feed reported it
+  updatedAt     DateTime  @updatedAt
+
+  @@index([kickoff])
+  @@index([leagueId, kickoff])
+  @@map("live_matches")
+}
+
 // Every men's full international of the dataset, 1872 onwards. Feeds the national-team Elo
 // and goals model, and grades picks on national-team events (90-minute score, like clubs).
 model InternationalMatch {

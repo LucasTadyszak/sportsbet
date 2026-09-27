@@ -1,24 +1,28 @@
-import Image from "next/image";
+import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
+import { RemoteLogo } from "@/components/RemoteLogo";
 
-/** A logo shown next to the name it stands for, so decorative (empty alt). */
-function Logo({ src, size }: { src: string; size: number }) {
-  return <Image src={src} alt="" width={size} height={size} className="shrink-0 object-contain" style={{ width: size, height: size }} />;
+/** A logo shown next to the name it stands for, so decorative (empty alt); `fallback` if it doesn't load. */
+function Logo({ src, size, fallback = null }: { src: string; size: number; fallback?: ReactNode }) {
+  return <RemoteLogo src={src} size={size} className="shrink-0 object-contain" style={{ width: size, height: size }} fallback={fallback} />;
+}
+
+function Shield({ size }: { size: number }) {
+  return (
+    <span aria-hidden className="flex shrink-0 items-center justify-center text-fg-muted/40" style={{ width: size, height: size }}>
+      <Icon name="shield" className="h-[85%] w-[85%]" />
+    </span>
+  );
 }
 
 /**
  * A club's crest (src/lib/crests.ts). Always rendered next to the club's name, so it's
- * decorative (empty alt); a club without one gets a faint shield to keep names aligned.
+ * decorative (empty alt); a club without one, or whose logo doesn't load, gets a faint
+ * shield to keep names aligned.
  */
 export function TeamCrest({ src, size = 18 }: { src: string | null; size?: number }) {
-  if (!src) {
-    return (
-      <span aria-hidden className="flex shrink-0 items-center justify-center text-fg-muted/40" style={{ width: size, height: size }}>
-        <Icon name="shield" className="h-[85%] w-[85%]" />
-      </span>
-    );
-  }
-  return <Logo src={src} size={size} />;
+  if (!src) return <Shield size={size} />;
+  return <Logo src={src} size={size} fallback={<Shield size={size} />} />;
 }
 
 /** A club name with its crest in front, truncated to fit lists and table cells. */

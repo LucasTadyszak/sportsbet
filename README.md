@@ -13,6 +13,13 @@ gradation nocturne contre la cote de clôture (CLV) et boucle de calibration.
 Le détail, avec les valeurs exactes des paramètres, est sur la page `/methodologie`
 du site et dans `src/lib/methodology/config.ts`.
 
+Le tableau affiche **tous les matchs** des cinq grands championnats européens (Premier
+League, LaLiga, Serie A, Bundesliga, Ligue 1), des coupes d'Europe et des compétitions de
+sélections — Coupe du monde, Euro, Ligue des nations, qualifications, phases finales
+continentales et amicaux internationaux —, avec leur score en direct, grâce à
+[Free API Live Football Data](https://rapidapi.com/Creativesdev/api/free-api-live-football-data)
+(RapidAPI) ; ceux que The Odds API cote ont en plus leurs cotes et le verdict du modèle.
+
 Seuls les bookmakers français (agréés ANJ) sont affichés et proposés comme meilleure
 cote ; Pinnacle, les exchanges et les autres books européens ne servent qu'au
 consensus. Une flamme signale une **erreur de cote** : une cote française au moins 5 %
@@ -31,9 +38,8 @@ football-data.org en secours pour les clubs.
 - **football-data.org** comme source de statistiques (classements, forme, buts)
 - **international_results** (domaine public, CSV sur GitHub) pour les résultats des sélections nationales
 - **TheSportsDB** comme source des logos des clubs et des compétitions (clé publique gratuite)
-- **Free API Live Football Data** (RapidAPI) : scores en direct, compositions, stats de
-  match… pour 2100+ ligues — client en place, plafonné à 1000 requêtes par heure, pas
-  encore branché sur l'UI
+- **Free API Live Football Data** (RapidAPI, données FotMob) : calendrier, résultats et
+  scores en direct de toutes les compétitions suivies, plafonné à 1000 requêtes par heure
 
 > Next build/dev tournent avec `--webpack` : la version de Turbopack livrée
 > avec Next 16.3.6 casse le chargement de `next/font/google` dans cet
@@ -43,7 +49,7 @@ football-data.org en secours pour les clubs.
 
 ```
 prisma/schema.prisma        # Sport, Event, Team, Bookmaker, Odds, ApiUsageLog, FetchLog,
-                             # TeamStats, MatchPrediction
+                             # TeamStats, MatchPrediction, LiveMatch…
 src/lib/prisma.ts           # client Prisma (singleton, driver adapter pg)
 
 # Cotes (The Odds API)
@@ -79,8 +85,14 @@ src/lib/logoMatch.ts        # quelle équipe TheSportsDB est la nôtre (sport, n
 src/lib/refreshLogos.ts     # logo de chaque compétition (Sport.logo) et de chaque club des matchs récents/à venir (Team.logo)
 scripts/refresh-logos.ts    # point d'entrée CLI : tous les logos dus d'un coup (npm run refresh:logos)
 
-# Données live (Free API Live Football Data, RapidAPI)
+# Tous les matchs et scores en direct (Free API Live Football Data, RapidAPI)
 src/lib/liveFootballApi.ts  # client (x-rapidapi-key/host) + plafond de requêtes par heure glissante, partagé via la base
+src/lib/liveCompetitions.ts # compétitions suivies : id de ligue FotMob -> clé de compétition du tableau
+src/lib/liveMatches.ts      # lecture des réponses (où qu'y soient les matchs), statut d'un match, quand relire
+src/lib/refreshLiveMatches.ts # liste de chaque ligue due + flux live -> LiveMatch (réservé dans FetchLog)
+src/lib/matchPairing.ts     # quel LiveMatch est le même match qu'un Event coté (compétition, horaire, noms)
+scripts/refresh-live-matches.ts # point d'entrée CLI (npm run refresh:matches)
+src/app/api/refresh-matches/ # endpoint HTTP protégé par CRON_SECRET, pour un pinger
 scripts/live-football.ts    # appelle un endpoint et affiche le JSON (tester la clé, voir une vraie réponse)
 
 # Méthodologie (fonctions pures, testées : npm test)
@@ -114,7 +126,9 @@ src/lib/journal.ts, src/lib/modelHealth.ts, src/lib/labels.ts  # lectures + libe
 src/lib/competitions.ts     # identité de chaque compétition : nom FR, drapeau, dégradé et motif de son bandeau
 src/components/TeamCrest.tsx # logo d'un club à côté de son nom (bouclier neutre s'il n'y en a pas), logo d'une compétition
 src/components/Competition.tsx # logo de la compétition (sinon icône sport + drapeau rond), bandeau et motif d'une compétition
-src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, cadre aux couleurs des clubs, tuiles 1/N/2
+src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, cadre aux couleurs des clubs, tuiles 1/N/2, score en direct
+src/components/LiveRefresh.tsx # rafraîchit le tableau chaque minute tant qu'un match suivi est en cours
+src/components/RemoteLogo.tsx # logo distant, remplacé par le bouclier (club) ou sport + drapeau (compétition) s'il ne charge pas
 src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue
 src/lib/betSlip.ts          # état de la sélection et de la bankroll, dans le localStorage du navigateur
 src/components/OddsButton.tsx # une cote cliquable (tuiles 1/N/2, tableau de cotes, picks), flamme d'erreur de cote comprise
@@ -156,6 +170,65 @@ rien de plus en base. Les pages
 `/picks`, `/passes`, `/historique`, `/modele` et `/methodologie` reprennent les
 écrans de Lakeshore Edge (slate, No-Bet Center, Track Record, Model Health,
 Methodology).
+
+### Tous les matchs (Free API Live Football Data)
+
+The Odds API ne cote qu'une poignée de compétitions sur son plan gratuit : le calendrier vient
+donc de [Free API Live Football Data](https://rapidapi.com/Creativesdev/api/free-api-live-football-data),
+qui relaie les données de FotMob (identifiants de ligue et d'équipe compris). Compétitions
+suivies (`LIVE_COMPETITIONS` dans `src/lib/liveCompetitions.ts`, par id de ligue FotMob) :
+
+| Compétitions | Ids |
+| --- | --- |
+| Premier League, LaLiga, Serie A, Bundesliga, Ligue 1 | 47, 87, 55, 54, 53 |
+| Ligue des champions, Ligue Europa, Ligue Conférence | 42, 73, 10216 |
+| Coupe du monde, Euro | 77, 50 |
+| Ligue des nations A, B, C, D | 9806, 9807, 9808, 9809 |
+| Qualifs Mondial Europe, Amérique du Sud, Afrique, Asie, CONCACAF | 10195, 10199, 10196, 10197, 10198 |
+| Qualifs Euro | 10607 |
+| Copa América, CAN, Coupe d'Asie, Gold Cup | 44, 289, 290, 298 |
+| Amicaux internationaux (sélections) | 114 |
+
+Chaque compétition s'affiche sous la clé The Odds API quand celle-ci l'a (`soccer_epl`…), sinon
+sous une clé du même style (`soccer_international_friendlies`…), avec son nom et son bandeau
+(`src/lib/competitions.ts`). `LIVE_FOOTBALL_LEAGUE_IDS` restreint la liste (ex. `47,87,55,54,53`
+pour les cinq championnats seuls ; vide pour aucune) ; ajouter une compétition, c'est une ligne
+de plus dans la table (l'id est dans l'URL de sa page sur fotmob.com).
+
+Deux sortes de requêtes, stockées dans `LiveMatch` :
+- la **liste d'une ligue** (`/football-get-all-matches-by-league`) : toute sa saison, calendrier
+  et résultats, en une requête. Elle est relue toutes les 12 h, toutes les heures quand la
+  compétition joue aujourd'hui ou demain (les horaires bougent), toutes les 10 min quand un
+  match aurait dû commencer, toutes les 3 min quand un match en cours a quitté le flux live
+  (il vient de finir : score final) ;
+- le **flux live** (`/football-current-live`) : tous les matchs en cours dans le monde, en une
+  requête, lu au plus une fois par minute et seulement quand un match suivi est en cours ou va
+  commencer. Il donne le score et la minute ; les matchs non suivis sont ignorés.
+
+Une journée chargée coûte donc quelques dizaines de requêtes par heure, loin du plafond. Tout
+passe par le chargement du tableau : ce qui est dû est lu en parallèle, la page attend au plus
+3 s puis s'affiche avec ce qu'elle a, et la lecture se termine après la réponse (`after()`).
+Chaque lecture est réservée dans `FetchLog` avant de partir : plusieurs pages ouvertes en même
+temps (ou un cron) ne font jamais deux fois la même requête. Une lecture qui échoue est retentée
+5 min plus tard ; au plafond horaire, plus rien ne part jusqu'à ce qu'une place se libère. Sans
+`RAPIDAPI_KEY`, rien n'est lu et le tableau n'affiche que les matchs cotés, comme avant.
+
+Un match que les deux sources connaissent n'apparaît qu'une fois (`src/lib/matchPairing.ts`) :
+même compétition, coups d'envoi à moins de 6 h d'écart, et noms d'équipe qui concordent après
+normalisation (alias des clubs, variantes des pays : « USA » / « United States »), dans un sens
+ou dans l'autre (terrain neutre : le score est alors remis dans le bon sens). À défaut de noms
+reconnus, deux matchs seuls dans le même créneau de la même compétition sont appariés ; jamais
+sur une supposition quand plusieurs matchs partagent ce créneau. Le bloc garde alors ses cotes,
+ses picks et sa page, et gagne le score en direct.
+
+Un match sans cotes a le même bloc (bandeau de la compétition, logos), sans tuiles 1/N/2 ni page
+de détail. Tous affichent, selon l'état donné par l'API : l'heure du coup d'envoi, le score et
+la minute (ou « Mi-temps ») en direct, le score final (« Terminé », « Après prol. », « Tirs au
+but »), ou l'heure barrée d'un match « Reporté » / « Annulé ». Le filtre **En cours** suit cet
+état (plus seulement l'heure du coup d'envoi), et tant qu'un match suivi est en cours ou commence
+dans les 10 min, le tableau se rafraîchit tout seul chaque minute. Les logos viennent du CDN
+d'images de FotMob (`images.fotmob.com`, par id d'équipe et de ligue, sans requête à l'API) ;
+un logo qui ne charge pas laisse place au bouclier neutre.
 
 ### Ma sélection : combien miser
 
@@ -348,6 +421,9 @@ Variables utiles en plus des clés :
   personnelle TheSportsDB (Patreon) si la clé partagée est trop limitée.
 - `LIVE_FOOTBALL_MAX_REQUESTS_PER_HOUR` (défaut 1000) : plafond d'appels à Free API
   Live Football Data sur une heure glissante.
+- `LIVE_FOOTBALL_LEAGUE_IDS` : ids de ligue FotMob des compétitions dont le tableau affiche
+  tous les matchs, parmi celles de `src/lib/liveCompetitions.ts` (par défaut toutes : voir
+  « Tous les matchs » ; vide pour aucune).
 
 Sports suivis par défaut : `soccer_epl,soccer_uefa_champs_league` côté clubs, plus
 les compétitions de sélections (voir « Sélections nationales »). Pour suivre d'autres
@@ -365,8 +441,12 @@ Clé football-data.org gratuite : à récupérer sur
 Clé RapidAPI (`RAPIDAPI_KEY`, la même pour toutes les API RapidAPI du compte) : s'abonner
 au plan gratuit de
 [Free API Live Football Data](https://rapidapi.com/Creativesdev/api/free-api-live-football-data)
-puis copier la valeur `x-rapidapi-key` de ses exemples de code. Seule la partie qui
-appelle cette API en a besoin.
+puis copier la valeur `x-rapidapi-key` de ses exemples de code. Sans elle, le tableau
+n'affiche que les matchs cotés par The Odds API. Après l'avoir renseignée, `npm run
+refresh:matches -- --force` récupère d'un coup toutes les compétitions suivies (une requête
+chacune) ; une ligne « no match found » signale une réponse dont aucun match n'a pu être lu :
+`npm run live-football -- /football-get-all-matches-by-league leagueid=47` montre la réponse
+brute.
 
 ### Déclencher un refresh manuellement
 
@@ -376,6 +456,8 @@ npm run refresh:stats   # classements + résultats + notes + probabilités (foot
 npm run nightly         # résultats récents, gradation des picks, calibration, verdicts
 npm run refresh:edges   # verdicts seuls, sans appel API (après un changement dans config.ts)
 npm run refresh:logos   # logos des compétitions et des clubs (TheSportsDB), tous ceux qui sont dus
+npm run refresh:matches # matchs des compétitions suivies + scores en direct (Free API Live Football Data), ce qui est dû
+npm run refresh:matches -- --force   # la liste de chaque compétition, même fraîche (première synchro)
 npm test                # tests unitaires de la méthodologie
 npm run live-football -- /football-current-live   # un endpoint de Free API Live Football Data, JSON brut (compte dans le plafond)
 ```
@@ -386,6 +468,7 @@ ou en HTTP (utile pour tester les endpoints que le cron appellera) :
 curl "http://localhost:3000/api/refresh-odds?secret=$CRON_SECRET"
 curl "http://localhost:3000/api/refresh-stats?secret=$CRON_SECRET"
 curl "http://localhost:3000/api/nightly?secret=$CRON_SECRET"
+curl "http://localhost:3000/api/refresh-matches?secret=$CRON_SECRET"
 ```
 
 ## Déploiement sur Render
@@ -396,7 +479,11 @@ curl "http://localhost:3000/api/nightly?secret=$CRON_SECRET"
    - Build command : `npm install && npm run build`
    - Start command : `npm run start`
    - Variables d'environnement : `DATABASE_URL` (l'URL interne ci-dessus),
-     `ODDS_API_KEY`, `FOOTBALL_DATA_API_KEY`, `CRON_SECRET`, `NODE_ENV=production`.
+     `ODDS_API_KEY`, `FOOTBALL_DATA_API_KEY`, `RAPIDAPI_KEY`, `CRON_SECRET`, `NODE_ENV=production`.
+     Le site met lui-même à jour les matchs et les scores en direct quand on le consulte ; pour
+     qu'ils avancent aussi quand personne n'y est, un pinger HTTP (cron-job.org, UptimeRobot…)
+     peut appeler `/api/refresh-matches?secret=…` toutes les 1–2 min : il ne fait une requête
+     que quand quelque chose est dû.
    - `npm run postinstall` (généré Prisma Client) et les migrations doivent
      être appliquées avant le premier démarrage — soit en lançant une fois
      `npm run db:migrate:deploy` depuis le shell Render, soit en l'ajoutant
@@ -422,10 +509,9 @@ curl "http://localhost:3000/api/nightly?secret=$CRON_SECRET"
 
 ## Roadmap
 
-- Scores en direct sur le tableau (le filtre « En cours » est aujourd'hui une
-  heuristique sur l'heure du coup d'envoi) et compositions sur la page match, via
-  Free API Live Football Data : client et plafond déjà en place
-  (`src/lib/liveFootballApi.ts`), reste à rapprocher ses matchs des `Event`.
+- Page de détail pour les matchs sans cotes, et compositions, stats et événements du match
+  (buteurs, cartons) sur la page match, via Free API Live Football Data : ses matchs sont
+  déjà en base (`LiveMatch`) et rapprochés des `Event`.
 - Données qui manquent au modèle pour les « facteurs structurels » : compositions
   probables et absents, xG, calendrier complet (coupes nationales) pour le repos,
   météo. Voir la section « Limites connues » de `/methodologie`.

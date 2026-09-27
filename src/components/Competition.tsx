@@ -1,11 +1,12 @@
 // A competition's identity on the board (src/lib/competitions.ts): its logo when TheSportsDB
-// has one (src/lib/refreshLogos.ts), else its sport and round flag side by side, as bookmakers
-// mark a competition; and the motif its header band wears. Everything here is decorative: the
-// competition is always named in text next to it.
-import Image from "next/image";
+// has one (src/lib/refreshLogos.ts) — or FotMob, for a competition only Free API Live Football
+// Data brings — else its sport and round flag side by side, as bookmakers mark a competition;
+// and the motif its header band wears. Everything here is decorative: the competition is always
+// named in text next to it.
 import type { ReactNode } from "react";
 import type { CompetitionTheme, FlagCode, Motif } from "@/lib/competitions";
 import { Icon } from "@/components/Icon";
+import { LogoDisc } from "@/components/RemoteLogo";
 
 // 20×20 flags, clipped round by their wrapper. Simplified to what reads at 16px.
 const FLAGS: Record<FlagCode, ReactNode> = {
@@ -108,22 +109,16 @@ export function RoundFlag({ code, size = 16 }: { code: FlagCode; size?: number }
 }
 
 /**
- * The competition's logo on a white disc, or else sport + flag overlapping — the bookmakers'
- * way of marking a competition. Both take the same width, so names line up in a list.
+ * The competition's logo on a white disc, or else — no logo, or one that doesn't load — sport +
+ * flag overlapping, the bookmakers' way of marking a competition. Both take the same width, so
+ * names line up in a list.
  */
 export function CompetitionIcon({ theme, logo = null, size = 18 }: { theme: CompetitionTheme; logo?: string | null; size?: number }) {
-  if (logo) {
-    return (
-      <span aria-hidden className="inline-flex shrink-0 items-center justify-center" style={{ width: size * 2 - 4, height: size }}>
-        <span
-          className="flex items-center justify-center rounded-full bg-white ring-1 ring-fg/15"
-          style={{ width: size + 4, height: size + 4 }}
-        >
-          <Image src={logo} alt="" width={size} height={size} className="object-contain" style={{ width: size - 2, height: size - 2 }} />
-        </span>
-      </span>
-    );
-  }
+  if (logo) return <LogoDisc src={logo} size={size} fallback={<SportAndFlag theme={theme} size={size} />} />;
+  return <SportAndFlag theme={theme} size={size} />;
+}
+
+function SportAndFlag({ theme, size }: { theme: CompetitionTheme; size: number }) {
   return (
     <span aria-hidden className="inline-flex shrink-0 items-center">
       <span

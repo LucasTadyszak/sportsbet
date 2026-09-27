@@ -31,6 +31,11 @@ function apiKey(): string {
   return key;
 }
 
+/** Whether a RapidAPI key is set: without one, nothing is fetched and the board only shows priced matches. */
+export function isLiveFootballConfigured(): boolean {
+  return Boolean(process.env.RAPIDAPI_KEY);
+}
+
 function maxRequestsPerHour(): number {
   const raw = process.env.LIVE_FOOTBALL_MAX_REQUESTS_PER_HOUR?.trim();
   if (!raw) return DEFAULT_MAX_REQUESTS_PER_HOUR;

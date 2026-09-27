@@ -1,16 +1,46 @@
 import Link from "next/link";
-import { getBoard, groupByCompetition, groupOddsErrors, stakedVerdict, type BoardEvent, type StatusFilter } from "@/lib/board";
+import { after } from "next/server";
+import { boardPhase, getBoard, groupByCompetition, groupOddsErrors, stakedVerdict, type BoardEvent, type StatusFilter } from "@/lib/board";
 import { byRank, competitionTheme, type CompetitionTheme } from "@/lib/competitions";
 import { addDays, formatDayLabel, formatKickoff, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
 import { upperFirst } from "@/lib/labels";
+import { describeLiveRefresh, liveRefreshFailed, refreshLiveMatches } from "@/lib/refreshLiveMatches";
 import { BankrollPrompt } from "@/components/BetSlip";
 import { CompetitionIcon } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
+import { LiveRefresh } from "@/components/LiveRefresh";
 import { MatchCard } from "@/components/MatchCard";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
+
+// How long a page waits for Free API Live Football Data before rendering with what it has: the
+// rest of the refresh finishes after the response, and shows from the next render on.
+const LIVE_SYNC_WAIT_MS = 3000;
+// While a followed match is on, or kicks off within KICKOFF_SOON_MS, the board re-renders itself this often.
+const LIVE_REFRESH_MS = 60_000;
+const KICKOFF_SOON_MS = 10 * 60_000;
+
+/** Fixtures and live scores of the followed competitions: whatever is due (src/lib/refreshLiveMatches.ts). */
+async function syncLiveMatches() {
+  const sync = refreshLiveMatches().then((summary) => {
+    if (liveRefreshFailed(summary)) console.warn(`Free API Live Football Data refresh:\n${describeLiveRefresh(summary)}`);
+  });
+  after(() => sync);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([sync, new Promise((resolve) => (timer = setTimeout(resolve, LIVE_SYNC_WAIT_MS)))]);
+  clearTimeout(timer);
+}
+
+/** A followed match on screen is on, or about to kick off: its score is worth watching. */
+function hasLiveAction(events: BoardEvent[], now = Date.now()): boolean {
+  return events.some((event) => {
+    if (!event.live) return false;
+    const phase = boardPhase(event);
+    return phase === "live" || (phase === "upcoming" && event.commenceTime.getTime() - now <= KICKOFF_SOON_MS);
+  });
+}
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Tout" },
@@ -286,6 +316,14 @@ function MatchGroups({ events }: { events: BoardEvent[] }) {
   );
 }
 
+/** Why the next matches are shown instead of the day's: nothing matches the day and tab viewed. */
+function noMatchLine(current: BoardQuery): string {
+  const day = formatDayLabel(current.date).toLowerCase();
+  if (current.status === "live") return "Aucun match en cours.";
+  if (current.status === "upcoming") return `Aucun match à venir pour ${day}.`;
+  return `Aucun match programmé pour ${day}.`;
+}
+
 function countPicks(events: BoardEvent[]): number {
   return events.reduce(
     (n, e) => n + (stakedVerdict(e.verdicts, "h2h") ? 1 : 0) + (stakedVerdict(e.verdicts, "totals") ? 1 : 0),
@@ -312,7 +350,12 @@ export default async function Home({
     comp: params.comp || undefined,
   };
 
-  const { events, lastCapturedAt, upcomingFallback } = await getBoard({ dateKey: current.date, status: current.status, query: current.q ?? "" });
+  await syncLiveMatches();
+  const { events, lastCapturedAt, upcomingFallback, hasMatches } = await getBoard({
+    dateKey: current.date,
+    status: current.status,
+    query: current.q ?? "",
+  });
   // The competition filter applies on top of the day's matches, so the list can still count every competition.
   const inCompetition = (list: BoardEvent[]) => (current.comp ? list.filter((e) => e.sportKey === current.comp) : list);
   const dayOrNext = events.length > 0 ? events : upcomingFallback;
@@ -351,7 +394,9 @@ export default async function Home({
             {entries.length > 0 ? <CompetitionChips entries={entries} total={dayOrNext.length} current={current} /> : null}
           </div>
 
-          {shown.some((event) => !hasKickedOff(event.commenceTime)) ? <BankrollPrompt /> : null}
+          {hasLiveAction(shown) ? <LiveRefresh everyMs={LIVE_REFRESH_MS} /> : null}
+
+          {shown.some((event) => event.priced && !hasKickedOff(event.commenceTime)) ? <BankrollPrompt /> : null}
 
           {shown.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -409,24 +454,23 @@ export default async function Home({
             <div className="flex flex-col gap-4">
               <p className="flex items-start gap-2 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm text-fg-muted shadow-card">
                 <Icon name="clock" className="mt-0.5 h-4 w-4" />
-                <span>
-                  Aucun match programmé pour {formatDayLabel(current.date).toLowerCase()} côté The Odds API
-                  {lastCapturedAt ? ` (cotes synchronisées ${formatKickoff(lastCapturedAt)})` : ""}. Voici les prochains matchs.
-                </span>
+                <span>{noMatchLine(current)} Voici les prochains matchs.</span>
               </p>
               <MatchGroups events={shown} />
             </div>
-          ) : lastCapturedAt ? (
+          ) : hasMatches ? (
             <EmptyState title="Aucun match à venir" icon="clock">
-              Les cotes sont bien synchronisées ({formatKickoff(lastCapturedAt)}), mais aucun match n&apos;est actuellement
-              programmé côté The Odds API.
+              Aucun match n&apos;est actuellement programmé dans les compétitions suivies
+              {lastCapturedAt ? ` (cotes synchronisées ${formatKickoff(lastCapturedAt)})` : ""}.
             </EmptyState>
           ) : (
-            <EmptyState title="Aucune cote en base pour l'instant">
-              Lance une première synchronisation avec{" "}
+            <EmptyState title="Aucun match en base pour l'instant">
+              Renseigne <code className="text-fg">RAPIDAPI_KEY</code> dans <code className="text-fg">.env</code> : les matchs des
+              compétitions suivies arrivent au chargement de cette page, ou tous d&apos;un coup avec{" "}
+              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">npm run refresh:matches</code>.
+              Les cotes viennent de{" "}
               <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">npm run refresh:odds</code>{" "}
-              (nécessite <code className="text-fg">ODDS_API_KEY</code> et <code className="text-fg">DATABASE_URL</code> dans{" "}
-              <code className="text-fg">.env</code>).
+              (nécessite <code className="text-fg">ODDS_API_KEY</code>).
             </EmptyState>
           )}
         </main>

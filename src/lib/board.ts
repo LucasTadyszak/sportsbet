@@ -1,11 +1,15 @@
 import { cache } from "react";
-import type { Edge, MatchPrediction } from "@/generated/prisma/client";
+import type { Edge, LiveMatch, MatchPrediction } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { bookRole, isFrenchBook } from "@/lib/bookmakers";
 import { teamLooksByName, type TeamLook } from "@/lib/crests";
 import { addDays, parisStartOfDay } from "@/lib/dates";
 import { findEventResult } from "@/lib/eventResults";
+import { followedLiveCompetitions, liveCompetition } from "@/lib/liveCompetitions";
+import { isLiveFootballConfigured } from "@/lib/liveFootballApi";
+import { fotmobLeagueLogo, fotmobTeamLogo, matchPhase, type LiveStatus } from "@/lib/liveMatches";
 import { servableLogo } from "@/lib/logoMatch";
+import { isSwapped, pairMatches, type PairingMatch } from "@/lib/matchPairing";
 import { isStakedTier } from "@/lib/methodology/config";
 import { detectOddsErrors, marketConsensus, type BookQuote } from "@/lib/methodology/oddsErrors";
 import type { OutcomeEdge } from "@/lib/selection";
@@ -78,9 +82,25 @@ const BOARD_EDGES = {
   select: BOARD_EDGE_FIELDS,
 };
 
+/** Where a match stands according to Free API Live Football Data (src/lib/liveMatches.ts). */
+export type LiveScore = {
+  status: LiveStatus;
+  /** Once it has started, from the board's home side's point of view. */
+  homeScore: number | null;
+  awayScore: number | null;
+  halftime: boolean;
+  /** Match clock while live, e.g. "37'". */
+  minute: string | null;
+  /** The API's short label of how it ended: "FT", "AET", "Pen"… */
+  reason: string | null;
+};
+
 export type BoardEvent = {
+  /** The Event's id, or `live-<LiveMatch id>` for a match only Free API Live Football Data lists. */
   id: string;
-  /** The Odds API sport_key: the competition, whose look the match block takes (src/lib/competitions.ts). */
+  /** Priced by The Odds API: it has odds, the model's verdicts and a match page. */
+  priced: boolean;
+  /** The competition, whose look the match block takes (src/lib/competitions.ts): The Odds API sport_key, or ours. */
   sportKey: string;
   sportTitle: string;
   /** The competition's logo (src/lib/refreshLogos.ts). */
@@ -103,26 +123,24 @@ export type BoardEvent = {
   verdicts: BoardVerdict[];
   /** The model's verdict on each priced outcome, so a price clicked into the slip can be sized. */
   edges: OutcomeEdge[];
+  /** Score and state, when Free API Live Football Data follows the competition (src/lib/liveCompetitions.ts). */
+  live: LiveScore | null;
 };
 
 /** The 90-minute score (what bookmakers settle on and the goals model predicts). */
 export type FinalScore = { home: number; away: number };
 
-export type MatchDetail = Omit<BoardEvent, "edges"> & {
+export type MatchDetail = Omit<BoardEvent, "edges" | "priced" | "live"> & {
   /** Latest totals price of every French book. */
   totals: OddsLine[];
   fair: FairMarket[];
   edges: Edge[];
   predictionDetail: MatchPrediction | null;
-  /** Once the results source reports the match finished — there is no live score feed. */
+  /** Once the results source reports the match finished (the board's live scores aren't used here). */
   finalScore: FinalScore | null;
 };
 
 export type StatusFilter = "all" | "upcoming" | "live";
-
-// No live score feed is wired up (The Odds API only provides pre-match odds), so
-// "live" is a heuristic: kicked off recently enough that it could still be on.
-const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 // A book missing from an event's latest sync has pulled (or stopped quoting) that line: its
 // last price is still displayed, but it's no longer part of the market prices are judged on.
@@ -304,6 +322,7 @@ function toBoardEvent(event: EventRow, lines: OddsLine[], looks: Map<string, Tea
   const { fair, oddsErrors } = readMarket(lines, event, now);
   return {
     id: event.id,
+    priced: true,
     sportKey: event.sportKey,
     sportTitle: event.sport.title,
     sportLogo: servableLogo(event.sport.logo),
@@ -317,6 +336,7 @@ function toBoardEvent(event: EventRow, lines: OddsLine[], looks: Map<string, Tea
     prediction: event.prediction,
     verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
     edges: event.edges,
+    live: null,
   };
 }
 
@@ -334,61 +354,173 @@ export function stakedVerdict(verdicts: BoardVerdict[], marketKey: string): Boar
   return verdicts.find((v) => v.marketKey === marketKey && isStakedTier(v.tier)) ?? null;
 }
 
+/** Where a board match stands: the API's status when it follows the match, else guessed from the kick-off. */
+export function boardPhase(event: Pick<BoardEvent, "commenceTime" | "live">, now = new Date()) {
+  return matchPhase(event.commenceTime, event.live, now);
+}
+
+function toLiveScore(match: LiveMatch, swapped: boolean): LiveScore {
+  return {
+    status: match.status as LiveStatus,
+    homeScore: swapped ? match.awayScore : match.homeScore,
+    awayScore: swapped ? match.homeScore : match.awayScore,
+    halftime: match.halftime,
+    minute: match.minute,
+    reason: match.reason,
+  };
+}
+
+function asPairing(match: LiveMatch): (PairingMatch & { id: number }) | null {
+  const competition = liveCompetition(match.leagueId);
+  if (!competition) return null;
+  return { id: match.id, sportKey: competition.sportKey, kickoff: match.kickoff, homeTeam: match.homeTeam, awayTeam: match.awayTeam };
+}
+
+/** A match only Free API Live Football Data lists: no odds, no model, no match page. */
+function unpricedBoardEvent(match: LiveMatch, sports: Map<string, { title: string; logo: string | null }>): BoardEvent | null {
+  const competition = liveCompetition(match.leagueId);
+  if (!competition) return null;
+  const sport = sports.get(competition.sportKey);
+  return {
+    id: `live-${match.id}`,
+    priced: false,
+    sportKey: competition.sportKey,
+    sportTitle: sport?.title ?? competition.name,
+    // The same logo as the competition's priced matches when it has some.
+    sportLogo: servableLogo(sport?.logo) ?? servableLogo(fotmobLeagueLogo(match.leagueId)),
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+    homeCrest: servableLogo(fotmobTeamLogo(match.homeTeamId)),
+    awayCrest: servableLogo(fotmobTeamLogo(match.awayTeamId)),
+    homeColors: [],
+    awayColors: [],
+    commenceTime: match.kickoff,
+    h2h: [],
+    oddsErrors: [],
+    fairResult: null,
+    prediction: null,
+    verdicts: [],
+    edges: [],
+    live: toLiveScore(match, false),
+  };
+}
+
+/**
+ * Priced events and the followed competitions' matches as one list, by kick-off: a match both
+ * sources have (src/lib/matchPairing.ts) is one block, with its odds and its score.
+ */
+async function mergeBoard(eventRows: EventRow[], liveMatches: LiveMatch[]): Promise<BoardEvent[]> {
+  const priced = await toBoardEvents(eventRows);
+  if (liveMatches.length === 0) return priced;
+
+  const liveById = new Map(liveMatches.map((match) => [match.id, match]));
+  const asEventPairing = (event: BoardEvent) => ({
+    id: event.id,
+    sportKey: event.sportKey,
+    kickoff: event.commenceTime,
+    homeTeam: event.homeTeam,
+    awayTeam: event.awayTeam,
+  });
+  const pairs = pairMatches(priced.map(asEventPairing), liveMatches.flatMap((match) => asPairing(match) ?? []));
+  for (const event of priced) {
+    const matchId = pairs.get(event.id);
+    const match = matchId === undefined ? undefined : liveById.get(matchId);
+    const pairing = match && asPairing(match);
+    if (!match || !pairing) continue;
+    const swapped = isSwapped(asEventPairing(event), pairing);
+    event.live = toLiveScore(match, swapped);
+    event.homeCrest ??= servableLogo(fotmobTeamLogo(swapped ? match.awayTeamId : match.homeTeamId));
+    event.awayCrest ??= servableLogo(fotmobTeamLogo(swapped ? match.homeTeamId : match.awayTeamId));
+  }
+
+  const paired = new Set(pairs.values());
+  const unpairedMatches = liveMatches.filter((match) => !paired.has(match.id));
+  const sportKeys = Array.from(new Set(unpairedMatches.flatMap((match) => liveCompetition(match.leagueId)?.sportKey ?? [])));
+  const sports = new Map(
+    (await prisma.sport.findMany({ where: { key: { in: sportKeys } }, select: { key: true, title: true, logo: true } })).map(
+      (sport) => [sport.key, sport]
+    )
+  );
+  const unpriced = unpairedMatches.flatMap((match) => unpricedBoardEvent(match, sports) ?? []);
+
+  return [...priced, ...unpriced].sort(
+    (a, b) => a.commenceTime.getTime() - b.commenceTime.getTime() || a.homeTeam.localeCompare(b.homeTeam, "fr")
+  );
+}
+
+/** The followed competitions' matches kicking off in [from, to), when the API is configured. */
+async function followedLiveMatches(where: { from: Date; to?: Date; scheduledOnly?: boolean }, take?: number): Promise<LiveMatch[]> {
+  if (!isLiveFootballConfigured()) return [];
+  const leagueIds = followedLiveCompetitions().map((competition) => competition.leagueId);
+  if (leagueIds.length === 0) return [];
+  return prisma.liveMatch.findMany({
+    where: {
+      leagueId: { in: leagueIds },
+      kickoff: { gte: where.from, ...(where.to ? { lt: where.to } : {}) },
+      ...(where.scheduledOnly ? { status: "scheduled" } : {}),
+    },
+    orderBy: { kickoff: "asc" },
+    take,
+  });
+}
+
 const UPCOMING_FALLBACK_LIMIT = 30;
 
 /** The next matches overall, regardless of the day/status/search being viewed. */
 async function getUpcomingFallback(): Promise<BoardEvent[]> {
-  const events = await prisma.event.findMany({
-    where: { commenceTime: { gte: new Date() } },
-    orderBy: { commenceTime: "asc" },
-    take: UPCOMING_FALLBACK_LIMIT,
-    include: {
-      sport: true,
-      prediction: true,
-      edges: BOARD_EDGES,
-    },
-  });
-  return toBoardEvents(events);
+  const now = new Date();
+  const [events, liveMatches] = await Promise.all([
+    prisma.event.findMany({
+      where: { commenceTime: { gte: now } },
+      orderBy: { commenceTime: "asc" },
+      take: UPCOMING_FALLBACK_LIMIT,
+      include: {
+        sport: true,
+        prediction: true,
+        edges: BOARD_EDGES,
+      },
+    }),
+    // Twice as many: some of them are the priced events above.
+    followedLiveMatches({ from: now, scheduledOnly: true }, UPCOMING_FALLBACK_LIMIT * 2),
+  ]);
+  return (await mergeBoard(events, liveMatches)).slice(0, UPCOMING_FALLBACK_LIMIT);
 }
 
-function statusWindow(status: StatusFilter, dayStart: Date, dayEnd: Date) {
-  const now = new Date();
-  if (status === "upcoming") {
-    return { gte: now > dayStart ? now : dayStart, lt: dayEnd };
-  }
-  if (status === "live") {
-    const liveFloor = new Date(now.getTime() - LIVE_WINDOW_MS);
-    return { gte: liveFloor > dayStart ? liveFloor : dayStart, lt: now < dayEnd ? now : dayEnd };
-  }
-  return { gte: dayStart, lt: dayEnd };
+// A priced event and its LiveMatch can be a few hours apart (see matchPairing.ts): the matches
+// are read that much beyond the day, so a pair across midnight still finds its other half.
+const PAIRING_MARGIN_MS = 6 * 60 * 60 * 1000;
+
+/** Lowercase, without accents: "Atlético" is found by "atletico". */
+function foldForSearch(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function matchesSearch(event: BoardEvent, search: string): boolean {
+  if (!search) return true;
+  const query = foldForSearch(search);
+  return foldForSearch(event.homeTeam).includes(query) || foldForSearch(event.awayTeam).includes(query);
+}
+
+function matchesStatus(event: BoardEvent, status: StatusFilter, now: Date): boolean {
+  return status === "all" || boardPhase(event, now) === status;
 }
 
 export async function getBoard(opts: {
   dateKey: string;
   status: StatusFilter;
   query: string;
-}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null; upcomingFallback: BoardEvent[] }> {
+}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null; upcomingFallback: BoardEvent[]; hasMatches: boolean }> {
   const dayStart = parisStartOfDay(opts.dateKey);
   const dayEnd = parisStartOfDay(addDays(opts.dateKey, 1));
   const search = opts.query.trim();
 
   // Deliberately not derived from the filtered `events` below: the currently viewed
   // day/status/search can legitimately have zero matches right after a successful
-  // sync (e.g. no kickoffs today), and this indicator should still reflect that a
-  // sync did happen, rather than looking exactly like "never synced".
-  const [rawEvents, lastCaptured] = await Promise.all([
+  // sync (e.g. no kickoffs today), and these should still reflect that a sync did
+  // happen, rather than looking exactly like "never synced".
+  const [rawEvents, liveMatches, lastCaptured, anyLiveMatch] = await Promise.all([
     prisma.event.findMany({
-      where: {
-        commenceTime: statusWindow(opts.status, dayStart, dayEnd),
-        ...(search
-          ? {
-              OR: [
-                { homeTeam: { contains: search, mode: "insensitive" } },
-                { awayTeam: { contains: search, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-      },
+      where: { commenceTime: { gte: dayStart, lt: dayEnd } },
       orderBy: { commenceTime: "asc" },
       take: 200,
       include: {
@@ -397,10 +529,22 @@ export async function getBoard(opts: {
         edges: BOARD_EDGES,
       },
     }),
+    followedLiveMatches({
+      from: new Date(dayStart.getTime() - PAIRING_MARGIN_MS),
+      to: new Date(dayEnd.getTime() + PAIRING_MARGIN_MS),
+    }),
     prisma.odds.aggregate({ _max: { capturedAt: true } }),
+    isLiveFootballConfigured() ? prisma.liveMatch.findFirst({ select: { id: true } }) : null,
   ]);
 
-  const events = await toBoardEvents(rawEvents);
+  const now = new Date();
+  const events = (await mergeBoard(rawEvents, liveMatches)).filter(
+    (event) =>
+      event.commenceTime >= dayStart &&
+      event.commenceTime < dayEnd &&
+      matchesStatus(event, opts.status, now) &&
+      matchesSearch(event, search)
+  );
 
   // The viewed day/status can legitimately come back empty even with plenty of matches
   // elsewhere (e.g. no kickoff today); show the actual next matches directly instead of
@@ -408,7 +552,12 @@ export async function getBoard(opts: {
   // since "no result for this search" isn't fixed by showing unrelated matches.
   const upcomingFallback = events.length === 0 && !search ? await getUpcomingFallback() : [];
 
-  return { events, lastCapturedAt: lastCaptured._max.capturedAt, upcomingFallback };
+  return {
+    events,
+    lastCapturedAt: lastCaptured._max.capturedAt,
+    upcomingFallback,
+    hasMatches: lastCaptured._max.capturedAt !== null || anyLiveMatch !== null,
+  };
 }
 
 /** Events by competition (sport_key), in the order each competition first appears. */
