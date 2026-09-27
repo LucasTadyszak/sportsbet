@@ -5,6 +5,7 @@ import { isFrenchBook } from "@/lib/bookmakers";
 import { formatKickoff } from "@/lib/dates";
 import {
   DATA_QUALITY_LABELS,
+  competitionLabel,
   formatOdds,
   formatPct,
   formatPts,
@@ -324,6 +325,7 @@ function MarketAnalysis({
 }
 
 type Components = {
+  competitionCode?: string;
   homeMatches?: number;
   awayMatches?: number;
   eloDiff?: number | null;
@@ -334,27 +336,34 @@ type Components = {
   restDaysAway?: number | null;
   goalsFitted?: boolean;
   league?: { homeAdvantage: number; drawBase: number; drawWidth: number; eloTuned: boolean };
+  /** National-team match on neutral ground. */
+  neutral?: boolean;
 };
 
 function ModelBreakdown({ prediction, match }: { prediction: MatchPrediction; match: MatchDetail }) {
   const c = (prediction.components ?? {}) as Components;
+  const national = c.competitionCode?.startsWith("INT-") ?? false;
   const three = (h: number | null, d: number | null, a: number | null) =>
     h === null || d === null || a === null ? "—" : `${formatPct(h)} / ${formatPct(d)} / ${formatPct(a)}`;
   const elo = (x: number | null) => (x === null ? "—" : Math.round(x).toString());
   const signedElo = (x: number | null | undefined) => (x === null || x === undefined ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(0)}`);
+  const tuning = !c.league?.eloTuned
+    ? "(constantes par défaut)"
+    : national
+      ? `(K et avantage terrain réglés par type de match : ${competitionLabel(c.competitionCode ?? "")})`
+      : "(K et avantage terrain ajustés sur la ligue)";
   return (
     <section className="flex flex-col gap-4">
       <SectionTitle>Le modèle, pièce par pièce</SectionTitle>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg-row/50 px-4 py-3.5 text-sm leading-relaxed">
-          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Colonne vertébrale : Elo {c.league?.eloTuned ? "(K et avantage terrain ajustés sur la ligue)" : "(constantes par défaut)"}
-          </span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Colonne vertébrale : Elo {tuning}</span>
           <span>
             {match.homeTeam} {elo(prediction.eloHomeRating)} · {match.awayTeam} {elo(prediction.eloAwayRating)}
           </span>
           <span className="text-fg-muted">
-            Avantage terrain {signedElo(c.league?.homeAdvantage)} · forme (10 derniers) {signedElo(c.formHome)} / {signedElo(c.formAway)} · repos{" "}
+            {c.neutral ? "Terrain neutre (pas d'avantage terrain)" : `Avantage terrain ${signedElo(c.league?.homeAdvantage)}`} · forme (10
+            derniers) {signedElo(c.formHome)} / {signedElo(c.formAway)} · repos{" "}
             {signedElo(c.rest)}
             {c.restDaysHome != null && c.restDaysAway != null
               ? ` (${c.restDaysHome.toFixed(0)} j / ${c.restDaysAway.toFixed(0)} j)`
@@ -364,7 +373,12 @@ function ModelBreakdown({ prediction, match }: { prediction: MatchPrediction; ma
         </div>
         <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg-row/50 px-4 py-3.5 text-sm leading-relaxed">
           <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Modèle de buts {c.goalsFitted ? "(Dixon-Coles ajusté sur les résultats)" : "(Poisson sur le classement, repli)"}
+            Modèle de buts{" "}
+            {!c.goalsFitted
+              ? "(Poisson sur le classement, repli)"
+              : national
+                ? "(Dixon-Coles ajusté sur tous les matchs internationaux récents)"
+                : "(Dixon-Coles ajusté sur les résultats)"}
           </span>
           <span>
             Buts attendus {prediction.expectedHomeGoals?.toFixed(2) ?? "—"} – {prediction.expectedAwayGoals?.toFixed(2) ?? "—"} · ρ ={" "}
@@ -403,7 +417,8 @@ export function Analysis({ match, picks, bookTitles }: { match: MatchDetail; pic
     <div className="flex flex-col gap-10">
       {markets.length === 0 ? (
         <p className="text-sm text-fg-muted">
-          Pas de verdict pour ce match : il faut à la fois un modèle (équipes reconnues côté football-data.org) et des cotes
+          Pas de verdict pour ce match : il faut à la fois un modèle (équipes reconnues dans les résultats : football-data.org
+          pour les clubs, résultats internationaux pour les sélections) et des cotes
           récentes. Les verdicts sont recalculés après chaque synchro, jusqu&apos;à {STAKING.publishWindowHours} h avant le
           coup d&apos;envoi pour la publication dans le journal.
         </p>

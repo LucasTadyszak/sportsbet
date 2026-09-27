@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { byRank, competitionTheme, knownThemes } from "@/lib/competitions";
+import { NATIONAL_TEAM_COMPETITIONS } from "@/lib/leagueMapping";
 
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => {
@@ -28,6 +29,12 @@ test("a known competition gets its French name; an unknown one keeps The Odds AP
   assert.equal(unknown.name, "J League");
   assert.equal(unknown.sport, "football");
   assert.equal(competitionTheme("basketball_nba", "NBA").sport, "other");
+});
+
+test("every national-team competition followed has its own name on the board", () => {
+  for (const sportKey of Object.keys(NATIONAL_TEAM_COMPETITIONS)) {
+    assert.notEqual(competitionTheme(sportKey, "Odds API title").name, "Odds API title", sportKey);
+  }
 });
 
 test("the biggest competitions come first", () => {

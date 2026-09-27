@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { getModelHealth, type CoverageRow, type ForecastScores } from "@/lib/modelHealth";
 import { formatKickoff } from "@/lib/dates";
-import { TIER_INFO, formatPct, formatPts, formatSignedPct, marketLabel } from "@/lib/labels";
+import { TIER_INFO, competitionLabel, formatPct, formatPts, formatSignedPct, marketLabel } from "@/lib/labels";
 import { CALIBRATION } from "@/lib/methodology/config";
 import { calibrationBand, type CalibrationBand } from "@/lib/methodology/metrics";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
@@ -283,14 +283,17 @@ export default async function ModelHealthPage() {
           )}
         </Section>
 
-        <Section title="Paramètres par ligue" description="Constantes Elo ajustées sur l'historique de chaque compétition (à partir de 300 matchs, sinon valeurs par défaut) et modèle de buts ajusté.">
+        <Section
+          title="Paramètres par ligue"
+          description="Constantes Elo ajustées sur l'historique de chaque compétition (à partir de 300 matchs, sinon valeurs par défaut) et modèle de buts ajusté. Les sélections sont réglées par type de match, et partagent un seul modèle de buts ajusté sur tous les matchs internationaux récents."
+        >
           {health.leagues.length === 0 ? (
             <p className="text-sm text-fg-muted">Aucun résultat en base : lance npm run refresh:stats.</p>
           ) : (
             <Table head={["Compétition", "Matchs", "K", "Avantage terrain", "Nul (base / largeur)", "Buts/équipe", "Avantage buts", "Rho", "Réglage"]} minWidth={860}>
               {health.leagues.map((l) => (
                 <tr key={l.competitionCode} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
-                  <Cell first>{l.competitionCode}</Cell>
+                  <Cell first>{competitionLabel(l.competitionCode, true)}</Cell>
                   <Cell muted>{l.matchesUsed}</Cell>
                   <Cell>{l.kFactor}</Cell>
                   <Cell>{l.homeAdvantage} pts</Cell>

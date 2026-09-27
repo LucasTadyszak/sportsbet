@@ -10,11 +10,15 @@ async function main() {
   const summary = await refreshOdds();
   for (const row of summary) {
     console.log(
-      row.skipped
-        ? `[${row.sportKey}] skipped (throttled)`
-        : `[${row.sportKey}] ${row.events} events, ${row.oddsCaptured} odds rows captured`
+      row.error
+        ? `[${row.sportKey}] failed: ${row.error}`
+        : row.skipped
+          ? `[${row.sportKey}] skipped (${row.reason === "out_of_season" ? "out of season" : "throttled"})`
+          : `[${row.sportKey}] ${row.events} events, ${row.oddsCaptured} odds rows captured`
     );
   }
+  // One competition failing doesn't stop the others, but the cron run still reports a failure.
+  if (summary.some((row) => row.error)) process.exitCode = 1;
   // New prices → new market signals and edges; recomputed even when every sport was
   // throttled, so the verdicts stay in step with the latest calibration and predictions.
   const edges = await refreshEdges();

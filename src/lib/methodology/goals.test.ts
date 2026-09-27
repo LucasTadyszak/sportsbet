@@ -84,6 +84,33 @@ test("the fitted goals model recovers the simulated strengths", () => {
   assert.equal(expectedGoals(model, 1, 999), null);
 });
 
+test("neutral-ground matches neither get nor teach the home multiplier", () => {
+  // Six equal teams; every pairing is played once at home (3-2) and once on neutral ground (2-2).
+  const fixtures = [];
+  let day = 0;
+  for (let home = 1; home <= 6; home++) {
+    for (let away = 1; away <= 6; away++) {
+      if (home === away) continue;
+      const date = (offset: number) => new Date(Date.UTC(2026, 0, 1) + (day + offset) * 24 * 60 * 60 * 1000);
+      fixtures.push({ homeId: home, awayId: away, homeGoals: 3, awayGoals: 2, date: date(0) });
+      fixtures.push({ homeId: home, awayId: away, homeGoals: 2, awayGoals: 2, date: date(0.5), neutral: true });
+      day++;
+    }
+  }
+  const asOf = new Date(Date.UTC(2026, 3, 1));
+
+  const model = fitGoalsModel(fixtures, asOf)!;
+  assert.ok(Math.abs(model.homeAdv - 1.5) < 1e-6, `home advantage ${model.homeAdv}`);
+  assert.ok(Math.abs(model.base - 2) < 1e-6, `base ${model.base}`);
+  const blind = fitGoalsModel(fixtures.map((f) => ({ ...f, neutral: false })), asOf)!;
+  assert.ok(Math.abs(blind.homeAdv - 1.25) < 0.01, `treating every match as a home game dilutes it: ${blind.homeAdv}`);
+
+  const atHome = expectedGoals(model, 1, 6)!;
+  const onNeutral = expectedGoals(model, 1, 6, { neutral: true })!;
+  assert.ok(Math.abs(atHome.home / onNeutral.home - model.homeAdv) < 1e-9);
+  assert.equal(atHome.away, onNeutral.away);
+});
+
 test("too little history means no goals model rather than a wild one", () => {
   const fixtures = simulateLeague({ seed: 3, seasons: 1, attack: [1, 1, 1, 1], defense: [1, 1, 1, 1] });
   assert.equal(fitGoalsModel(fixtures, new Date("2030-01-01")), null);

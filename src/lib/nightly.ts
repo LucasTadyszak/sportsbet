@@ -1,5 +1,6 @@
 import { syncRecentResults } from "@/lib/footballDataMatches";
 import { gradeFinishedEvents, type GradingSummary } from "@/lib/grading";
+import { syncInternationalResults, type InternationalSyncSummary } from "@/lib/internationalResults";
 import { trackedCompetitionCodes } from "@/lib/leagueMapping";
 import { reflectCalibration, type ReflectSummary } from "@/lib/reflect";
 import { refreshEdges, type EdgesSummary } from "@/lib/refreshEdges";
@@ -8,6 +9,8 @@ import { trackedSportKeys } from "@/lib/refreshOdds";
 export type NightlySummary = {
   resultsSynced: number;
   resultsError: string | null;
+  international: InternationalSyncSummary | null;
+  internationalError: string | null;
   grading: GradingSummary;
   reflect: ReflectSummary;
   edges: EdgesSummary;
@@ -26,8 +29,16 @@ export async function runNightly(): Promise<NightlySummary> {
     // Grading still runs on whatever results the stats refresh already stored.
     resultsError = err instanceof Error ? err.message : String(err);
   }
+  // National teams: the whole dataset (no key, no quota), unthrottled for the freshest results.
+  let international: InternationalSyncSummary | null = null;
+  let internationalError: string | null = null;
+  try {
+    international = await syncInternationalResults({ force: true });
+  } catch (err) {
+    internationalError = err instanceof Error ? err.message : String(err);
+  }
   const grading = await gradeFinishedEvents();
   const reflect = await reflectCalibration();
   const edges = await refreshEdges();
-  return { resultsSynced, resultsError, grading, reflect, edges };
+  return { resultsSynced, resultsError, international, internationalError, grading, reflect, edges };
 }
