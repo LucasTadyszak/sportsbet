@@ -5,6 +5,7 @@ import {
   expectedGoals,
   fitGoalsModel,
   gridOutcomes,
+  rankedScores,
   scoreGrid,
   totalGoalsDistribution,
   totalsProbability,
@@ -25,6 +26,29 @@ test("the Dixon-Coles correction keeps the score grid a probability distribution
   assert.ok(dixonColesTau(1, 1, 1.5, 1.2, -0.1) > 1);
   assert.equal(dixonColesTau(2, 1, 1.5, 1.2, -0.1), 1);
   assert.ok(gridOutcomes(scoreGrid(1.3, 1.3, -0.1)).draw > gridOutcomes(scoreGrid(1.3, 1.3, 0)).draw);
+});
+
+test("scores are ranked most likely first, with deterministic ties", () => {
+  const grid = scoreGrid(2.4, 0.6, -0.05);
+  const ranked = rankedScores(grid);
+  assert.equal(ranked.length, grid.length * grid[0].length);
+  assert.ok(Math.abs(sum(ranked.map((s) => s.probability)) - 1) < 1e-9);
+  for (let i = 1; i < ranked.length; i++) assert.ok(ranked[i - 1].probability >= ranked[i].probability);
+  assert.equal(ranked[0].probability, Math.max(...grid.flat()));
+  assert.equal(ranked[0].probability, grid[ranked[0].home][ranked[0].away]);
+  assert.ok(ranked[0].home > ranked[0].away, "a much stronger home side's likeliest score is a home win");
+
+  // Equal probabilities: fewer goals first, then the home side ahead.
+  const tiedOnGoals = rankedScores([
+    [0.25, 0.15],
+    [0.35, 0.25],
+  ]);
+  assert.deepEqual(tiedOnGoals.map((s) => `${s.home}-${s.away}`), ["1-0", "0-0", "1-1", "0-1"]);
+  const tiedOnSide = rankedScores([
+    [0.1, 0.2],
+    [0.2, 0.5],
+  ]);
+  assert.deepEqual(tiedOnSide.map((s) => `${s.home}-${s.away}`), ["1-1", "1-0", "0-1", "0-0"]);
 });
 
 test("totals probabilities are complementary on half, whole and quarter lines", () => {

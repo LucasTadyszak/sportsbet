@@ -11,7 +11,8 @@ import { ELO, MODEL_VERSION } from "@/lib/methodology/config";
 import { expectedGoals, type GoalsModel, type TeamStrength } from "@/lib/methodology/goals";
 import { rawMatchModel, type EloSide, type GoalsInput } from "@/lib/methodology/model";
 
-const PREDICTION_WINDOW_DAYS = 14;
+/** The raw model only prices matches kicking off within this many days. */
+export const PREDICTION_WINDOW_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 // A fixture this close to kickoff is the match itself (the two APIs' kickoff times can differ slightly).
 const SAME_MATCH_MS = 6 * 60 * 60 * 1000;

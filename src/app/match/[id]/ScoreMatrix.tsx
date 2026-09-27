@@ -1,0 +1,262 @@
+// "Matrice" tab: the probability of every exact score, rebuilt from what the raw prediction
+// stores for its goals model (expected goals + Dixon-Coles ρ) — the grid itself isn't
+// stored. Once football-data.org has the result, the 90-minute score is ticked in the grid.
+import type { MatchDetail } from "@/lib/board";
+import { formatKickoff } from "@/lib/dates";
+import { formatPct } from "@/lib/labels";
+import { ELO_BLEND_WEIGHT } from "@/lib/methodology/config";
+import { gridOutcomes, rankedScores, scoreGrid } from "@/lib/methodology/goals";
+import { PREDICTION_WINDOW_DAYS } from "@/lib/refreshStats";
+import { Icon } from "@/components/Icon";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// 0 to 5 goals a side, the usual score grid. The model's own grid goes further
+// (GOALS.maxGoals): what falls outside the matrix is given in the footnote.
+const SHOWN_GOALS = 5;
+const GOALS_AXIS = Array.from({ length: SHOWN_GOALS + 1 }, (_, goals) => goals);
+const FAVORITES = 3;
+
+// Sequential scale on the probability itself rather than relative to the likeliest score,
+// so an open match reads paler than a lopsided one. Below 1% a score recedes into the surface.
+const STEPS: { from: number; className: string }[] = [
+  { from: 0.14, className: "bg-seq-7 text-white" },
+  { from: 0.11, className: "bg-seq-6 text-white" },
+  { from: 0.09, className: "bg-seq-5 text-white" },
+  { from: 0.07, className: "bg-seq-4 text-fg" },
+  { from: 0.05, className: "bg-seq-3 text-fg" },
+  { from: 0.03, className: "bg-seq-2 text-fg" },
+  { from: 0.01, className: "bg-seq-1 text-fg" },
+  { from: 0, className: "bg-bg-row text-fg-muted" },
+];
+
+function stepClass(probability: number): string {
+  return (STEPS.find((step) => probability >= step.from) ?? STEPS[STEPS.length - 1]).className;
+}
+
+/** "8.6%", and "<0.1%" rather than a misleading "0.0%". */
+function scorePct(probability: number): string {
+  return probability < 0.0005 ? "<0.1%" : formatPct(probability, 1);
+}
+
+/** Further out than this, the model simply hasn't priced the match yet. */
+function beyondPredictionWindow(kickoff: Date): boolean {
+  return kickoff.getTime() - Date.now() > PREDICTION_WINDOW_DAYS * DAY_MS;
+}
+
+function Ordinal({ rank }: { rank: number }) {
+  return (
+    <>
+      {rank}
+      <sup>{rank === 1 ? "er" : "e"}</sup>
+    </>
+  );
+}
+
+function CheckBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-rise text-white ${className}`}
+    >
+      <Icon name="check" className="h-3 w-3" />
+    </span>
+  );
+}
+
+const SECTION_TITLE = "font-display text-sm font-semibold uppercase tracking-widest text-fg-muted";
+
+export function ScoreMatrix({ match }: { match: MatchDetail }) {
+  const prediction = match.predictionDetail;
+  if (!prediction) {
+    return (
+      <p className="text-sm text-fg-muted">
+        {beyondPredictionWindow(match.commenceTime)
+          ? `Le modèle ne chiffre que les matchs des ${PREDICTION_WINDOW_DAYS} prochains jours : la matrice apparaîtra à l'approche de celui-ci.`
+          : "Pas de statistiques football-data.org disponibles pour ce match (compétition non couverte, ou équipe non reconnue)."}
+      </p>
+    );
+  }
+  const lambdaHome = prediction.expectedHomeGoals;
+  const lambdaAway = prediction.expectedAwayGoals;
+  if (lambdaHome === null || lambdaAway === null) {
+    return (
+      <p className="text-sm text-fg-muted">
+        Seul l&apos;Elo a pu tourner pour ce match : sans modèle de buts, pas de probabilité par score.
+      </p>
+    );
+  }
+
+  const grid = scoreGrid(lambdaHome, lambdaAway, prediction.rho);
+  const ranked = rankedScores(grid);
+  const outcomes = gridOutcomes(grid);
+  const outsideMatrix = 1 - GOALS_AXIS.reduce((sum, home) => sum + GOALS_AXIS.reduce((row, away) => row + grid[home][away], 0), 0);
+  const final = match.finalScore;
+  const isFinal = (home: number, away: number) => final !== null && final.home === home && final.away === away;
+  const finalRank = final ? ranked.findIndex((score) => isFinal(score.home, score.away)) + 1 : 0;
+  const finalInMatrix = final !== null && final.home <= SHOWN_GOALS && final.away <= SHOWN_GOALS;
+  const goalsFitted = (prediction.components as { goalsFitted?: boolean } | null)?.goalsFitted === true;
+
+  return (
+    <div className="flex flex-col gap-8">
+      <section className="flex flex-col gap-4">
+        <div>
+          <h3 className={SECTION_TITLE}>Probabilité du score</h3>
+          <p className="mt-1 text-xs leading-relaxed text-fg-muted">
+            {goalsFitted
+              ? "Modèle de buts Dixon-Coles, ajusté sur les résultats de la compétition (les plus récents pèsent davantage)"
+              : "Loi de Poisson sur le classement (repli, faute d'assez de résultats pour ajuster le modèle Dixon-Coles)"}
+            {" · "}buts attendus {match.homeTeam} {lambdaHome.toFixed(2)} – {lambdaAway.toFixed(2)} {match.awayTeam}.
+          </p>
+        </div>
+
+        <figure className="mx-auto w-full max-w-md">
+          <table className="w-full table-fixed border-separate border-spacing-1">
+            <caption className="sr-only">
+              Probabilité de chaque score exact : en ligne les buts marqués par {match.homeTeam}, en colonne ceux marqués par{" "}
+              {match.awayTeam}.
+            </caption>
+            <colgroup>
+              <col className="w-6" />
+              {GOALS_AXIS.map((away) => (
+                <col key={away} />
+              ))}
+            </colgroup>
+            <tbody>
+              {[...GOALS_AXIS].reverse().map((home) => (
+                <tr key={home}>
+                  <th
+                    scope="row"
+                    id={`score-h${home}`}
+                    className="pr-1 text-right font-mono-tabular text-xs font-semibold text-fg-muted"
+                  >
+                    <span className="sr-only">{match.homeTeam} </span>
+                    {home}
+                  </th>
+                  {GOALS_AXIS.map((away) => {
+                    const probability = grid[home][away];
+                    const finalCell = isFinal(home, away);
+                    const label = scorePct(probability);
+                    return (
+                      <td key={away} headers={`score-h${home} score-a${away}`} className="p-0">
+                        <div
+                          title={`${match.homeTeam} ${home} – ${away} ${match.awayTeam} : ${label}`}
+                          className={`relative flex h-9 items-center justify-center rounded-md font-mono-tabular text-[11px] font-semibold sm:h-10 sm:text-[13px] ${stepClass(probability)} ${
+                            finalCell
+                              ? "z-10 ring-2 ring-fg ring-offset-1 ring-offset-bg-elevated"
+                              : "transition-shadow duration-150 hover:ring-2 hover:ring-fg/40"
+                          }`}
+                        >
+                          {label.slice(0, -1)}
+                          <span className="text-[0.75em]">%</span>
+                          {finalCell ? (
+                            <>
+                              <CheckBadge className="absolute -right-2 -top-2 ring-2 ring-bg-elevated" />
+                              <span className="sr-only"> — score final</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td />
+                {GOALS_AXIS.map((away) => (
+                  <th
+                    key={away}
+                    scope="col"
+                    id={`score-a${away}`}
+                    className="pt-1 font-mono-tabular text-xs font-semibold text-fg-muted"
+                  >
+                    <span className="sr-only">{match.awayTeam} </span>
+                    {away}
+                  </th>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+          <figcaption className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-fg-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <Icon name="arrow-up" className="h-3.5 w-3.5 text-fg" />
+              Buts {match.homeTeam}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Icon name="arrow-right" className="h-3.5 w-3.5 text-fg" />
+              Buts {match.awayTeam}
+            </span>
+            {finalInMatrix ? (
+              <span className="inline-flex items-center gap-1.5">
+                <CheckBadge />
+                Score final (90 min)
+              </span>
+            ) : null}
+          </figcaption>
+        </figure>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h3 className={SECTION_TITLE}>Scores favoris du modèle</h3>
+        <ol className="grid grid-cols-3 gap-2 sm:gap-3">
+          {ranked.slice(0, FAVORITES).map((score, index) => {
+            const hit = isFinal(score.home, score.away);
+            return (
+              <li
+                key={`${score.home}-${score.away}`}
+                className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3.5 text-center ${
+                  hit ? "border-rise bg-rise/5" : "border-border bg-bg-row/50"
+                }`}
+              >
+                <span className="text-balance text-xs text-fg-muted">
+                  <Ordinal rank={index + 1} /> score favori
+                </span>
+                <span className="font-display text-2xl font-bold text-fg sm:text-3xl">
+                  {score.home} – {score.away}
+                </span>
+                <span className="font-mono-tabular text-sm font-semibold text-fg">{formatPct(score.probability, 1)}</span>
+                {hit ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rise">
+                    <Icon name="check" className="h-3 w-3" /> Score final
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+        {final ? (
+          <p className="flex items-start gap-2 text-sm text-fg">
+            <CheckBadge className="mt-px" />
+            <span>
+              Score final à 90 min : {match.homeTeam} {final.home} – {final.away} {match.awayTeam}
+              {finalRank === 1 ? (
+                ", le score le plus probable pour le modèle"
+              ) : finalRank > 1 ? (
+                <>
+                  , <Ordinal rank={finalRank} /> score le plus probable pour le modèle
+                </>
+              ) : (
+                ", hors de la grille du modèle"
+              )}
+              {finalRank > 0 ? ` (${scorePct(ranked[finalRank - 1].probability)}${finalInMatrix ? "" : ", hors matrice"})` : ""}.
+            </span>
+          </p>
+        ) : null}
+      </section>
+
+      <p className="text-xs leading-relaxed text-fg-muted">
+        La matrice vient du seul modèle de buts : additionnée, elle donne 1 / X / 2 = {formatPct(outcomes.home)} /{" "}
+        {formatPct(outcomes.draw)} / {formatPct(outcomes.away)}.
+        {prediction.eloHomeWin !== null
+          ? ` Le modèle brut de l'onglet Probabilités (${formatPct(prediction.homeWinProbability)} / ${formatPct(prediction.drawProbability)} / ${formatPct(prediction.awayWinProbability)}) mélange ${Math.round(ELO_BLEND_WEIGHT * 100)} % Elo et ${Math.round((1 - ELO_BLEND_WEIGHT) * 100)} % buts.`
+          : ""}
+        {outsideMatrix >= 0.0005
+          ? ` Scores où une équipe marque ${SHOWN_GOALS + 1} buts ou plus (hors matrice) : ${formatPct(outsideMatrix, 1)}.`
+          : ""}{" "}
+        Calculé {formatKickoff(prediction.computedAt)} — indicatif, pas un pronostic garanti.
+      </p>
+    </div>
+  );
+}
