@@ -137,16 +137,19 @@ model Odds {
   @@map("odds")
 }
 
-// Tracks The Odds API's own usage headers so we never blow through the plan's quota.
+// One row per API call, with the usage headers it came back with, so we never blow
+// through a plan's quota. For Free API Live Football Data the row is written before the
+// call goes out: its last hour of rows is what the hourly cap counts (src/lib/liveFootballApi.ts).
 model ApiUsageLog {
   id                BigInt   @id @default(autoincrement())
-  provider          String // "the-odds-api"
+  provider          String // "the-odds-api" | "football-data.org" | "free-api-live-football-data"
   endpoint          String
   requestsUsed      Int?
   requestsRemaining Int?
   requestsLastCost  Int?
   capturedAt        DateTime @default(now())
 
+  @@index([provider, capturedAt])
   @@map("api_usage_log")
 }
 

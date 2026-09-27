@@ -31,6 +31,9 @@ football-data.org en secours pour les clubs.
 - **football-data.org** comme source de statistiques (classements, forme, buts)
 - **international_results** (domaine public, CSV sur GitHub) pour les résultats des sélections nationales
 - **TheSportsDB** comme source des logos des clubs et des compétitions (clé publique gratuite)
+- **Free API Live Football Data** (RapidAPI) : scores en direct, compositions, stats de
+  match… pour 2100+ ligues — client en place, plafonné à 1000 requêtes par heure, pas
+  encore branché sur l'UI
 
 > Next build/dev tournent avec `--webpack` : la version de Turbopack livrée
 > avec Next 16.3.6 casse le chargement de `next/font/google` dans cet
@@ -75,6 +78,10 @@ src/lib/theSportsDbApi.ts   # client TheSportsDB v1 (clé gratuite « 123 » par
 src/lib/logoMatch.ts        # quelle équipe TheSportsDB est la nôtre (sport, nom exact ou alternatif) + URLs de logo servables
 src/lib/refreshLogos.ts     # logo de chaque compétition (Sport.logo) et de chaque club des matchs récents/à venir (Team.logo)
 scripts/refresh-logos.ts    # point d'entrée CLI : tous les logos dus d'un coup (npm run refresh:logos)
+
+# Données live (Free API Live Football Data, RapidAPI)
+src/lib/liveFootballApi.ts  # client (x-rapidapi-key/host) + plafond de requêtes par heure glissante, partagé via la base
+scripts/live-football.ts    # appelle un endpoint et affiche le JSON (tester la clé, voir une vraie réponse)
 
 # Méthodologie (fonctions pures, testées : npm test)
 src/lib/methodology/config.ts      # TOUS les paramètres (seuils, plafonds, poids), commentés [LE]/[adapt]
@@ -179,7 +186,7 @@ pas d'un appel à l'autre :
   historique complet de toutes les observations, pas seulement des
   changements.
 
-Un seul garde-fou pour ne pas cramer le quota gratuit des deux API :
+Des garde-fous pour ne pas cramer le quota gratuit des API :
 - **`FetchLog`** : chaque sport n'est re-fetché que toutes les
   `ODDS_REFRESH_INTERVAL_MINUTES` (30 min par défaut) côté cotes, et chaque
   compétition que toutes les `FOOTBALL_DATA_REFRESH_INTERVAL_MINUTES` (6h par
@@ -189,8 +196,15 @@ Un seul garde-fou pour ne pas cramer le quota gratuit des deux API :
   persisté (voir ci-dessus).
 - **`ApiUsageLog`** : log les headers de quota à chaque appel (`x-requests-used`
   / `x-requests-remaining` / `x-requests-last` pour The Odds API,
-  `x-requests-available-minute` pour football-data.org), pour surveiller la
-  conso des deux plans.
+  `x-requests-available-minute` pour football-data.org,
+  `x-ratelimit-requests-*` pour RapidAPI), pour surveiller la conso des plans.
+- **Plafond horaire** (Free API Live Football Data) : au plus
+  `LIVE_FOOTBALL_MAX_REQUESTS_PER_HOUR` appels (1000 par défaut) sur les 60
+  dernières minutes, site et crons confondus. Chaque appel est inscrit dans
+  `ApiUsageLog` *avant* de partir, sous verrou Postgres pour que deux processus ne
+  prennent pas la dernière place, et compte même s'il échoue. Au-delà, l'appel est
+  refusé sans toucher l'API (`LiveFootballRateLimitError`, avec l'heure à laquelle
+  une place se libère).
 
 ### Statistiques, modèle et verdicts
 
@@ -332,6 +346,8 @@ Variables utiles en plus des clés :
   n'en suivre aucune). Une clé absente de cette table a ses cotes mais pas de modèle.
 - `THESPORTSDB_API_KEY` (facultatif, défaut `123`, la clé publique gratuite) : une clé
   personnelle TheSportsDB (Patreon) si la clé partagée est trop limitée.
+- `LIVE_FOOTBALL_MAX_REQUESTS_PER_HOUR` (défaut 1000) : plafond d'appels à Free API
+  Live Football Data sur une heure glissante.
 
 Sports suivis par défaut : `soccer_epl,soccer_uefa_champs_league` côté clubs, plus
 les compétitions de sélections (voir « Sélections nationales »). Pour suivre d'autres
@@ -346,6 +362,12 @@ les compétitions de sélections de `NATIONAL_TEAM_COMPETITIONS`.
 Clé football-data.org gratuite : à récupérer sur
 [football-data.org/client/register](https://www.football-data.org/client/register).
 
+Clé RapidAPI (`RAPIDAPI_KEY`, la même pour toutes les API RapidAPI du compte) : s'abonner
+au plan gratuit de
+[Free API Live Football Data](https://rapidapi.com/Creativesdev/api/free-api-live-football-data)
+puis copier la valeur `x-rapidapi-key` de ses exemples de code. Seule la partie qui
+appelle cette API en a besoin.
+
 ### Déclencher un refresh manuellement
 
 ```bash
@@ -355,6 +377,7 @@ npm run nightly         # résultats récents, gradation des picks, calibration,
 npm run refresh:edges   # verdicts seuls, sans appel API (après un changement dans config.ts)
 npm run refresh:logos   # logos des compétitions et des clubs (TheSportsDB), tous ceux qui sont dus
 npm test                # tests unitaires de la méthodologie
+npm run live-football -- /football-current-live   # un endpoint de Free API Live Football Data, JSON brut (compte dans le plafond)
 ```
 
 ou en HTTP (utile pour tester les endpoints que le cron appellera) :
@@ -399,6 +422,10 @@ curl "http://localhost:3000/api/nightly?secret=$CRON_SECRET"
 
 ## Roadmap
 
+- Scores en direct sur le tableau (le filtre « En cours » est aujourd'hui une
+  heuristique sur l'heure du coup d'envoi) et compositions sur la page match, via
+  Free API Live Football Data : client et plafond déjà en place
+  (`src/lib/liveFootballApi.ts`), reste à rapprocher ses matchs des `Event`.
 - Données qui manquent au modèle pour les « facteurs structurels » : compositions
   probables et absents, xG, calendrier complet (coupes nationales) pour le repos,
   météo. Voir la section « Limites connues » de `/methodologie`.
