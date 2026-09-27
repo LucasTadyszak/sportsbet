@@ -14,6 +14,7 @@ import {
   formatKickoff,
   formatShortDay,
   formatTime,
+  hasKickedOff,
   isValidDateKey,
   parisDateKey,
 } from "@/lib/dates";
@@ -53,6 +54,7 @@ function LiveBadge() {
 
 function MatchRow({ event }: { event: BoardEvent }) {
   const boxes = resultBoxes(event.h2h, event.homeTeam, event.awayTeam, bookClassifier().isBettable);
+  const kickedOff = hasKickedOff(event.commenceTime);
   const h2hPick = stakedVerdict(event.verdicts, "h2h");
   const picks = [h2hPick, stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
 
@@ -104,6 +106,7 @@ function MatchRow({ event }: { event: BoardEvent }) {
               label={box.label}
               selection={selectionFor(event, box.best, event.edges)}
               isPick={isPick}
+              disabled={kickedOff}
               hint={
                 isPick && h2hPick
                   ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, event.homeTeam, event.awayTeam)}`
@@ -275,7 +278,7 @@ export default async function Home({
       </div>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-        {shown.length > 0 ? <BankrollPrompt className="mb-6" /> : null}
+        {shown.some((event) => !hasKickedOff(event.commenceTime)) ? <BankrollPrompt className="mb-6" /> : null}
         {shown.length > 0 ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="text-fg-muted">

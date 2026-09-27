@@ -8,6 +8,7 @@ import {
   refreshSelection,
   selectionKey,
   toggleSelection,
+  upcomingOnly,
   type Selection,
   type SlipMode,
   type StoredSlip,
@@ -39,7 +40,9 @@ function emit() {
 }
 
 function update(change: Partial<SlipState>) {
-  state = { ...snapshot(), ...change };
+  const next = { ...snapshot(), ...change };
+  // A match that kicks off while the page is open leaves the slip at its next change.
+  state = { ...next, selections: upcomingOnly(next.selections, new Date()) };
   const { bankroll, selections, mode } = state;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ bankroll, selections, mode }));

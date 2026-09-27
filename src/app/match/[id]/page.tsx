@@ -11,7 +11,7 @@ import {
   type OddsLine,
 } from "@/lib/board";
 import { bookClassifier } from "@/lib/bookmakers";
-import { formatKickoff } from "@/lib/dates";
+import { formatKickoff, hasKickedOff } from "@/lib/dates";
 import { outcomeLabel } from "@/lib/labels";
 import { isStakedTier } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
@@ -39,8 +39,11 @@ function OddsTable({
   lines,
   outcomeOrder,
   pick,
+  kickedOff,
 }: {
   match: MatchDetail;
+  /** Pre-match prices can't be taken once the match has started. */
+  kickedOff: boolean;
   lines: OddsLine[];
   outcomeOrder: string[];
   /** The price the methodology would take in this market, highlighted. */
@@ -83,6 +86,7 @@ function OddsTable({
                         isBest={best.get(outcome) === line.price}
                         isPick={isPick}
                         hint={isPick ? "La cote que le modèle prendrait" : undefined}
+                        disabled={kickedOff}
                       />
                     ) : (
                       <span className="px-2 font-mono-tabular text-fg-muted">—</span>
@@ -142,21 +146,24 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const hasResults = Boolean(home || draw || away);
 
   const totalsProbs = totalsProbabilities(match.totals);
+  const kickedOff = hasKickedOff(match.commenceTime);
 
   const resume = (
     <div className="flex flex-col gap-6">
-      <p className="flex items-start gap-2 rounded-lg bg-accent-dim/50 px-3.5 py-2.5 text-sm text-fg">
-        <Icon name="wallet" className="mt-0.5 h-4 w-4 text-accent-strong" />
-        <span>
-          Clique sur une cote pour l&apos;ajouter à ta sélection : on t&apos;indique quel pourcentage de ta bankroll tu peux y
-          miser.
-        </span>
-      </p>
+      {kickedOff ? null : (
+        <p className="flex items-start gap-2 rounded-lg bg-accent-dim/50 px-3.5 py-2.5 text-sm text-fg">
+          <Icon name="wallet" className="mt-0.5 h-4 w-4 text-accent-strong" />
+          <span>
+            Clique sur une cote pour l&apos;ajouter à ta sélection : on t&apos;indique quel pourcentage de ta bankroll tu peux y
+            miser.
+          </span>
+        </p>
+      )}
       <section>
         <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
           Résultat (1X2)
         </h3>
-        <OddsTable match={match} lines={match.h2h} outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]} pick={pickCell(h2hPick)} />
+        <OddsTable match={match} kickedOff={kickedOff} lines={match.h2h} outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]} pick={pickCell(h2hPick)} />
       </section>
 
       {Array.from(totalsByPoint.entries())
@@ -168,6 +175,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             </h3>
             <OddsTable
               match={match}
+              kickedOff={kickedOff}
               lines={lines}
               outcomeOrder={["Over", "Under"]}
               pick={totalsPick?.point === point ? pickCell(totalsPick) : null}
@@ -351,6 +359,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   label={box.label}
                   selection={selectionFor(match, box.best, match.edges)}
                   isPick={isPick}
+                  disabled={kickedOff}
                   hint={
                     isPick && h2hPick
                       ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}`

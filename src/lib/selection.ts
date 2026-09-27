@@ -2,6 +2,7 @@
 // picks, each carrying the model's verdict on its outcome so the slip can size it
 // (src/lib/methodology/stake.ts). Built on the server from the odds on screen, kept in
 // the browser (src/lib/betSlip.ts). Pure functions only: shared by server and client.
+import { hasKickedOff } from "@/lib/dates";
 import type { OutcomeVerdict } from "@/lib/methodology/stake";
 
 export type Selection = {
@@ -44,6 +45,11 @@ export function toggleSelection(selections: Selection[], picked: Selection): Sel
   if (!existing) return [...selections, picked];
   if (existing.bookmakerKey === picked.bookmakerKey) return selections.filter((s) => s !== existing);
   return selections.map((s) => (s === existing ? picked : s));
+}
+
+/** Drops selections whose match has kicked off: their pre-match prices can't be taken any more. */
+export function upcomingOnly(selections: Selection[], now: Date): Selection[] {
+  return selections.filter((s) => !hasKickedOff(new Date(s.commenceTime), now));
 }
 
 /**
@@ -140,8 +146,6 @@ export function parseStoredSlip(raw: string | null, now: Date): StoredSlip {
   }
   if (!isObject(data)) return EMPTY_SLIP;
   const bankroll = typeof data.bankroll === "number" && data.bankroll > 0 && data.bankroll <= MAX_BANKROLL ? data.bankroll : null;
-  const selections = (Array.isArray(data.selections) ? data.selections : [])
-    .filter(isSelection)
-    .filter((s) => new Date(s.commenceTime) > now);
+  const selections = upcomingOnly((Array.isArray(data.selections) ? data.selections : []).filter(isSelection), now);
   return { bankroll, selections, mode: data.mode === "combo" ? "combo" : "simple" };
 }

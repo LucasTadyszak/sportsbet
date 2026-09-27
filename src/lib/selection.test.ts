@@ -8,6 +8,7 @@ import {
   selectionFor,
   selectionKey,
   toggleSelection,
+  upcomingOnly,
   type Selection,
 } from "@/lib/selection";
 
@@ -83,6 +84,13 @@ test("the stored slip drops malformed entries and matches that have started", ()
   assert.deepEqual(parseStoredSlip(null, new Date()), EMPTY_SLIP);
   assert.deepEqual(parseStoredSlip("{not json", new Date()), EMPTY_SLIP);
   assert.equal(parseStoredSlip(JSON.stringify({ bankroll: -5, selections: "x" }), new Date()).bankroll, null);
+});
+
+test("a selection leaves the slip at kickoff, when its pre-match price is gone", () => {
+  const held = selectionFor(event, offer("winamax_fr", 2.1), [edge]);
+  const kickoff = event.commenceTime.getTime();
+  assert.deepEqual(upcomingOnly([held], new Date(kickoff - 60_000)), [held]);
+  assert.deepEqual(upcomingOnly([held], new Date(kickoff)), []);
 });
 
 test("bankroll input accepts French and plain amounts, nothing else", () => {
