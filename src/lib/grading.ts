@@ -4,14 +4,15 @@
 // an EventGrade with the model's and the market's closing probabilities side by side.
 import { prisma } from "@/lib/prisma";
 import { bookClassifier } from "@/lib/bookmakers";
-import { findEventFixture } from "@/lib/footballDataMatches";
+import { findEventResult } from "@/lib/eventResults";
 import { loadMarketHistories, mainTotalsLine } from "@/lib/oddsHistory";
 import { analyzeMarket, type MarketView } from "@/lib/methodology/signals";
 import { closingLineValue, profitUnits, settleH2h, settleTotals, type Settlement } from "@/lib/methodology/settlement";
 
 // Kickoff + 2h15 covers 90 minutes, half-time and stoppages before we look for a result.
 const GRADE_AFTER_MS = 135 * 60 * 1000;
-const GRADE_LOOKBACK_DAYS = 30;
+// The international results dataset can take a few weeks to list a national-team match.
+const GRADE_LOOKBACK_DAYS = 60;
 
 export type GradingSummary = { eventsGraded: number; picksGraded: number; picksVoided: number; unresolved: number };
 
@@ -35,7 +36,7 @@ export async function gradeFinishedEvents(now = new Date()): Promise<GradingSumm
   const summary: GradingSummary = { eventsGraded: 0, picksGraded: 0, picksVoided: 0, unresolved: 0 };
 
   for (const event of events) {
-    const fixture = await findEventFixture(event);
+    const fixture = await findEventResult(event);
     if (fixture && (fixture.status === "CANCELLED" || fixture.status === "AWARDED")) {
       const voided = await prisma.pick.updateMany({
         where: { eventId: event.id, status: "pending" },

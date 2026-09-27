@@ -8,6 +8,7 @@ import {
   ELO_BLEND_WEIGHT,
   GOALS,
   MODEL_VERSION,
+  NATIONAL,
   PINNACLE_CONSENSUS_WEIGHT,
   SIGNALS,
   STAKING,
@@ -163,6 +164,34 @@ export default function MethodologyPage() {
             et un modèle de buts ajusté ; « insuffisantes » sous {ELO.thinMatches} matchs — le verdict est alors plafonné à
             MARGINAL.
           </p>
+          <p>
+            <strong>Les sélections nationales.</strong> Mêmes pièces, autres données : le plan gratuit de football-data.org
+            n&apos;a ni la Ligue des nations, ni les qualifications, ni les amicaux. Les sélections sont donc notées sur le jeu
+            de données public{" "}
+            <a
+              href="https://github.com/martj42/international_results"
+              className="text-accent-strong underline underline-offset-2"
+              rel="noreferrer"
+              target="_blank"
+            >
+              international_results
+            </a>{" "}
+            : chaque match international masculin depuis 1872, avec le lieu et la minute des buts. Une note Elo par sélection,
+            rejouée sur tout cet historique sans retour vers la moyenne (une sélection ne change pas d&apos;effectif chaque
+            été) ; le facteur K, l&apos;avantage du terrain et le modèle de nul sont réglés par type de match (Coupe du monde,
+            championnats continentaux, qualifications, Ligues des nations, amicaux, autres tournois) ; un seul modèle de buts
+            pour tous les matchs internationaux récents. Sur terrain neutre — les phases finales —, ni l&apos;Elo ni le modèle
+            de buts n&apos;accordent d&apos;avantage à l&apos;équipe citée à domicile. Le repos tient aussi compte du dernier
+            match coté par The Odds API : le jeu de données ne suit qu&apos;avec quelques jours de retard.
+          </p>
+          <Params
+            rows={[
+              ["Historique rejoué", "tous les matchs depuis 1872"],
+              ["Retour vers la moyenne", "aucun"],
+              ["Modèle de buts des sélections", `matchs des ${Math.round(NATIONAL.goalsWindowDays / 365)} dernières années`],
+              ["Avantage terrain sur terrain neutre", "0"],
+            ]}
+          />
         </Block>
 
         <Block id="marche" title="2. Le marché">
@@ -278,6 +307,11 @@ export default function MethodologyPage() {
             plus. Chaque nuit, le job de gradation récupère le score à 90 minutes, calcule la cote de clôture (Pinnacle
             s&apos;il cotait, sinon le consensus) et la CLV de chaque pick, puis la calibration est recalculée :
           </p>
+          <p className="text-sm text-fg-muted">
+            Pour les sélections, le score publié compte la prolongation : le score à 90 minutes est reconstitué à partir de la
+            minute des buts. Tant qu&apos;un doute subsiste — un but tardif qui peut être du temps additionnel comme de la
+            prolongation, une liste de buteurs pas encore publiée —, le pick reste en attente plutôt que d&apos;être mal gradé.
+          </p>
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
               <strong>Décalage par championnat</strong> : taux de réussite − probabilité annoncée, sur les{" "}
@@ -317,11 +351,12 @@ export default function MethodologyPage() {
             </li>
             <li>
               <code className="font-mono-tabular text-xs">npm run refresh:stats</code> : classements et résultats
-              football-data.org, notes Elo et modèle de buts rejoués, probabilités recalculées, puis verdicts.
+              football-data.org, résultats internationaux, notes Elo et modèle de buts rejoués, probabilités recalculées, puis
+              verdicts.
             </li>
             <li>
-              <code className="font-mono-tabular text-xs">npm run nightly</code> : résultats récents, gradation, calibration,
-              verdicts.
+              <code className="font-mono-tabular text-xs">npm run nightly</code> : résultats récents (clubs et sélections),
+              gradation, calibration, verdicts.
             </li>
           </ul>
         </Block>
@@ -343,6 +378,12 @@ export default function MethodologyPage() {
             <li>
               Tant que peu de picks sont gradés, la calibration reste proche de ses valeurs de départ : il faut plusieurs
               centaines de picks avant que la CLV et les écarts de calibration disent quelque chose de solide.
+            </li>
+            <li>
+              Sélections : les résultats internationaux n&apos;arrivent que quelques jours après chaque fenêtre, si bien que les
+              notes ne voient pas encore les tout derniers matchs et que les picks attendent leur gradation. L&apos;avantage du
+              pays hôte d&apos;une phase finale n&apos;est pas modélisé (tout y est traité en terrain neutre), et seules les
+              sélections masculines A sont couvertes.
             </li>
           </ul>
         </Block>

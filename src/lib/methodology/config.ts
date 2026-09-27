@@ -155,6 +155,18 @@ export const ELO = {
   fullMatches: 10,
 } as const;
 
+/**
+ * [adapt] National teams, rated on every international since 1872 (see
+ * src/lib/internationalResultsApi.ts): same Elo, form and goals model, other data.
+ */
+export const NATIONAL = {
+  /**
+   * The goals model only looks at this many days of internationals: older ones weigh under
+   * 1% with the decay below, and they would inflate a team's count of games played.
+   */
+  goalsWindowDays: 4 * 365,
+} as const;
+
 export const GOALS = {
   /** Time decay of past matches (half-life ≈ 200 days). */
   decayPerDay: 0.0035,

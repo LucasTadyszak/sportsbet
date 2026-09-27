@@ -91,6 +91,24 @@ export function outcomeCode(marketKey: string, outcomeName: string, point: numbe
   return outcomeName;
 }
 
+// National-team Elo classes (CompetitionModel codes, see leagueMapping.ts); clubs keep their football-data.org code.
+const NATIONAL_CLASS_LABELS: Record<string, string> = {
+  "INT-WC": "Coupe du monde",
+  "INT-CC": "championnats continentaux (Euro, Copa América, CAN…)",
+  "INT-WCQ": "qualifications pour la Coupe du monde",
+  "INT-CQ": "qualifications continentales",
+  "INT-NL": "Ligues des nations",
+  "INT-FRIENDLY": "matchs amicaux",
+  "INT-OTHER": "autres tournois",
+};
+
+/** "PL" stays "PL"; a national-team class reads "Sélections · Ligues des nations" with `prefixed`. */
+export function competitionLabel(code: string, prefixed = false): string {
+  const label = NATIONAL_CLASS_LABELS[code];
+  if (!label) return code;
+  return prefixed ? `Sélections · ${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
+}
+
 export const DATA_QUALITY_LABELS: Record<string, string> = {
   full: "Complètes",
   partial: "Partielles",

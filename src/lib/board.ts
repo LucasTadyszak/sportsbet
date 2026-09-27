@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { Edge, MatchPrediction } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addDays, parisStartOfDay } from "@/lib/dates";
-import { findEventFixture } from "@/lib/footballDataMatches";
+import { findEventResult } from "@/lib/eventResults";
 import { consensusProbabilities } from "@/lib/probability";
 import { isStakedTier } from "@/lib/methodology/config";
 import type { OutcomeEdge } from "@/lib/selection";
@@ -72,11 +72,14 @@ export type BoardEvent = {
   edges: OutcomeEdge[];
 };
 
+/** The 90-minute score (what bookmakers settle on and the goals model predicts). */
+export type FinalScore = { home: number; away: number };
+
 export type MatchDetail = Omit<BoardEvent, "edges"> & {
   totals: OddsLine[];
   edges: Edge[];
   predictionDetail: MatchPrediction | null;
-  /** Once football-data.org reports the match finished — there is no live score feed. */
+  /** Once the results source reports the match finished — there is no live score feed. */
   finalScore: FinalScore | null;
 };
 
@@ -307,7 +310,7 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
 
   let finalScore: FinalScore | null = null;
   if (event.commenceTime.getTime() <= Date.now()) {
-    const fixture = await findEventFixture(event);
+    const fixture = await findEventResult(event);
     if (fixture?.status === "FINISHED" && fixture.homeGoals !== null && fixture.awayGoals !== null) {
       finalScore = { home: fixture.homeGoals, away: fixture.awayGoals };
     }

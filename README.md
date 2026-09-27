@@ -3,8 +3,10 @@
 Site Next.js qui affiche les cotes bookmaker en direct (récupérées via
 [The Odds API](https://the-odds-api.com/)), stockées dans une base Postgres,
 et les confronte à un modèle maison (Elo + modèle de buts Dixon-Coles, nourri par
-les résultats et classements de [football-data.org](https://www.football-data.org/))
-selon la méthodologie de [Lakeshore Edge](https://www.lakeshore-edge.com/methodology)
+les résultats et classements de [football-data.org](https://www.football-data.org/) pour
+les clubs, et par le jeu de données public
+[international_results](https://github.com/martj42/international_results) pour les
+sélections nationales) selon la méthodologie de [Lakeshore Edge](https://www.lakeshore-edge.com/methodology)
 adaptée au football : cotes sans marge et consensus multi-bookmakers, cinq signaux
 de marché, verdicts par paliers, mise Kelly fractionnée, journal de picks figés,
 gradation nocturne contre la cote de clôture (CLV) et boucle de calibration.
@@ -19,6 +21,7 @@ du site et dans `src/lib/methodology/config.ts`.
 - **PostgreSQL** comme base de données
 - **The Odds API** comme source de cotes
 - **football-data.org** comme source de statistiques (classements, forme, buts)
+- **international_results** (domaine public, CSV sur GitHub) pour les résultats des sélections nationales
 
 > Next build/dev tournent avec `--webpack` : la version de Turbopack livrée
 > avec Next 16.3.6 casse le chargement de `next/font/google` dans cet
@@ -41,13 +44,19 @@ src/app/api/refresh-odds/   # endpoint HTTP protégé par CRON_SECRET pour décl
 src/lib/footballDataApi.ts  # client football-data.org (standings, matches) + espacement 10 req/min
 src/lib/footballDataStats.ts # throttle -> fetch classement -> upsert TeamStats
 src/lib/footballDataMatches.ts # tous les matchs des compétitions suivies -> Fixture (score à 90 min)
-src/lib/leagueMapping.ts    # sport_key (Odds API) -> code compétition (football-data.org)
+src/lib/leagueMapping.ts    # sport_key (Odds API) -> code compétition (football-data.org) ; compétitions de sélections
 src/lib/teamNameMatch.ts    # rapproche les noms d'équipe entre les deux APIs
 src/lib/ratings.ts          # rejoue l'Elo (réglé par ligue) + ajuste le modèle de buts, depuis les Fixture
 src/lib/predictions.ts      # Poisson sur le classement (repli quand le modèle de buts manque de données)
 src/lib/refreshStats.ts     # classements + résultats -> notes -> MatchPrediction (modèle brut)
 scripts/refresh-stats.ts    # point d'entrée CLI pour un cron (Render Cron Job)
 src/app/api/refresh-stats/  # endpoint HTTP protégé par CRON_SECRET pour déclencher un refresh
+
+# Sélections nationales (international_results)
+src/lib/internationalResultsApi.ts # lecture des CSV : noms actuels, classe de match, score à 90' reconstitué
+src/lib/internationalResults.ts    # synchro en base, rapprochement des noms, repos, résultat d'un match de sélections
+src/lib/nationalTeamNames.ts       # noms The Odds API <-> jeu de données (variantes connues, jamais de sous-chaîne)
+src/lib/eventResults.ts            # score à 90' d'un événement : football-data.org (clubs) ou international (sélections)
 
 # Méthodologie (fonctions pures, testées : npm test)
 src/lib/methodology/config.ts      # TOUS les paramètres (seuils, plafonds, poids), commentés [LE]/[adapt]
@@ -175,6 +184,42 @@ calibration (`CalibrationBucket`) utilisée par les verdicts suivants.
 Tout reste indicatif : un verdict n'est pas un conseil de pari, et la calibration
 ne devient fiable qu'après plusieurs centaines de picks gradés (voir `/modele`).
 
+### Sélections nationales
+
+Les compétitions de sélections de The Odds API sont suivies en plus des clubs : Ligue des
+nations, qualifications pour la Coupe du monde (Europe, Amérique du Sud) et pour l'Euro,
+Coupe du monde, Euro, Copa América, CAN et Gold Cup (`NATIONAL_TEAM_COMPETITIONS` dans
+`src/lib/leagueMapping.ts`). Elles ne jouent que quelques semaines par an : à chaque
+refresh, la liste des sports de The Odds API (gratuite, hors quota) dit lesquelles sont en
+saison, et seules celles-là sont interrogées. Pendant une fenêtre internationale, compter
+donc un appel de plus par compétition active, au même coût que pour un championnat.
+
+Le plan gratuit de football-data.org n'ayant ni la Ligue des nations, ni les
+qualifications, ni les amicaux, le modèle des sélections tourne sur
+[international_results](https://github.com/martj42/international_results) : tous les
+matchs internationaux masculins depuis 1872 (lieu, compétition, minute des buts), trois
+fichiers CSV sans clé ni quota. `refreshStats()` les synchronise (`NationalTeam`,
+`InternationalMatch`, même throttle que les stats), rejoue une note Elo par sélection sur
+tout l'historique — K, avantage du terrain et nul réglés par type de match, pas de retour
+vers la moyenne, aucun avantage du terrain en phase finale (terrain neutre) — et ajuste un
+modèle de buts sur les quatre dernières années. Les notes des sélections sont stockées dans
+`TeamRating` sous l'opposé de leur id (`-NationalTeam.id`), qui ne peut pas croiser un id
+de club.
+
+Le score publié compte la prolongation : le score à 90 minutes, celui des bookmakers, est
+reconstitué à partir de la minute des buts, en tenant compte des matchs retour (la
+prolongation y suit une égalité sur les deux matchs). Quand un doute subsiste — un but à la
+95e peut être du temps additionnel comme de la prolongation, un 3-0 sans buteurs peut être
+un match gagné sur tapis vert —, le pick reste en attente plutôt que d'être mal gradé. Le
+jeu de données n'étant mis à jour que quelques jours après chaque fenêtre, `npm run
+nightly` le re-télécharge à chaque passage et la gradation remonte jusqu'à 60 jours.
+
+Les noms de pays diffèrent entre les deux sources ("USA" / "United States", "Czechia" /
+"Czech Republic") : `nationalTeamNames.ts` les compare après normalisation et avec une
+table de variantes, jamais par sous-chaîne ("Ireland" n'est pas "Northern Ireland"). Un
+nom inconnu n'a simplement pas de modèle, et `npm run refresh:stats` l'affiche
+(`unmatched national teams: …`) : il suffit alors d'ajouter la variante à la table.
+
 Comme The Odds API et football-data.org n'utilisent pas les mêmes noms
 d'équipe (ex. "Wolves" vs "Wolverhampton Wanderers FC"), `teamNameMatch.ts`
 normalise les noms (accents, suffixes "FC"/"AFC"/…) et connaît quelques alias
@@ -220,14 +265,19 @@ Variables utiles en plus des clés :
   « meilleure cote » ; par défaut, tous les books sauf Pinnacle et les exchanges.
 - `FOOTBALL_DATA_SEASONS_BACK` (défaut 1) : saisons passées à récupérer une fois
   pour ne pas démarrer les notes Elo de zéro.
+- `ODDS_NATIONAL_SPORT_KEYS` : compétitions de sélections suivies en plus de
+  `ODDS_SPORT_KEYS` (par défaut toutes celles de `NATIONAL_TEAM_COMPETITIONS` ; vide pour
+  n'en suivre aucune). Une clé absente de cette table a ses cotes mais pas de modèle.
 
-Sports suivis par défaut : `soccer_epl,soccer_uefa_champs_league`. Pour en
-suivre d'autres, ajoute `ODDS_SPORT_KEYS="soccer_epl,soccer_fifa_world_cup,basketball_nba"`
+Sports suivis par défaut : `soccer_epl,soccer_uefa_champs_league` côté clubs, plus
+les compétitions de sélections (voir « Sélections nationales »). Pour suivre d'autres
+championnats, ajoute `ODDS_SPORT_KEYS="soccer_epl,soccer_france_ligue_one,basketball_nba"`
 (clés valides via `GET https://api.the-odds-api.com/v4/sports?apiKey=...`)
 dans `.env`. Les probabilités ne sont calculées que pour les sports mappés
 vers une compétition football-data.org dans `src/lib/leagueMapping.ts` (Premier
 League, Champions League, Bundesliga, Liga, Serie A, Ligue 1, etc. — le plan
-gratuit de football-data.org ne couvre qu'un sous-ensemble de compétitions).
+gratuit de football-data.org ne couvre qu'un sous-ensemble de compétitions), et pour
+les compétitions de sélections de `NATIONAL_TEAM_COMPETITIONS`.
 
 Clé football-data.org gratuite : à récupérer sur
 [football-data.org/client/register](https://www.football-data.org/client/register).

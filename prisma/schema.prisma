@@ -53,10 +53,50 @@ model Team {
   name               String   @unique // exact team name as reported by The Odds API
   competitionCode    String? // football-data.org competition code, once matched
   footballDataTeamId Int? // football-data.org team id, once matched
+  nationalTeamId     Int? // NationalTeam id, once matched (national-team competitions)
   firstSeenAt        DateTime @default(now())
   lastSeenAt         DateTime @updatedAt
 
   @@map("teams")
+}
+
+// A men's national team, under its current name in the international results dataset
+// (github.com/martj42/international_results). Its Elo rating is stored in TeamRating under
+// the negative of this id, so it can never collide with a football-data.org club id.
+model NationalTeam {
+  id   Int    @id @default(autoincrement())
+  name String @unique // e.g. "Republic of Ireland", "Czech Republic"
+
+  homeMatches InternationalMatch[] @relation("homeTeam")
+  awayMatches InternationalMatch[] @relation("awayTeam")
+
+  @@map("national_teams")
+}
+
+// Every men's full international of the dataset, 1872 onwards. Feeds the national-team Elo
+// and goals model, and grades picks on national-team events (90-minute score, like clubs).
+model InternationalMatch {
+  id         Int          @id @default(autoincrement())
+  date       DateTime     @db.Date // local date of the match: the dataset has no kick-off time
+  homeTeamId Int
+  homeTeam   NationalTeam @relation("homeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId Int
+  awayTeam   NationalTeam @relation("awayTeam", fields: [awayTeamId], references: [id])
+  homeScore  Int // final score: extra time included, penalty shoot-out not
+  awayScore  Int
+  // Score after 90 minutes, only when the goal minutes make it certain (null: e.g. a late
+  // goal that may have been extra time, or no scorer list yet).
+  home90     Int?
+  away90     Int?
+  tournament String
+  eloClass   String // WC | CC | WCQ | CQ | NL | FRIENDLY | OTHER — see internationalResultsApi.ts
+  neutral    Boolean
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([date, homeTeamId, awayTeamId])
+  @@index([homeTeamId, date])
+  @@index([awayTeamId, date])
+  @@map("international_matches")
 }
 
 // A bookmaker as exposed by The Odds API (e.g. "pinnacle", "bet365").
@@ -198,7 +238,8 @@ model Fixture {
 }
 
 // Current Elo rating of a team (football-data.org team id), replayed from scratch
-// over every stored finished Fixture on each stats refresh.
+// over every stored finished Fixture on each stats refresh. National teams are rated
+// separately, over every InternationalMatch, under the negative of their NationalTeam id.
 model TeamRating {
   teamId       Int       @id
   name         String
@@ -214,6 +255,8 @@ model TeamRating {
 
 // Per-competition parameters: Elo constants tuned on that league's own history
 // (K factor, home-field advantage, draw model) and the fitted Dixon-Coles goals model.
+// National teams get one row per Elo class ("INT-NL", "INT-WCQ"…), all carrying the one
+// goals model fitted on every recent international.
 model CompetitionModel {
   competitionCode String   @id
   kFactor         Float

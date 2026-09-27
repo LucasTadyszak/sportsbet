@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
   try {
     const summary = await refreshOdds();
     const edges = await refreshEdges();
-    return NextResponse.json({ ok: true, summary, edges });
+    // A competition that failed doesn't stop the others; the response still says it failed.
+    const ok = !summary.some((row) => row.error);
+    return NextResponse.json({ ok, summary, edges }, { status: ok ? 200 : 502 });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
