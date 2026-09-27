@@ -26,17 +26,21 @@ function boardHref(current: BoardQuery, changes: Partial<BoardQuery>) {
   return { pathname: "/", query };
 }
 
-type CompetitionEntry = { theme: CompetitionTheme; count: number };
+type CompetitionEntry = { theme: CompetitionTheme; logo: string | null; count: number };
 
 /** The competitions of the matches on screen, biggest first — plus the one filtered on, even when it has none. */
 function competitionEntries(events: BoardEvent[], selected: string | undefined): CompetitionEntry[] {
   const entries = new Map<string, CompetitionEntry>();
   for (const event of events) {
-    const entry = entries.get(event.sportKey) ?? { theme: competitionTheme(event.sportKey, event.sportTitle), count: 0 };
+    const entry = entries.get(event.sportKey) ?? {
+      theme: competitionTheme(event.sportKey, event.sportTitle),
+      logo: event.sportLogo,
+      count: 0,
+    };
     entry.count++;
     entries.set(event.sportKey, entry);
   }
-  if (selected && !entries.has(selected)) entries.set(selected, { theme: competitionTheme(selected, selected), count: 0 });
+  if (selected && !entries.has(selected)) entries.set(selected, { theme: competitionTheme(selected, selected), logo: null, count: 0 });
   return Array.from(entries.values()).sort((a, b) => byRank(a.theme, b.theme));
 }
 
@@ -95,7 +99,7 @@ function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry
             <CountPill count={total} active={!current.comp} />
           </Link>
         </li>
-        {entries.map(({ theme, count }) => {
+        {entries.map(({ theme, logo, count }) => {
           const active = current.comp === theme.sportKey;
           return (
             <li key={theme.sportKey}>
@@ -104,7 +108,7 @@ function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry
                 aria-current={active ? "page" : undefined}
                 className={item(active)}
               >
-                <CompetitionIcon theme={theme} />
+                <CompetitionIcon theme={theme} logo={logo} />
                 <span className="flex-1 truncate">{theme.name}</span>
                 <CountPill count={count} active={active} />
               </Link>
@@ -130,12 +134,12 @@ function CompetitionChips({ entries, total, current }: { entries: CompetitionEnt
             Tout <span className="tabular opacity-70">{total}</span>
           </Link>
         </li>
-        {entries.map(({ theme, count }) => {
+        {entries.map(({ theme, logo, count }) => {
           const active = current.comp === theme.sportKey;
           return (
             <li key={theme.sportKey}>
               <Link href={boardHref(current, { comp: theme.sportKey })} aria-current={active ? "page" : undefined} className={chip(active)}>
-                <CompetitionIcon theme={theme} size={16} />
+                <CompetitionIcon theme={theme} logo={logo} size={16} />
                 {theme.name} <span className="tabular opacity-70">{count}</span>
               </Link>
             </li>
@@ -264,7 +268,7 @@ function MatchGroups({ events }: { events: BoardEvent[] }) {
         return (
           <details key={sportKey} open className="group/section">
             <summary className="mb-3 flex list-none items-center gap-3 rounded-lg py-1 [&::-webkit-details-marker]:hidden">
-              <CompetitionIcon theme={theme} size={20} />
+              <CompetitionIcon theme={theme} logo={competitionEvents[0].sportLogo} size={20} />
               <span className="font-display text-lg font-extrabold text-fg">{theme.name}</span>
               <CountPill count={competitionEvents.length} />
               <span aria-hidden className="h-px flex-1 bg-border" />

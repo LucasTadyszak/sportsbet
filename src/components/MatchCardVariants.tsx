@@ -47,7 +47,7 @@ export function DuelCard({ event }: { event: BoardEvent }) {
     <article className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-card transition-shadow duration-200 hover:shadow-lg">
       <span aria-hidden className="h-1" style={{ backgroundImage: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }} />
       <div className="flex items-center gap-2 px-4 pt-3">
-        <CompetitionIcon theme={theme} size={16} />
+        <CompetitionIcon theme={theme} logo={event.sportLogo} size={16} />
         <span className="truncate text-xs font-bold uppercase tracking-wider" style={{ color: theme.from }}>
           {theme.name}
         </span>
@@ -119,7 +119,7 @@ export function JerseyCard({ event }: { event: BoardEvent }) {
   const { theme, homeKit, awayKit } = looksOf(event);
   return (
     <article className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-card transition-shadow duration-200 hover:shadow-lg">
-      <CompetitionBand theme={theme} />
+      <CompetitionBand theme={theme} logo={event.sportLogo} />
       <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4">
         <div className="relative isolate">
           <Pitch />
@@ -192,7 +192,7 @@ export function PosterCard({ event }: { event: BoardEvent }) {
           <TeamCrest src={event.awayCrest} size={180} />
         </span>
         <span className="flex items-center justify-center gap-2 text-xs font-semibold tracking-wide text-white">
-          <CompetitionIcon theme={theme} size={16} />
+          <CompetitionIcon theme={theme} logo={event.sportLogo} size={16} />
           {theme.name}
         </span>
         <Link
@@ -242,7 +242,7 @@ export function TicketCard({ event }: { event: BoardEvent }) {
   return (
     <article className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-card transition-shadow duration-200 hover:shadow-lg">
       <div className="flex items-center gap-2 px-4 py-2.5 text-white" style={{ backgroundImage: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }}>
-        <CompetitionIcon theme={theme} size={16} />
+        <CompetitionIcon theme={theme} logo={event.sportLogo} size={16} />
         <span className="truncate text-xs font-bold uppercase tracking-wider">{theme.name}</span>
         <span className="ml-auto text-[11px] font-semibold uppercase tracking-widest text-white/75">Billet</span>
       </div>
@@ -304,7 +304,7 @@ export function CompactCard({ event }: { event: BoardEvent }) {
           </span>
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.from }}>
-              <CompetitionIcon theme={theme} size={14} />
+              <CompetitionIcon theme={theme} logo={event.sportLogo} size={14} />
               {theme.name}
             </span>
             <Link href={`/match/${event.id}`} className={`flex min-w-0 flex-col gap-1.5 ${STRETCHED}`}>

@@ -1,6 +1,7 @@
 // Read models for /picks, /passes and /historique.
 import { prisma } from "@/lib/prisma";
 import { crestsByTeamName } from "@/lib/crests";
+import { servableLogo } from "@/lib/logoMatch";
 import { STAKED_TIERS } from "@/lib/methodology/config";
 import { tierRank } from "@/lib/methodology/verdict";
 
@@ -8,6 +9,7 @@ export type VerdictListItem = {
   edgeId: string;
   eventId: string;
   sportTitle: string;
+  sportLogo: string | null;
   homeTeam: string;
   awayTeam: string;
   homeCrest: string | null;
@@ -52,6 +54,7 @@ export async function getUpcomingVerdicts(kind: "staked" | "passed"): Promise<Ve
       edgeId: e.id,
       eventId: e.eventId,
       sportTitle: e.event.sport.title,
+      sportLogo: servableLogo(e.event.sport.logo),
       homeTeam: e.event.homeTeam,
       awayTeam: e.event.awayTeam,
       homeCrest: crests.get(e.event.homeTeam) ?? null,
@@ -136,6 +139,7 @@ export async function getTrackRecord(filter: TrackFilter) {
     .map((p) => ({
       ...p,
       bookmakerTitle: title.get(p.bookmakerKey) ?? p.bookmakerKey,
+      sportLogo: servableLogo(p.event.sport.logo),
       homeCrest: crests.get(p.event.homeTeam) ?? null,
       awayCrest: crests.get(p.event.awayTeam) ?? null,
     }));

@@ -219,7 +219,7 @@ export function MatchCard({ event }: { event: BoardEvent }) {
       <KitStripes colors={homeKit} side="home" />
       <KitStripes colors={awayKit} side="away" />
 
-      <CompetitionBand theme={theme} />
+      <CompetitionBand theme={theme} logo={event.sportLogo} />
 
       <div className="mx-1.5 mb-1.5 flex flex-1 flex-col gap-4 rounded-b-xl bg-bg-elevated px-3.5 pb-3.5 pt-5 sm:px-4">
         <Link

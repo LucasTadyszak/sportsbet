@@ -1,6 +1,8 @@
-// A competition's identity on the board (src/lib/competitions.ts): its sport and round
-// flag side by side, as bookmakers mark a competition, and the motif its header band wears.
-// Everything here is decorative: the competition is always named in text next to it.
+// A competition's identity on the board (src/lib/competitions.ts): its logo when TheSportsDB
+// has one (src/lib/refreshLogos.ts), else its sport and round flag side by side, as bookmakers
+// mark a competition; and the motif its header band wears. Everything here is decorative: the
+// competition is always named in text next to it.
+import Image from "next/image";
 import type { ReactNode } from "react";
 import type { CompetitionTheme, FlagCode, Motif } from "@/lib/competitions";
 import { Icon } from "@/components/Icon";
@@ -105,8 +107,23 @@ export function RoundFlag({ code, size = 16 }: { code: FlagCode; size?: number }
   );
 }
 
-/** Sport + flag, overlapping — the bookmakers' way of marking a competition. */
-export function CompetitionIcon({ theme, size = 18 }: { theme: CompetitionTheme; size?: number }) {
+/**
+ * The competition's logo on a white disc, or else sport + flag overlapping — the bookmakers'
+ * way of marking a competition. Both take the same width, so names line up in a list.
+ */
+export function CompetitionIcon({ theme, logo = null, size = 18 }: { theme: CompetitionTheme; logo?: string | null; size?: number }) {
+  if (logo) {
+    return (
+      <span aria-hidden className="inline-flex shrink-0 items-center justify-center" style={{ width: size * 2 - 4, height: size }}>
+        <span
+          className="flex items-center justify-center rounded-full bg-white ring-1 ring-fg/15"
+          style={{ width: size + 4, height: size + 4 }}
+        >
+          <Image src={logo} alt="" width={size} height={size} className="object-contain" style={{ width: size - 2, height: size - 2 }} />
+        </span>
+      </span>
+    );
+  }
   return (
     <span aria-hidden className="inline-flex shrink-0 items-center">
       <span
@@ -168,14 +185,14 @@ export function CompetitionMotif({ theme, className = "" }: { theme: Competition
 }
 
 /** A match block's header band: the competition's gradient and motif, its icon and name. */
-export function CompetitionBand({ theme, className = "" }: { theme: CompetitionTheme; className?: string }) {
+export function CompetitionBand({ theme, logo = null, className = "" }: { theme: CompetitionTheme; logo?: string | null; className?: string }) {
   return (
     <div
       className={`relative flex h-9 items-center gap-2 overflow-hidden px-3.5 text-white ${className}`}
       style={{ backgroundImage: `linear-gradient(100deg, ${theme.from}, ${theme.to})` }}
     >
       <CompetitionMotif theme={theme} />
-      <CompetitionIcon theme={theme} size={16} />
+      <CompetitionIcon theme={theme} logo={logo} size={16} />
       <span className="relative truncate text-xs font-semibold tracking-wide">{theme.name}</span>
     </div>
   );

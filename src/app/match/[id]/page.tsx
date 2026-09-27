@@ -387,7 +387,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <div className="relative isolate bg-bg-row">
             <KitStripes colors={homeKit} side="home" />
             <KitStripes colors={awayKit} side="away" />
-            <CompetitionBand theme={theme} className="h-10 sm:px-5" />
+            <CompetitionBand theme={theme} logo={match.sportLogo} className="h-10 sm:px-5" />
             <div className="mx-1.5 mb-1.5 rounded-b-lg bg-bg-elevated px-4 py-7 text-center sm:px-8">
               <h1 className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 font-display text-xl font-bold text-fg sm:text-2xl">
                 <span className="flex flex-col items-center gap-3 text-center">
