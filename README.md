@@ -13,6 +13,14 @@ gradation nocturne contre la cote de clôture (CLV) et boucle de calibration.
 Le détail, avec les valeurs exactes des paramètres, est sur la page `/methodologie`
 du site et dans `src/lib/methodology/config.ts`.
 
+Seuls les bookmakers français (agréés ANJ) sont affichés et proposés comme meilleure
+cote ; Pinnacle, les exchanges et les autres books européens ne servent qu'au
+consensus. Une flamme signale une **erreur de cote** : une cote française au moins 5 %
+au-dessus de la cote juste que donnent tous les autres bookmakers. Chaque club et
+chaque compétition sont affichés avec leur logo, fourni par
+[TheSportsDB](https://www.thesportsdb.com/) (API gratuite, sans inscription), avec
+football-data.org en secours pour les clubs.
+
 ## Stack
 
 - **Next.js 16** (App Router, TypeScript, React 19) — front + API routes dans un seul déployable
@@ -22,6 +30,7 @@ du site et dans `src/lib/methodology/config.ts`.
 - **The Odds API** comme source de cotes
 - **football-data.org** comme source de statistiques (classements, forme, buts)
 - **international_results** (domaine public, CSV sur GitHub) pour les résultats des sélections nationales
+- **TheSportsDB** comme source des logos des clubs et des compétitions (clé publique gratuite)
 
 > Next build/dev tournent avec `--webpack` : la version de Turbopack livrée
 > avec Next 16.3.6 casse le chargement de `next/font/google` dans cet
@@ -41,11 +50,14 @@ scripts/refresh-odds.ts     # point d'entrée CLI pour un cron (Render Cron Job)
 src/app/api/refresh-odds/   # endpoint HTTP protégé par CRON_SECRET pour déclencher un refresh
 
 # Statistiques + modèle (football-data.org)
-src/lib/footballDataApi.ts  # client football-data.org (standings, matches) + espacement 10 req/min
-src/lib/footballDataStats.ts # throttle -> fetch classement -> upsert TeamStats
+src/lib/footballDataApi.ts  # client football-data.org (standings, teams, matches) + espacement 10 req/min
+src/lib/footballDataStats.ts # throttle -> fetch classement (logo de chaque club) + couleurs des clubs -> upsert TeamStats
 src/lib/footballDataMatches.ts # tous les matchs des compétitions suivies -> Fixture (score à 90 min)
-src/lib/leagueMapping.ts    # sport_key (Odds API) -> code compétition (football-data.org) ; compétitions de sélections
-src/lib/teamNameMatch.ts    # rapproche les noms d'équipe entre les deux APIs
+src/lib/leagueMapping.ts    # sport_key (Odds API) -> code compétition (football-data.org), id de ligue (TheSportsDB) ; compétitions de sélections
+src/lib/teamNames.ts        # normalisation des noms d'équipe (accents, suffixes « FC », alias), commune aux rapprochements
+src/lib/teamNameMatch.ts    # rapproche les noms d'équipe entre The Odds API et football-data.org
+src/lib/crests.ts           # nom d'équipe The Odds API -> logo du club (Team.logo, sinon TeamStats.crest) et ses couleurs (TeamStats.clubColors)
+src/lib/teamColors.ts       # couleurs d'un club ("Red / White") -> couleurs hex des blocs de match
 src/lib/ratings.ts          # rejoue l'Elo (réglé par ligue) + ajuste le modèle de buts, depuis les Fixture
 src/lib/predictions.ts      # Poisson sur le classement (repli quand le modèle de buts manque de données)
 src/lib/refreshStats.ts     # classements + résultats -> notes -> MatchPrediction (modèle brut)
@@ -58,6 +70,12 @@ src/lib/internationalResults.ts    # synchro en base, rapprochement des noms, re
 src/lib/nationalTeamNames.ts       # noms The Odds API <-> jeu de données (variantes connues, jamais de sous-chaîne)
 src/lib/eventResults.ts            # score à 90' d'un événement : football-data.org (clubs) ou international (sélections)
 
+# Logos (TheSportsDB)
+src/lib/theSportsDbApi.ts   # client TheSportsDB v1 (clé gratuite « 123 » par défaut) + espacement 30 req/min
+src/lib/logoMatch.ts        # quelle équipe TheSportsDB est la nôtre (sport, nom exact ou alternatif) + URLs de logo servables
+src/lib/refreshLogos.ts     # logo de chaque compétition (Sport.logo) et de chaque club des matchs récents/à venir (Team.logo)
+scripts/refresh-logos.ts    # point d'entrée CLI : tous les logos dus d'un coup (npm run refresh:logos)
+
 # Méthodologie (fonctions pures, testées : npm test)
 src/lib/methodology/config.ts      # TOUS les paramètres (seuils, plafonds, poids), commentés [LE]/[adapt]
 src/lib/methodology/devig.ts       # de-vig Shin / puissance / proportionnel, consensus pondéré
@@ -69,10 +87,11 @@ src/lib/methodology/verdict.ts     # edge, paliers, garde-fous, Kelly
 src/lib/methodology/calibration.ts # décalages (plafonnés selon l'échantillon) + échelle de calibration
 src/lib/methodology/settlement.ts  # règlement 1X2/totaux (lignes .5, entières, quarts), CLV
 src/lib/methodology/metrics.ts     # Brier, RPS, log-loss, diagrammes de fiabilité
+src/lib/methodology/oddsErrors.ts  # erreurs de cote : cote française vs consensus sans marge des autres books
 src/lib/methodology/stake.ts       # mise d'une sélection de l'utilisateur (à sa cote) et d'un combiné
 
 # Verdicts, journal, gradation, calibration
-src/lib/bookmakers.ts       # rôle de chaque book : sharp (Pinnacle), exchange, grand public ; jouables
+src/lib/bookmakers.ts       # rôle de chaque book : sharp (Pinnacle), exchange, grand public ; français (seuls affichés/jouables)
 src/lib/oddsHistory.ts      # historique des cotes (points de changement seulement, en SQL)
 src/lib/refreshEdges.ts     # verdict de chaque issue + publication des picks (snapshot figé)
 src/lib/grading.ts          # score à 90 min, ligne de clôture, CLV, règlement des picks
@@ -83,14 +102,17 @@ scripts/refresh-edges.ts    # recalcule les verdicts sans appel API (après un c
 
 # UI
 src/lib/dates.ts            # jours/formatage ancrés sur Europe/Paris
-src/lib/probability.ts      # de-vig d'une cote -> probabilité implicite, consensus multi-bookmaker
-src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (liste + détail d'un match)
+src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (cotes françaises, probabilités du marché, erreurs de cote, logos)
 src/lib/journal.ts, src/lib/modelHealth.ts, src/lib/labels.ts  # lectures + libellés FR
+src/lib/competitions.ts     # identité de chaque compétition : nom FR, drapeau, dégradé et motif de son bandeau
+src/components/TeamCrest.tsx # logo d'un club à côté de son nom (bouclier neutre s'il n'y en a pas), logo d'une compétition
+src/components/Competition.tsx # logo de la compétition (sinon icône sport + drapeau rond), bandeau et motif d'une compétition
+src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, cadre aux couleurs des clubs, tuiles 1/N/2
 src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue
 src/lib/betSlip.ts          # état de la sélection et de la bankroll, dans le localStorage du navigateur
-src/components/OddsButton.tsx # une cote cliquable (cases 1/X/2, tableau de cotes, picks)
+src/components/OddsButton.tsx # une cote cliquable (tuiles 1/N/2, tableau de cotes, picks), flamme d'erreur de cote comprise
 src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection »
-src/app/page.tsx            # liste des matchs groupée par compétition, avec les verdicts
+src/app/page.tsx            # blocs de matchs groupés par compétition, barre latérale des compétitions, jours, filtres
 src/app/match/[id]/         # détail : cotes, Analyse (verdict, 5 signaux, modèle pièce par pièce), probabilités, matrice des scores
 src/app/picks/              # picks à venir (paliers misés)
 src/app/passes/             # centre des passes : chaque marché non misé et pourquoi
@@ -99,20 +121,31 @@ src/app/modele/             # santé du modèle : calibration, Brier vs marché,
 src/app/methodologie/       # la méthodologie, avec les valeurs de config.ts
 ```
 
-Board inspiré de [ZoneStat](https://www.zonestat.fr/football) : liste des matchs
-groupée par compétition (repliable), navigation par jour, filtres Tout /
-À venir / En cours, recherche par équipe, et une page détail par match
-(`/match/[id]`) avec un onglet **Résumé** (comparatif de cotes par
-bookmaker, marchés 1X2 et totaux, la cote que le modèle prendrait surlignée), un
-onglet **Analyse** (verdict de chaque marché, raisons, les cinq signaux, écart de
-chaque bookmaker au consensus, et le modèle pièce par pièce), un onglet
-**Probabilités** qui affiche deux lectures côte à côte : les probabilités
-*implicites* (retirer la marge de chaque bookmaker puis moyenner —
-`src/lib/probability.ts`) et le *modèle brut* (voir plus bas), et un onglet
-**Matrice** : la probabilité de chaque score exact de 0-0 à 5-5, les trois scores
-favoris du modèle et, une fois le match terminé, le score à 90 minutes coché dans
-la grille. La matrice est recalculée à l'affichage à partir des buts attendus et
-du ρ Dixon-Coles déjà stockés dans `MatchPrediction` : rien de plus en base. Les pages
+Board inspiré de Winamax et Betclic, en thème clair : chaque match est un **bloc**
+habillé aux couleurs de sa compétition (bandeau en dégradé avec son motif —
+chevrons, étoiles ou bandes — et son logo, sinon son drapeau) et de ses deux clubs
+(cadre rayé aux couleurs du maillot de chaque équipe, logo cerclé de ces mêmes
+couleurs), avec les cotes principales 1 / N / 2 en grandes tuiles cliquables et, sous
+chacune, la probabilité du marché marge retirée. Les couleurs des clubs viennent de
+football-data.org (`clubColors`, un appel par compétition au rythme du classement) ;
+un club sans couleurs connues prend celles de sa compétition. Les blocs sont
+groupés par compétition (repliable, les plus grandes d'abord), avec une barre
+latérale des compétitions (des puces sur mobile) qui filtre le tableau
+(`?comp=<sport_key>`), une navigation par jour, les filtres Tout / À venir /
+En cours, une recherche par équipe, et une page détail par
+match (`/match/[id]`) avec un onglet **Résumé** (comparatif de cotes des
+bookmakers français, marchés 1X2 et totaux, la cote que le modèle prendrait
+surlignée, une flamme sur chaque erreur de cote), un onglet **Analyse** (verdict
+de chaque marché, raisons, les cinq signaux, écart de chaque bookmaker français au
+consensus, et le modèle pièce par pièce), un onglet **Probabilités** qui affiche
+deux lectures côte à côte : les probabilités *implicites* (retirer la marge de
+chaque bookmaker par la méthode de Shin puis moyenner sur tous les books suivis,
+Pinnacle compté double — la référence des erreurs de cote) et le *modèle brut*
+(voir plus bas), et un onglet **Matrice** : la probabilité de chaque score exact
+de 0-0 à 5-5, les trois scores favoris du modèle et, une fois le match terminé, le
+score à 90 minutes coché dans la grille. La matrice est recalculée à l'affichage à
+partir des buts attendus et du ρ Dixon-Coles déjà stockés dans `MatchPrediction` :
+rien de plus en base. Les pages
 `/picks`, `/passes`, `/historique`, `/modele` et `/methodologie` reprennent les
 écrans de Lakeshore Edge (slate, No-Bet Center, Track Record, Model Health,
 Methodology).
@@ -231,6 +264,33 @@ correspondance est trouvée, elle est mémorisée sur la ligne `Team`
 (`competitionCode` + `footballDataTeamId`), et tous les refresh suivants la
 réutilisent directement au lieu de refaire tourner les heuristiques.
 
+### Logos des clubs et des compétitions
+
+Les logos viennent de [TheSportsDB](https://www.thesportsdb.com/documentation), une
+base collaborative gratuite qui couvre tous les championnats (pas seulement ceux du
+plan gratuit de football-data.org) : sans inscription, la clé publique `123` suffit.
+`refreshLogos()` récupère :
+- le logo de chaque **compétition** synchronisée (`Sport.logo`), par l'id de ligue
+  TheSportsDB de son `sport_key` (`SPORT_KEY_TO_THESPORTSDB_LEAGUE` dans
+  `src/lib/leagueMapping.ts` : une compétition absente de la table n'a pas de logo) ;
+- le logo de chaque **club** des matchs récents et à venir (`Team.logo`), cherché
+  d'abord dans les équipes de ses compétitions, puis par son nom. Seule une équipe du
+  même sport dont le nom (ou un de ses noms alternatifs) est identique une fois
+  normalisé est retenue : mieux vaut pas de logo qu'un logo faux. L'id TheSportsDB
+  trouvé est mémorisé sur la ligne `Team` (`sportsDbTeamId`) ; pour un club que le
+  rapprochement ne trouve jamais, il suffit de renseigner cet id à la main (visible
+  dans l'URL de sa page sur thesportsdb.com) : son logo sera cherché par cet id.
+
+Un logo trouvé est revérifié tous les 30 jours, un logo introuvable recherché de
+nouveau tous les 7 jours. La synchro des cotes s'en charge à chaque passage (20
+requêtes TheSportsDB au plus, soit ~45 s, les plus proches matchs d'abord) ;
+`npm run refresh:logos` fait tout d'un coup, par exemple juste après le déploiement.
+Un club sans logo TheSportsDB garde celui du classement football-data.org
+(`TeamStats.crest`, via le rapprochement décrit plus haut), sinon un bouclier neutre. Les
+images sont servies par `next/image`, qui n'accepte que les domaines listés dans
+`next.config.ts` (`r2.thesportsdb.com`, `www.thesportsdb.com/images`,
+`crests.football-data.org`).
+
 ## Installation locale
 
 ```bash
@@ -256,18 +316,22 @@ deux scripts `db:migrate*` le régénèrent désormais d'office.
 
 Variables utiles en plus des clés :
 
-- `ODDS_REGIONS` (défaut `eu`, qui contient Pinnacle et Betfair) : régions The
-  Odds API à interroger, séparées par des virgules. Chaque région coûte un crédit
-  par marché et par appel — ajouter celle des bookmakers où tu paries si elle n'est
-  pas couverte (vérifier la liste des bookmakers par région sur the-odds-api.com).
+- `ODDS_REGIONS` (défaut `eu,fr` : `eu` contient Pinnacle et Betfair, `fr` les
+  bookmakers français) : régions The Odds API à interroger, séparées par des
+  virgules. Chaque région coûte un crédit par marché et par appel : `eu,fr` coûte
+  donc deux fois plus que `eu` seul (vérifier la liste des bookmakers par région
+  sur the-odds-api.com).
 - `BETTABLE_BOOKMAKERS` : clés The Odds API des bookmakers où tu as un compte
   (ex. `winamax_fr,betclic_fr,unibet_fr`). Seuls leurs prix sont proposés comme
-  « meilleure cote » ; par défaut, tous les books sauf Pinnacle et les exchanges.
+  « meilleure cote » ; par défaut, tous les bookmakers français (clés en `_fr`).
+  L'affichage, lui, montre toujours tous les bookmakers français.
 - `FOOTBALL_DATA_SEASONS_BACK` (défaut 1) : saisons passées à récupérer une fois
   pour ne pas démarrer les notes Elo de zéro.
 - `ODDS_NATIONAL_SPORT_KEYS` : compétitions de sélections suivies en plus de
   `ODDS_SPORT_KEYS` (par défaut toutes celles de `NATIONAL_TEAM_COMPETITIONS` ; vide pour
   n'en suivre aucune). Une clé absente de cette table a ses cotes mais pas de modèle.
+- `THESPORTSDB_API_KEY` (facultatif, défaut `123`, la clé publique gratuite) : une clé
+  personnelle TheSportsDB (Patreon) si la clé partagée est trop limitée.
 
 Sports suivis par défaut : `soccer_epl,soccer_uefa_champs_league` côté clubs, plus
 les compétitions de sélections (voir « Sélections nationales »). Pour suivre d'autres
@@ -289,6 +353,7 @@ npm run refresh:odds    # cotes (The Odds API), puis verdicts
 npm run refresh:stats   # classements + résultats + notes + probabilités (football-data.org), puis verdicts
 npm run nightly         # résultats récents, gradation des picks, calibration, verdicts
 npm run refresh:edges   # verdicts seuls, sans appel API (après un changement dans config.ts)
+npm run refresh:logos   # logos des compétitions et des clubs (TheSportsDB), tous ceux qui sont dus
 npm test                # tests unitaires de la méthodologie
 ```
 
@@ -318,7 +383,10 @@ curl "http://localhost:3000/api/nightly?secret=$CRON_SECRET"
    - Cotes, commande `npm install && npm run refresh:odds`, variables
      `DATABASE_URL` + `ODDS_API_KEY`. Fréquence recommandée : toutes les
      15–30 min (à aligner avec `ODDS_REFRESH_INTERVAL_MINUTES`, qui empêche
-     de toute façon un fetch trop rapproché de gaspiller du quota).
+     de toute façon un fetch trop rapproché de gaspiller du quota). Ce job récupère
+     aussi, quelques-uns à chaque passage, les logos manquants (TheSportsDB, aucune
+     clé à fournir) ; `npm run refresh:logos` depuis le shell Render les récupère
+     tous d'un coup après le premier déploiement.
    - Statistiques/probabilités, commande `npm install && npm run refresh:stats`,
      variables `DATABASE_URL` + `FOOTBALL_DATA_API_KEY`. Fréquence recommandée :
      toutes les 3–6h (un classement de championnat ne bouge qu'après chaque

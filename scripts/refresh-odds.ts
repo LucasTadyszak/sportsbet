@@ -3,6 +3,7 @@
 import "dotenv/config";
 import { refreshOdds } from "@/lib/refreshOdds";
 import { refreshEdges } from "@/lib/refreshEdges";
+import { describeLogoRefresh, LOGO_REQUESTS_PER_ODDS_REFRESH, refreshLogos } from "@/lib/refreshLogos";
 import { prisma } from "@/lib/prisma";
 
 async function main() {
@@ -22,6 +23,8 @@ async function main() {
   // throttled, so the verdicts stay in step with the latest calibration and predictions.
   const edges = await refreshEdges();
   console.log(`edges: ${edges.edges} verdicts over ${edges.events} events, ${edges.picksPublished} picks published`);
+  // Logos of the competitions and clubs a sync brings in (TheSportsDB), a few per run.
+  console.log(describeLogoRefresh(await refreshLogos({ maxRequests: LOGO_REQUESTS_PER_ODDS_REFRESH })));
 }
 
 main()

@@ -3,6 +3,7 @@ import { getUpcomingVerdicts } from "@/lib/journal";
 import { formatKickoff } from "@/lib/dates";
 import { formatOdds, formatPts, mainPassReason, marketLabel, outcomeLabel, reasonLabel } from "@/lib/labels";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -65,8 +66,10 @@ export default async function PassesPage() {
                 {passes.map((p) => (
                   <tr key={p.edgeId} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/50">
                     <td className="px-4 py-2.5">
-                      <Link href={`/match/${p.eventId}`} className="text-fg hover:text-accent-strong">
-                        {p.homeTeam} – {p.awayTeam}
+                      <Link href={`/match/${p.eventId}`} className="flex items-center gap-2 text-fg hover:text-accent-strong">
+                        <TeamName name={p.homeTeam} crest={p.homeCrest} size={16} />
+                        <span className="text-fg-muted">–</span>
+                        <TeamName name={p.awayTeam} crest={p.awayCrest} size={16} />
                       </Link>
                       <span className="block font-mono-tabular text-xs text-fg-muted">{formatKickoff(p.commenceTime)}</span>
                     </td>

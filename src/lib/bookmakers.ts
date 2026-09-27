@@ -2,7 +2,8 @@
 //   sharp    — Pinnacle: low margin, professional clientele. Weighs double in the
 //              consensus, is the reference for CLV, steam and reverse line movement.
 //   exchange — Betfair / Matchbook / Smarkets back prices: the real-money anchor.
-//   soft     — everything else: the "public" books, and the ones we can actually bet at.
+//   soft     — everything else: the "public" books.
+// Every book feeds the consensus, but only the French ones are ever shown or bet at.
 import type { BookClassifier, BookRole } from "@/lib/methodology/signals";
 
 const SHARP_BOOKS = new Set(["pinnacle"]);
@@ -15,10 +16,18 @@ export function bookRole(bookmakerKey: string): BookRole {
 }
 
 /**
- * Books a pick may be placed at. BETTABLE_BOOKMAKERS (comma-separated Odds API keys,
- * e.g. "winamax_fr,betclic_fr,unibet_fr") restricts it to the accounts actually held;
- * by default every soft book counts — Pinnacle and the exchanges aren't open to
- * French residents, so their prices only ever inform, never get "taken".
+ * French-licensed (ANJ) books — The Odds API keys the French variant of a bookmaker with
+ * an "_fr" suffix: winamax_fr, betclic_fr, unibet_fr, parionssport_fr, pmu_fr… They are
+ * the only books the site displays: Pinnacle, the exchanges and the rest of Europe aren't
+ * open to French residents, so their prices only ever inform the consensus.
+ */
+export function isFrenchBook(bookmakerKey: string): boolean {
+  return bookmakerKey.endsWith("_fr");
+}
+
+/**
+ * Books a pick may be placed at: every French book by default, or exactly the accounts
+ * listed in BETTABLE_BOOKMAKERS (comma-separated Odds API keys, e.g. "winamax_fr,betclic_fr").
  */
 function bettableSet(): Set<string> | null {
   const fromEnv = process.env.BETTABLE_BOOKMAKERS;
@@ -34,6 +43,6 @@ export function bookClassifier(): BookClassifier {
   const bettable = bettableSet();
   return {
     role: bookRole,
-    isBettable: (key) => (bettable ? bettable.has(key) : bookRole(key) === "soft"),
+    isBettable: (key) => (bettable ? bettable.has(key) : isFrenchBook(key)),
   };
 }

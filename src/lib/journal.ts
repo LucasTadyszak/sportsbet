@@ -1,5 +1,7 @@
 // Read models for /picks, /passes and /historique.
 import { prisma } from "@/lib/prisma";
+import { crestsByTeamName } from "@/lib/crests";
+import { servableLogo } from "@/lib/logoMatch";
 import { STAKED_TIERS } from "@/lib/methodology/config";
 import { tierRank } from "@/lib/methodology/verdict";
 
@@ -7,8 +9,11 @@ export type VerdictListItem = {
   edgeId: string;
   eventId: string;
   sportTitle: string;
+  sportLogo: string | null;
   homeTeam: string;
   awayTeam: string;
+  homeCrest: string | null;
+  awayCrest: string | null;
   commenceTime: Date;
   marketKey: string;
   outcomeName: string;
@@ -41,6 +46,7 @@ export async function getUpcomingVerdicts(kind: "staked" | "passed"): Promise<Ve
     prisma.bookmaker.findMany(),
   ]);
   const title = new Map(bookmakers.map((b) => [b.key, b.title]));
+  const crests = await crestsByTeamName(edges.flatMap((e) => [e.event.homeTeam, e.event.awayTeam]));
 
   const items = edges.map((e): VerdictListItem => {
     const pick = e.event.picks.find((p) => p.marketKey === e.marketKey);
@@ -48,8 +54,11 @@ export async function getUpcomingVerdicts(kind: "staked" | "passed"): Promise<Ve
       edgeId: e.id,
       eventId: e.eventId,
       sportTitle: e.event.sport.title,
+      sportLogo: servableLogo(e.event.sport.logo),
       homeTeam: e.event.homeTeam,
       awayTeam: e.event.awayTeam,
+      homeCrest: crests.get(e.event.homeTeam) ?? null,
+      awayCrest: crests.get(e.event.awayTeam) ?? null,
       commenceTime: e.event.commenceTime,
       marketKey: e.marketKey,
       outcomeName: e.outcomeName,
@@ -102,6 +111,7 @@ export async function getTrackRecord(filter: TrackFilter) {
     prisma.bookmaker.findMany(),
   ]);
   const title = new Map(bookmakers.map((b) => [b.key, b.title]));
+  const crests = await crestsByTeamName(all.flatMap((p) => [p.event.homeTeam, p.event.awayTeam]));
 
   const settled = all.filter((p) => p.status !== "pending" && p.status !== "void");
   const withClv = all.filter((p) => p.clv !== null);
@@ -126,7 +136,13 @@ export async function getTrackRecord(filter: TrackFilter) {
     .filter((p) =>
       filter === "won" ? WINS.includes(p.status) : filter === "lost" ? LOSSES.includes(p.status) : filter === "pending" ? p.status === "pending" : true
     )
-    .map((p) => ({ ...p, bookmakerTitle: title.get(p.bookmakerKey) ?? p.bookmakerKey }));
+    .map((p) => ({
+      ...p,
+      bookmakerTitle: title.get(p.bookmakerKey) ?? p.bookmakerKey,
+      sportLogo: servableLogo(p.event.sport.logo),
+      homeCrest: crests.get(p.event.homeTeam) ?? null,
+      awayCrest: crests.get(p.event.awayTeam) ?? null,
+    }));
 
   return { summary, picks };
 }

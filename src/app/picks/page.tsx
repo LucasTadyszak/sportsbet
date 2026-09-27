@@ -9,6 +9,7 @@ import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, ReasonList, StatTile, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -56,13 +57,15 @@ function PickCard({ v }: { v: VerdictListItem }) {
             <Icon name="clock" className="h-3.5 w-3.5" />
             <span className="capitalize">{formatKickoff(v.commenceTime)}</span>
             <span aria-hidden>·</span>
-            {v.sportTitle}
+            <CompetitionName title={v.sportTitle} logo={v.sportLogo} size={14} />
           </span>
           <Link
             href={`/match/${v.eventId}`}
-            className="truncate font-display text-base font-semibold text-fg after:absolute after:inset-0 after:rounded-xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
+            className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg after:absolute after:inset-0 after:rounded-xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
           >
-            {v.homeTeam} <span className="font-normal text-fg-muted">vs</span> {v.awayTeam}
+            <TeamName name={v.homeTeam} crest={v.homeCrest} />
+            <span className="shrink-0 font-normal text-fg-muted">vs</span>
+            <TeamName name={v.awayTeam} crest={v.awayCrest} />
           </Link>
         </div>
         <TierBadge tier={v.tier} />

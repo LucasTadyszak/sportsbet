@@ -109,6 +109,16 @@ export function competitionLabel(code: string, prefixed = false): string {
   return prefixed ? `Sélections · ${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
 }
 
+/** What the flame says: "Erreur de cote : Winamax à 2.45, cote juste 2.20 (EV +11.4%)". */
+export function oddsErrorLabel(error: { bookmakerTitle: string; price: number; fairProb: number; ev: number }): string {
+  return `Erreur de cote : ${error.bookmakerTitle} à ${formatOdds(error.price)}, cote juste ${formatOdds(1 / error.fairProb)} (EV ${formatSignedPct(error.ev)})`;
+}
+
+/** The flame's tooltip for every book flagged on one price; undefined when none is. */
+export function oddsErrorsLabel(errors: Parameters<typeof oddsErrorLabel>[0][]): string | undefined {
+  return errors.length > 0 ? errors.map(oddsErrorLabel).join("\n") : undefined;
+}
+
 export const DATA_QUALITY_LABELS: Record<string, string> = {
   full: "Complètes",
   partial: "Partielles",
@@ -124,6 +134,11 @@ export const STATUS_LABELS: Record<string, string> = {
   lost: "Perdu",
   void: "Annulé",
 };
+
+/** "mar. 29 sept." → "Mar. 29 sept." (CSS capitalize would give "Mar. 29 Sept."). */
+export function upperFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 export function formatPct(x: number | null | undefined, digits = 0): string {
   return x === null || x === undefined ? "—" : `${(x * 100).toFixed(digits)}%`;

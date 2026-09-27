@@ -12,10 +12,13 @@ datasource db {
 
 // A sport/competition as exposed by The Odds API (e.g. "soccer_epl", "basketball_nba").
 model Sport {
-  key    String  @id // Odds API sport_key
-  group  String // e.g. "Soccer", "Basketball"
-  title  String
-  active Boolean @default(true)
+  key           String    @id // Odds API sport_key
+  group         String // e.g. "Soccer", "Basketball"
+  title         String
+  active        Boolean   @default(true)
+  // Competition logo from TheSportsDB (src/lib/refreshLogos.ts), e.g. the Premier League lion.
+  logo          String?
+  logoCheckedAt DateTime? // last lookup, found or not: when it's next due
 
   events Event[]
 
@@ -49,13 +52,18 @@ model Event {
 // it, so that fuzzy name-matching only has to succeed once per team, not
 // on every stats refresh.
 model Team {
-  id                 String   @id @default(cuid())
-  name               String   @unique // exact team name as reported by The Odds API
+  id                 String    @id @default(cuid())
+  name               String    @unique // exact team name as reported by The Odds API
   competitionCode    String? // football-data.org competition code, once matched
   footballDataTeamId Int? // football-data.org team id, once matched
   nationalTeamId     Int? // NationalTeam id, once matched (national-team competitions)
-  firstSeenAt        DateTime @default(now())
-  lastSeenAt         DateTime @updatedAt
+  // TheSportsDB team, once matched (src/lib/refreshLogos.ts) — set by hand to fix a team the
+  // name matching never finds: its logo is then looked up by this id.
+  sportsDbTeamId     String?
+  logo               String? // club badge from TheSportsDB
+  logoCheckedAt      DateTime? // last lookup, found or not: when it's next due
+  firstSeenAt        DateTime  @default(now())
+  lastSeenAt         DateTime  @updatedAt
 
   @@map("teams")
 }
@@ -161,6 +169,8 @@ model TeamStats {
   name            String // full name, e.g. "Manchester City FC"
   shortName       String?
   tla             String? // three-letter abbreviation, e.g. "MCI"
+  crest           String? // club crest URL, e.g. "https://crests.football-data.org/65.png"
+  clubColors      String? // kit colours as football-data.org words them, e.g. "Red / White"
   position        Int?
   playedGames     Int
   won             Int

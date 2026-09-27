@@ -78,6 +78,23 @@ export const SIGNALS = {
 export const PINNACLE_CONSENSUS_WEIGHT = 2;
 
 /**
+ * [adapt] "Erreur de cote" — the flame on the board: a French book's price that the rest of
+ * the market says is too long. The reference is the consensus above, built from every
+ * *other* book quoting the same sync; the model plays no part in it.
+ */
+export const ODDS_ERROR = {
+  /** Expected value at the book's price against that fair probability. */
+  minEv: 0.05,
+  /**
+   * …with the price's implied probability at least 2pp under it: on a longshot a sliver of
+   * de-vig noise is worth a lot of EV (at 8.00, 1pp is already +8%).
+   */
+  minGap: 0.02,
+  /** Other books needed for the fair probability to mean anything. */
+  minBooks: 3,
+} as const;
+
+/**
  * [LE] Real-money prediction markets (Polymarket/Kalshi) are blended in at ~5% as a sanity
  * anchor. [adapt] For football the equivalent real-money, low-margin market available
  * in our feed is the betting exchanges (Betfair, Matchbook, Smarkets).

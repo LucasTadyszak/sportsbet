@@ -9,6 +9,12 @@ export type FootballDataTeam = {
   name: string;
   shortName: string | null;
   tla: string | null;
+  crest?: string | null; // e.g. "https://crests.football-data.org/65.png"
+};
+
+/** A competition's squads, as `/competitions/{code}/teams` lists them. */
+export type FootballDataCompetitionTeams = {
+  teams: (FootballDataTeam & { clubColors?: string | null })[]; // clubColors e.g. "Red / White"
 };
 
 export type FootballDataStandingRow = {
@@ -106,6 +112,10 @@ async function getJson<T>(path: string): Promise<T> {
 
 export function getStandings(competitionCode: string): Promise<FootballDataStandings> {
   return getJson<FootballDataStandings>(`/competitions/${competitionCode}/standings`);
+}
+
+export function getCompetitionTeams(competitionCode: string): Promise<FootballDataCompetitionTeams> {
+  return getJson<FootballDataCompetitionTeams>(`/competitions/${competitionCode}/teams`);
 }
 
 /** Matches of a competition; `season` (start year) or a dateFrom/dateTo window (YYYY-MM-DD). */

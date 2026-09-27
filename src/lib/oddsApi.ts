@@ -86,9 +86,9 @@ export function getOddsForSport(
 ): Promise<OddsApiEvent[]> {
   return getJson<OddsApiEvent[]>(`/sports/${sportKey}/odds`, {
     // Each region costs one credit per market: "eu" carries Pinnacle and Betfair (the sharp
-    // and exchange references the methodology needs); add the region of the books you
-    // actually bet at (ODDS_REGIONS="eu,fr" for instance) if it isn't covered.
-    regions: opts.regions ?? process.env.ODDS_REGIONS ?? "eu",
+    // and exchange references the methodology needs), "fr" the French books — the only
+    // ones the site displays and bets at (src/lib/bookmakers.ts).
+    regions: opts.regions ?? process.env.ODDS_REGIONS ?? "eu,fr",
     markets: opts.markets ?? "h2h,totals",
     oddsFormat: opts.oddsFormat ?? "decimal",
     dateFormat: "iso",
