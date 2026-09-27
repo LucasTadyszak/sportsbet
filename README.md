@@ -85,7 +85,7 @@ src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (cotes 
 src/lib/journal.ts, src/lib/modelHealth.ts, src/lib/labels.ts  # lectures + libellés FR
 src/components/TeamCrest.tsx # logo d'un club à côté de son nom (bouclier neutre s'il n'y en a pas)
 src/app/page.tsx            # liste des matchs groupée par compétition, avec les verdicts
-src/app/match/[id]/         # détail : cotes, Analyse (verdict, 5 signaux, modèle pièce par pièce), probabilités
+src/app/match/[id]/         # détail : cotes, Analyse (verdict, 5 signaux, modèle pièce par pièce), probabilités, matrice des scores
 src/app/picks/              # picks à venir (paliers misés)
 src/app/passes/             # centre des passes : chaque marché non misé et pourquoi
 src/app/historique/         # track record : chaque pick gradé, CLV, ROI
@@ -100,11 +100,15 @@ match (`/match/[id]`) avec un onglet **Résumé** (comparatif de cotes des
 bookmakers français, marchés 1X2 et totaux, la cote que le modèle prendrait
 surlignée, une flamme sur chaque erreur de cote), un onglet **Analyse** (verdict
 de chaque marché, raisons, les cinq signaux, écart de chaque bookmaker français au
-consensus, et le modèle pièce par pièce) et un onglet **Probabilités** qui affiche
+consensus, et le modèle pièce par pièce), un onglet **Probabilités** qui affiche
 deux lectures côte à côte : les probabilités *implicites* (retirer la marge de
 chaque bookmaker par la méthode de Shin puis moyenner sur tous les books suivis,
 Pinnacle compté double — la référence des erreurs de cote) et le *modèle brut*
-(voir plus bas). Les pages
+(voir plus bas), et un onglet **Matrice** : la probabilité de chaque score exact
+de 0-0 à 5-5, les trois scores favoris du modèle et, une fois le match terminé, le
+score à 90 minutes coché dans la grille. La matrice est recalculée à l'affichage à
+partir des buts attendus et du ρ Dixon-Coles déjà stockés dans `MatchPrediction` :
+rien de plus en base. Les pages
 `/picks`, `/passes`, `/historique`, `/modele` et `/methodologie` reprennent les
 écrans de Lakeshore Edge (slate, No-Bet Center, Track Record, Model Health,
 Methodology).

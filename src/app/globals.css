@@ -31,6 +31,18 @@
   /* Chart series, fixed order (validated for CVD separation on white). */
   --series-1: #2a78d6;
   --series-2: #eb6834;
+  /*
+   * Sequential ramp for heatmaps (the score matrix): series-1's blue, one hue, light → dark,
+   * lightness validated monotone. Labels on it: ink up to --seq-4, white from --seq-5
+   * (both >= 4.5:1). The lightest step is meant to recede toward white (near-zero values).
+   */
+  --seq-1: #cde2fb;
+  --seq-2: #9ec5f4;
+  --seq-3: #6da7ec;
+  --seq-4: #3987e5;
+  --seq-5: #256abf;
+  --seq-6: #184f95;
+  --seq-7: #0d366b;
 }
 
 @theme inline {
@@ -51,6 +63,13 @@
   --color-status-critical: var(--status-critical);
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
+  --color-seq-1: var(--seq-1);
+  --color-seq-2: var(--seq-2);
+  --color-seq-3: var(--seq-3);
+  --color-seq-4: var(--seq-4);
+  --color-seq-5: var(--seq-5);
+  --color-seq-6: var(--seq-6);
+  --color-seq-7: var(--seq-7);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);

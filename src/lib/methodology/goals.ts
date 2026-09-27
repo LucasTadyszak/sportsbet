@@ -164,6 +164,15 @@ export function scoreGrid(lambdaHome: number, lambdaAway: number, rho: number, m
   return grid.map((row) => row.map((p) => p / total));
 }
 
+export type ScoreProbability = { home: number; away: number; probability: number };
+
+/** Every score of the grid, most likely first (ties: fewer goals first, then the home side ahead). */
+export function rankedScores(grid: number[][]): ScoreProbability[] {
+  return grid
+    .flatMap((row, home) => row.map((probability, away) => ({ home, away, probability })))
+    .sort((a, b) => b.probability - a.probability || a.home + a.away - (b.home + b.away) || b.home - a.home);
+}
+
 export function gridOutcomes(grid: number[][]): OutcomeProbs {
   let home = 0;
   let draw = 0;

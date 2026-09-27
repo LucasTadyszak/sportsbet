@@ -40,6 +40,12 @@ const PATHS = {
       <path d="m19 12-7 7-7-7" />
     </>
   ),
+  "arrow-right": (
+    <>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </>
+  ),
   "trending-up": (
     <>
       <path d="M22 7 13.5 15.5 8.5 10.5 2 17" />

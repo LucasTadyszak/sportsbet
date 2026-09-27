@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { bookRole, isFrenchBook } from "@/lib/bookmakers";
 import { crestsByTeamName } from "@/lib/crests";
 import { addDays, parisStartOfDay } from "@/lib/dates";
+import { findEventFixture } from "@/lib/footballDataMatches";
 import { isStakedTier } from "@/lib/methodology/config";
 import { detectOddsErrors, marketConsensus, type BookQuote } from "@/lib/methodology/oddsErrors";
 
@@ -68,12 +69,17 @@ export type BoardEvent = {
   verdicts: BoardVerdict[];
 };
 
+/** The 90-minute score (what bookmakers settle on and the goals model predicts). */
+export type FinalScore = { home: number; away: number };
+
 export type MatchDetail = BoardEvent & {
   /** Latest totals price of every French book. */
   totals: OddsLine[];
   fair: FairMarket[];
   edges: Edge[];
   predictionDetail: MatchPrediction | null;
+  /** Once football-data.org reports the match finished — there is no live score feed. */
+  finalScore: FinalScore | null;
 };
 
 export type StatusFilter = "all" | "upcoming" | "live";
@@ -352,6 +358,14 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
   });
   if (!event) return null;
 
+  let finalScore: FinalScore | null = null;
+  if (event.commenceTime.getTime() <= Date.now()) {
+    const fixture = await findEventFixture(event);
+    if (fixture?.status === "FINISHED" && fixture.homeGoals !== null && fixture.awayGoals !== null) {
+      finalScore = { home: fixture.homeGoals, away: fixture.awayGoals };
+    }
+  }
+
   const [latest, crests] = await Promise.all([latestLines([event.id]), crestsByTeamName([event.homeTeam, event.awayTeam])]);
   const lines = latest.get(event.id) ?? [];
   const french = lines.filter((l) => isFrenchBook(l.bookmakerKey));
@@ -372,6 +386,7 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
     predictionDetail: event.prediction,
     edges: event.edges,
     verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
+    finalScore,
   };
 });
 
