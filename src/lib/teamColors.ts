@@ -76,3 +76,14 @@ export function parseClubColors(clubColors: string | null | undefined): string[]
   }
   return colors;
 }
+
+/** Near-white colours vanish on a white block. */
+export function isNearWhite(hex: string): boolean {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return Math.min(r, g, b) >= 0xe0;
+}
+
+/** The colour a club is recognised by: its first kit colour that shows on white. */
+export function leadColor(colors: string[]): string | null {
+  return colors.find((c) => !isNearWhite(c)) ?? null;
+}

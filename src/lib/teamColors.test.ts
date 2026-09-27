@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseClubColors } from "@/lib/teamColors";
+import { isNearWhite, leadColor, parseClubColors } from "@/lib/teamColors";
 
 test("parses football-data.org kit colours in order", () => {
   assert.deepEqual(parseClubColors("Red / White"), ["#d7141a", "#ffffff"]);
@@ -23,4 +23,12 @@ test("drops qualifiers it doesn't know, and skips words it can't read", () => {
 
 test("keeps at most three distinct colours", () => {
   assert.deepEqual(parseClubColors("Red / Red / White / Blue / Green"), ["#d7141a", "#ffffff", "#1d4ed8"]);
+});
+
+test("the lead colour is the first one that shows on white", () => {
+  assert.equal(isNearWhite("#ffffff"), true);
+  assert.equal(isNearWhite("#efe6cc"), false);
+  assert.equal(leadColor(parseClubColors("White / Purple")), "#5b2a86");
+  assert.equal(leadColor(parseClubColors("White")), null);
+  assert.equal(leadColor([]), null);
 });

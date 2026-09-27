@@ -32,6 +32,19 @@ function LiveBadge() {
   );
 }
 
+/** Kickoff hour and day, or the live badge once the match is on. */
+export function KickoffTime({ commenceTime, inverted = false }: { commenceTime: Date; inverted?: boolean }) {
+  if (isLive(commenceTime)) return <LiveBadge />;
+  return (
+    <>
+      <time className={`font-display text-2xl font-extrabold leading-none tabular ${inverted ? "text-white" : "text-fg"}`}>
+        {formatTime(commenceTime)}
+      </time>
+      <span className={`text-xs ${inverted ? "text-white/80" : "text-fg-muted"}`}>{upperFirst(formatShortDay(commenceTime))}</span>
+    </>
+  );
+}
+
 /**
  * A club's kit, as diagonal stripes filling its half of the block: home left, away right.
  * The white panel sits on top, so the stripes only show as the frame around it — the way
@@ -112,12 +125,14 @@ type TilesEvent = Pick<
  * The 1/X/2 prices as big tiles — the best price at a bettable book, clicked into the bet
  * slip — each with the market's probability under it.
  */
-export function ResultTiles({ event, className = "" }: { event: TilesEvent; className?: string }) {
+export function ResultTiles({ event, codes = false, className = "" }: { event: TilesEvent; codes?: boolean; className?: string }) {
   const boxes = resultBoxes(event.h2h, event.homeTeam, event.awayTeam, bookClassifier().isBettable);
   const kickedOff = hasKickedOff(event.commenceTime);
   const h2hPick = stakedVerdict(event.verdicts, "h2h");
   const favorite = event.fairResult ? Math.max(...Object.values(event.fairResult)) : null;
-  const tileLabels: Record<string, string> = { "1": event.homeTeam, X: "Match nul", "2": event.awayTeam };
+  const tileLabels: Record<string, string> = codes
+    ? { "1": "1", X: "N", "2": "2" }
+    : { "1": event.homeTeam, X: "Match nul", "2": event.awayTeam };
 
   return (
     <div className={`grid grid-cols-3 gap-2 ${className}`} title="Sous chaque cote : la probabilité du marché, marge retirée">
@@ -154,6 +169,41 @@ export function ResultTiles({ event, className = "" }: { event: TilesEvent; clas
   );
 }
 
+/** The model's staked picks, and the totals prices flagged as odds errors (the block shows no totals prices). */
+export function PickChips({ event }: { event: BoardEvent }) {
+  const picks = [stakedVerdict(event.verdicts, "h2h"), stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
+  const totalsErrors = groupOddsErrors(event.oddsErrors.filter((e) => e.marketKey === "totals"));
+  if (picks.length === 0 && totalsErrors.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {picks.map((pick) => (
+        <span key={pick.marketKey} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-elevated py-0.5 pl-0.5 pr-2">
+          <TierBadge tier={pick.tier} compact />
+          <span className="tabular text-xs font-medium text-fg">
+            {outcomeCode(pick.marketKey, pick.outcomeName, pick.point, event.homeTeam, event.awayTeam)}
+            {pick.bestPrice ? <span className="text-fg-muted"> @ {pick.bestPrice.toFixed(2)}</span> : null}
+          </span>
+        </span>
+      ))}
+      {totalsErrors.map((errors) => {
+        const [first] = errors;
+        return (
+          <span
+            key={`${first.outcomeName}|${first.point}`}
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-bg-elevated py-0.5 pl-1.5 pr-2"
+          >
+            <Icon name="flame" label="Erreur de cote" className="h-3 w-3 text-flame" />
+            <span className="tabular text-xs font-medium text-fg">
+              {outcomeCode("totals", first.outcomeName, first.point, event.homeTeam, event.awayTeam)}
+              <span className="text-fg-muted"> @ {Math.max(...errors.map((e) => e.price)).toFixed(2)}</span>
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * A match as a block, bookmaker-style: the competition's band on top, both clubs dressed
  * in their colours, and the 1/X/2 prices as big tiles that go into the bet slip. The team
@@ -161,9 +211,6 @@ export function ResultTiles({ event, className = "" }: { event: TilesEvent; clas
  */
 export function MatchCard({ event }: { event: BoardEvent }) {
   const theme = competitionTheme(event.sportKey, event.sportTitle);
-  const picks = [stakedVerdict(event.verdicts, "h2h"), stakedVerdict(event.verdicts, "totals")].filter((v) => v !== null);
-  // 1X2 errors are flagged on their tile; the block shows no totals prices, so those get a chip.
-  const totalsErrors = groupOddsErrors(event.oddsErrors.filter((e) => e.marketKey === "totals"));
   const homeKit = kitOrTheme(event.homeColors, theme, "home");
   const awayKit = kitOrTheme(event.awayColors, theme, "away");
 
@@ -181,48 +228,14 @@ export function MatchCard({ event }: { event: BoardEvent }) {
         >
           <TeamSide name={event.homeTeam} crest={event.homeCrest} kit={homeKit} />
           <span className="flex min-w-16 flex-col items-center gap-1 pt-3">
-            {isLive(event.commenceTime) ? (
-              <LiveBadge />
-            ) : (
-              <>
-                <time className="font-display text-2xl font-extrabold leading-none tabular text-fg">{formatTime(event.commenceTime)}</time>
-                <span className="text-xs text-fg-muted">{upperFirst(formatShortDay(event.commenceTime))}</span>
-              </>
-            )}
+            <KickoffTime commenceTime={event.commenceTime} />
           </span>
           <TeamSide name={event.awayTeam} crest={event.awayCrest} kit={awayKit} />
         </Link>
 
         <ResultTiles event={event} className="relative z-10 mt-auto" />
 
-        {picks.length > 0 || totalsErrors.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {picks.map((pick) => (
-              <span key={pick.marketKey} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-elevated py-0.5 pl-0.5 pr-2">
-                <TierBadge tier={pick.tier} compact />
-                <span className="tabular text-xs font-medium text-fg">
-                  {outcomeCode(pick.marketKey, pick.outcomeName, pick.point, event.homeTeam, event.awayTeam)}
-                  {pick.bestPrice ? <span className="text-fg-muted"> @ {pick.bestPrice.toFixed(2)}</span> : null}
-                </span>
-              </span>
-            ))}
-            {totalsErrors.map((errors) => {
-              const [first] = errors;
-              return (
-                <span
-                  key={`${first.outcomeName}|${first.point}`}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-bg-elevated py-0.5 pl-1.5 pr-2"
-                >
-                  <Icon name="flame" label="Erreur de cote" className="h-3 w-3 text-flame" />
-                  <span className="tabular text-xs font-medium text-fg">
-                    {outcomeCode("totals", first.outcomeName, first.point, event.homeTeam, event.awayTeam)}
-                    <span className="text-fg-muted"> @ {Math.max(...errors.map((e) => e.price)).toFixed(2)}</span>
-                  </span>
-                </span>
-              );
-            })}
-          </div>
-        ) : null}
+        <PickChips event={event} />
       </div>
     </article>
   );
