@@ -27,7 +27,7 @@ import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
-import { TeamName } from "@/components/TeamCrest";
+import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -162,9 +162,14 @@ function MatchGroups({ groups }: { groups: [string, BoardEvent[]][] }) {
       {groups.map(([sportTitle, sportEvents]) => (
         <details key={sportTitle} open className="group overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-card">
           <summary className="flex list-none items-center justify-between gap-3 px-4 py-3 transition-colors duration-200 hover:bg-bg-row/60 sm:px-5 [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center gap-2.5">
-              <span className="h-4 w-1 rounded-full bg-accent" aria-hidden />
-              <span className="font-display text-sm font-semibold uppercase tracking-widest text-fg">{sportTitle}</span>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="h-4 w-1 shrink-0 rounded-full bg-accent" aria-hidden />
+              <CompetitionName
+                title={sportTitle}
+                logo={sportEvents[0].sportLogo}
+                size={22}
+                className="font-display text-sm font-semibold uppercase tracking-widest text-fg"
+              />
             </span>
             <span className="flex items-center gap-3">
               <span className="rounded-full bg-bg-row px-2 py-0.5 text-xs font-medium text-fg-muted">

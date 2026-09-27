@@ -1,33 +1,27 @@
-// Club crests, as football-data.org publishes them with its standings (TeamStats.crest).
-// An Odds API team name reaches its crest through the Team registry, which remembers the
-// football-data.org team each name was matched to (src/lib/teamNameMatch.ts); a name that
-// was never matched simply has no crest.
+// Club logos, keyed by Odds API team name. TheSportsDB's badge first (Team.logo, looked up by
+// src/lib/refreshLogos.ts), since it covers every league; else the crest football-data.org
+// publishes with its standings (TeamStats.crest), reached through the football-data.org team
+// the name was matched to (src/lib/teamNameMatch.ts). A name with neither simply has no logo.
 import { prisma } from "@/lib/prisma";
+import { servableLogo } from "@/lib/logoMatch";
 
-// next.config.ts only lets next/image load crests from football-data.org's own CDN, and a
-// URL from anywhere else would make the page throw: such a crest is dropped instead.
-const CREST_HOST = "crests.football-data.org";
-
-function isServableCrest(url: string): boolean {
-  try {
-    const { protocol, hostname } = new URL(url);
-    return protocol === "https:" && hostname === CREST_HOST;
-  } catch {
-    return false;
-  }
-}
-
-/** Crest URL of every given Odds API team name that has one. */
+/** Logo URL of every given Odds API team name that has one. */
 export async function crestsByTeamName(names: string[]): Promise<Map<string, string>> {
   const crests = new Map<string, string>();
   const unique = Array.from(new Set(names));
   if (unique.length === 0) return crests;
 
   const teams = await prisma.team.findMany({
-    where: { name: { in: unique }, footballDataTeamId: { not: null } },
-    select: { name: true, footballDataTeamId: true },
+    where: { name: { in: unique } },
+    select: { name: true, logo: true, footballDataTeamId: true },
   });
-  const teamIds = Array.from(new Set(teams.map((t) => t.footballDataTeamId as number)));
+  for (const team of teams) {
+    const logo = servableLogo(team.logo);
+    if (logo) crests.set(team.name, logo);
+  }
+
+  const rest = teams.filter((t) => !crests.has(t.name) && t.footballDataTeamId !== null);
+  const teamIds = Array.from(new Set(rest.map((t) => t.footballDataTeamId as number)));
   if (teamIds.length === 0) return crests;
 
   // A club in several tracked competitions has one TeamStats row per competition, same crest.
@@ -37,10 +31,11 @@ export async function crestsByTeamName(names: string[]): Promise<Map<string, str
   });
   const crestById = new Map<number, string>();
   for (const row of stats) {
-    if (row.crest && isServableCrest(row.crest)) crestById.set(row.teamId, row.crest);
+    const crest = servableLogo(row.crest);
+    if (crest) crestById.set(row.teamId, crest);
   }
 
-  for (const team of teams) {
+  for (const team of rest) {
     const crest = crestById.get(team.footballDataTeamId as number);
     if (crest) crests.set(team.name, crest);
   }

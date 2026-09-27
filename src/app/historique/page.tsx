@@ -11,7 +11,7 @@ import {
   outcomeLabel,
 } from "@/lib/labels";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
-import { TeamName } from "@/components/TeamCrest";
+import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, StatTile, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -114,8 +114,10 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
                         <span className="text-fg-muted">–</span>
                         <TeamName name={p.event.awayTeam} crest={p.awayCrest} size={16} />
                       </Link>
-                      <span className="block font-mono-tabular text-xs text-fg-muted">
-                        {p.event.sport.title} · {formatKickoff(p.commenceTime)}
+                      <span className="flex items-center gap-1 font-mono-tabular text-xs text-fg-muted">
+                        <CompetitionName title={p.event.sport.title} logo={p.sportLogo} size={12} />
+                        <span aria-hidden>·</span>
+                        <span className="shrink-0">{formatKickoff(p.commenceTime)}</span>
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
