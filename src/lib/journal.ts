@@ -16,12 +16,14 @@ export type VerdictListItem = {
   tier: string;
   reasons: string[];
   bestPrice: number | null;
+  bestBookmakerKey: string | null;
   bestBookmakerTitle: string | null;
   modelProb: number;
   marketProb: number;
   edge: number;
   ev: number | null;
   stakeUnits: number;
+  computedAt: Date;
   journaled: { price: number; bookmakerTitle: string; publishedAt: Date } | null;
 };
 
@@ -55,12 +57,14 @@ export async function getUpcomingVerdicts(kind: "staked" | "passed"): Promise<Ve
       tier: e.tier,
       reasons: e.reasons,
       bestPrice: e.bestPrice,
+      bestBookmakerKey: e.bestBookmakerKey,
       bestBookmakerTitle: e.bestBookmakerKey ? (title.get(e.bestBookmakerKey) ?? e.bestBookmakerKey) : null,
       modelProb: e.modelProb,
       marketProb: e.marketProb,
       edge: e.edge,
       ev: e.ev,
       stakeUnits: e.stakeUnits,
+      computedAt: e.computedAt,
       journaled: pick
         ? { price: pick.price, bookmakerTitle: title.get(pick.bookmakerKey) ?? pick.bookmakerKey, publishedAt: pick.publishedAt }
         : null,
