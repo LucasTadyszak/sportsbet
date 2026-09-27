@@ -5,6 +5,7 @@ import { bookRole, isFrenchBook } from "@/lib/bookmakers";
 import { crestsByTeamName } from "@/lib/crests";
 import { addDays, parisStartOfDay } from "@/lib/dates";
 import { findEventFixture } from "@/lib/footballDataMatches";
+import { servableLogo } from "@/lib/logoMatch";
 import { isStakedTier } from "@/lib/methodology/config";
 import { detectOddsErrors, marketConsensus, type BookQuote } from "@/lib/methodology/oddsErrors";
 import type { OutcomeEdge } from "@/lib/selection";
@@ -80,6 +81,8 @@ const BOARD_EDGES = {
 export type BoardEvent = {
   id: string;
   sportTitle: string;
+  /** The competition's logo (src/lib/refreshLogos.ts). */
+  sportLogo: string | null;
   homeTeam: string;
   awayTeam: string;
   homeCrest: string | null;
@@ -269,7 +272,7 @@ function toVerdict(edge: Pick<Edge, "marketKey" | "outcomeName" | "point" | "tie
 
 type EventRow = {
   id: string;
-  sport: { title: string };
+  sport: { title: string; logo: string | null };
   homeTeam: string;
   awayTeam: string;
   commenceTime: Date;
@@ -281,6 +284,7 @@ function toBoardEvent(event: EventRow, lines: OddsLine[], crests: Map<string, st
   return {
     id: event.id,
     sportTitle: event.sport.title,
+    sportLogo: servableLogo(event.sport.logo),
     homeTeam: event.homeTeam,
     awayTeam: event.awayTeam,
     homeCrest: crests.get(event.homeTeam) ?? null,
@@ -417,6 +421,7 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
   return {
     id: event.id,
     sportTitle: event.sport.title,
+    sportLogo: servableLogo(event.sport.logo),
     homeTeam: event.homeTeam,
     awayTeam: event.awayTeam,
     homeCrest: crests.get(event.homeTeam) ?? null,

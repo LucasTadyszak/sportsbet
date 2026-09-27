@@ -1,6 +1,11 @@
 import Image from "next/image";
 import { Icon } from "@/components/Icon";
 
+/** A logo shown next to the name it stands for, so decorative (empty alt). */
+function Logo({ src, size }: { src: string; size: number }) {
+  return <Image src={src} alt="" width={size} height={size} className="shrink-0 object-contain" style={{ width: size, height: size }} />;
+}
+
 /**
  * A club's crest (src/lib/crests.ts). Always rendered next to the club's name, so it's
  * decorative (empty alt); a club without one gets a faint shield to keep names aligned.
@@ -13,7 +18,7 @@ export function TeamCrest({ src, size = 18 }: { src: string | null; size?: numbe
       </span>
     );
   }
-  return <Image src={src} alt="" width={size} height={size} className="shrink-0 object-contain" style={{ width: size, height: size }} />;
+  return <Logo src={src} size={size} />;
 }
 
 /** A club name with its crest in front, truncated to fit lists and table cells. */
@@ -22,6 +27,19 @@ export function TeamName({ name, crest, size, className = "" }: { name: string; 
     <span className={`flex min-w-0 items-center gap-2 ${className}`}>
       <TeamCrest src={crest} size={size} />
       <span className="truncate">{name}</span>
+    </span>
+  );
+}
+
+/**
+ * A competition's name with its logo in front (src/lib/refreshLogos.ts). A competition
+ * without one just shows its name: nothing to keep aligned with, unlike a list of clubs.
+ */
+export function CompetitionName({ title, logo, size = 16, className = "" }: { title: string; logo: string | null; size?: number; className?: string }) {
+  return (
+    <span className={`inline-flex min-w-0 items-center ${size >= 20 ? "gap-2" : "gap-1.5"} ${className}`}>
+      {logo ? <Logo src={logo} size={size} /> : null}
+      <span className="truncate">{title}</span>
     </span>
   );
 }

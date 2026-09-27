@@ -9,7 +9,7 @@ import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
-import { TeamName } from "@/components/TeamCrest";
+import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, ReasonList, StatTile, TierBadge } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +57,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
             <Icon name="clock" className="h-3.5 w-3.5" />
             <span className="capitalize">{formatKickoff(v.commenceTime)}</span>
             <span aria-hidden>·</span>
-            {v.sportTitle}
+            <CompetitionName title={v.sportTitle} logo={v.sportLogo} size={14} />
           </span>
           <Link
             href={`/match/${v.eventId}`}

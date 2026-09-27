@@ -21,7 +21,7 @@ import { selectionFor } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
-import { TeamCrest } from "@/components/TeamCrest";
+import { CompetitionName, TeamCrest } from "@/components/TeamCrest";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
 import { ScoreMatrix } from "./ScoreMatrix";
@@ -385,7 +385,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         <div className="overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-card">
         <div className="relative px-5 py-7 text-center sm:px-8">
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-accent" />
-          <p className="text-xs font-semibold uppercase tracking-widest text-fg-muted">{match.sportTitle}</p>
+          <p className="flex justify-center text-xs font-semibold uppercase tracking-widest text-fg-muted">
+            <CompetitionName title={match.sportTitle} logo={match.sportLogo} size={24} />
+          </p>
           <h1 className="mt-4 grid grid-cols-[1fr_auto_1fr] items-start gap-3 font-display text-xl font-bold text-fg sm:text-2xl">
             <span className="flex flex-col items-center gap-2 text-center">
               <TeamCrest src={match.homeCrest} size={48} />
