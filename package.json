@@ -16,7 +16,8 @@
     "refresh:odds": "tsx scripts/refresh-odds.ts",
     "refresh:stats": "tsx scripts/refresh-stats.ts",
     "refresh:edges": "tsx scripts/refresh-edges.ts",
-    "nightly": "tsx scripts/nightly.ts"
+    "nightly": "tsx scripts/nightly.ts",
+    "live-football": "tsx scripts/live-football.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
