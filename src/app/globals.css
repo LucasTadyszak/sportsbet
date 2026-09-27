@@ -83,6 +83,11 @@ body {
     cursor: pointer;
   }
 
+  /* The bet slip is a modal dialog: the page behind it stays put. */
+  html:has(dialog:modal) {
+    overflow: hidden;
+  }
+
   /* One consistent, always-visible keyboard focus ring. */
   :focus-visible {
     outline: 2px solid var(--accent-strong);

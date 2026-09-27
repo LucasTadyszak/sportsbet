@@ -1,4 +1,5 @@
 // French wording and number formatting for everything the methodology produces.
+import type { ComboBlocker, OutcomeVerdict, SingleStake } from "@/lib/methodology/stake";
 import type { ReasonCode } from "@/lib/methodology/verdict";
 
 export const TIER_INFO: Record<string, { name: string; description: string }> = {
@@ -128,3 +129,51 @@ export function formatUnits(x: number | null | undefined, signed = false): strin
   const sign = signed ? (x >= 0 ? "+" : "−") : x < 0 ? "−" : "";
   return `${sign}${Math.abs(x).toFixed(2)}u`;
 }
+
+// The bet slip speaks money, so its amounts and shares read the way French bookmakers
+// print them ("7,50 €", "1,5 %"); odds keep the site-wide "2.10".
+const MONEY = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+const SHARE = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
+const PERCENT = new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 1 });
+const SIGNED_PERCENT = new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 1, signDisplay: "exceptZero" });
+
+export function formatMoney(amount: number): string {
+  return MONEY.format(amount);
+}
+
+/** A stake in units as a share of the bankroll (1 u = 1 %): 1.5 → "1,5 %". */
+export function formatBankrollShare(units: number): string {
+  return `${SHARE.format(units)} %`;
+}
+
+export function formatFrPct(x: number, signed = false): string {
+  return (signed ? SIGNED_PERCENT : PERCENT).format(x);
+}
+
+/** Why a selection gets no stake: a short title and the detail behind it. */
+export function stakeBlockerLabel(stake: SingleStake, verdict: OutcomeVerdict | null): { title: string; detail: string } | null {
+  switch (stake.blocker) {
+    case "NO_MODEL":
+      return { title: "Pas d'avis du modèle", detail: "Compétition non couverte, match trop lointain ou ligne secondaire." };
+    case "NOT_STAKED":
+      return { title: "Le modèle passe", detail: reasonLabel(mainPassReason(verdict?.reasons ?? [])) };
+    case "LONGSHOT":
+      return { title: "Longshot", detail: REASON_LABELS.LONGSHOT };
+    case "NEGATIVE_EV":
+      return {
+        title: "Cote trop basse",
+        detail:
+          stake.minPrice !== null
+            ? `La marge du bookmaker mange l'edge : il faudrait au moins ${formatOdds(stake.minPrice)}.`
+            : "La marge du bookmaker mange l'edge à cette cote.",
+      };
+    default:
+      return null;
+  }
+}
+
+export const COMBO_BLOCKER_LABELS: Record<ComboBlocker, string> = {
+  TOO_FEW_LEGS: "Un combiné demande au moins deux sélections.",
+  SAME_EVENT: "Deux sélections du même match ne se combinent pas : gardes-en une par match.",
+  LEG_NOT_STAKED: "Chaque sélection doit valoir une mise à elle seule : retire celles à 0 %.",
+};

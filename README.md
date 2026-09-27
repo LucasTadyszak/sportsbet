@@ -60,6 +60,7 @@ src/lib/methodology/verdict.ts     # edge, paliers, garde-fous, Kelly
 src/lib/methodology/calibration.ts # décalages (plafonnés selon l'échantillon) + échelle de calibration
 src/lib/methodology/settlement.ts  # règlement 1X2/totaux (lignes .5, entières, quarts), CLV
 src/lib/methodology/metrics.ts     # Brier, RPS, log-loss, diagrammes de fiabilité
+src/lib/methodology/stake.ts       # mise d'une sélection de l'utilisateur (à sa cote) et d'un combiné
 
 # Verdicts, journal, gradation, calibration
 src/lib/bookmakers.ts       # rôle de chaque book : sharp (Pinnacle), exchange, grand public ; jouables
@@ -76,6 +77,10 @@ src/lib/dates.ts            # jours/formatage ancrés sur Europe/Paris
 src/lib/probability.ts      # de-vig d'une cote -> probabilité implicite, consensus multi-bookmaker
 src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (liste + détail d'un match)
 src/lib/journal.ts, src/lib/modelHealth.ts, src/lib/labels.ts  # lectures + libellés FR
+src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue
+src/lib/betSlip.ts          # état de la sélection et de la bankroll, dans le localStorage du navigateur
+src/components/OddsButton.tsx # une cote cliquable (cases 1/X/2, tableau de cotes, picks)
+src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection »
 src/app/page.tsx            # liste des matchs groupée par compétition, avec les verdicts
 src/app/match/[id]/         # détail : cotes, Analyse (verdict, 5 signaux, modèle pièce par pièce), probabilités
 src/app/picks/              # picks à venir (paliers misés)
@@ -98,6 +103,22 @@ chaque bookmaker au consensus, et le modèle pièce par pièce) et un onglet
 `/picks`, `/passes`, `/historique`, `/modele` et `/methodologie` reprennent les
 écrans de Lakeshore Edge (slate, No-Bet Center, Track Record, Model Health,
 Methodology).
+
+### Ma sélection : combien miser
+
+Le tableau et les picks invitent l'utilisateur à indiquer sa **bankroll**, puis à
+cliquer sur les cotes qui l'intéressent : une case 1/X/2 du tableau (meilleure cote
+chez un bookmaker jouable, voir `BETTABLE_BOOKMAKERS`), n'importe quelle cellule du
+tableau de cotes d'un match, ou la cote d'un pick. Le panneau « Ma sélection »
+affiche pour chaque cote le **pourcentage de la bankroll à miser** et son montant en
+euros, avec les règles de mise des picks appliquées à la cote choisie
+(`src/lib/methodology/stake.ts`) : ¼ Kelly sur la probabilité finale du modèle,
+plafonné selon le palier, et 0 % — avec la raison — quand le modèle passe l'issue,
+quand la cote dépasse 5.00 ou quand la marge du bookmaker mange l'edge à ce prix
+(la cote minimale est alors indiquée). En **combiné**, cotes et probabilités se
+multiplient et la mise est plafonnée par la sélection au palier le plus bas ; chaque
+sélection doit valoir une mise seule, une seule par match. La bankroll et la
+sélection restent dans le `localStorage` du navigateur : rien n'est envoyé au serveur.
 
 Tout ce qu'un sync ramène est conservé en base, y compris ce qui ne change
 pas d'un appel à l'autre :

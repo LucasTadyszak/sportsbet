@@ -2,17 +2,22 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
+  bestPriceByOutcome,
   getMatchDetail,
   resultBoxes,
   resultProbabilities,
   totalsProbabilities,
+  type MatchDetail,
   type OddsLine,
 } from "@/lib/board";
+import { bookClassifier } from "@/lib/bookmakers";
 import { formatKickoff } from "@/lib/dates";
 import { outcomeLabel } from "@/lib/labels";
 import { isStakedTier } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
+import { selectionFor } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
+import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
@@ -30,10 +35,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 type PickCell = { bookmakerKey: string | null; outcomeName: string; point: number | null };
 
 function OddsTable({
+  match,
   lines,
   outcomeOrder,
   pick,
 }: {
+  match: MatchDetail;
   lines: OddsLine[];
   outcomeOrder: string[];
   /** The price the methodology would take in this market, highlighted. */
@@ -41,11 +48,7 @@ function OddsTable({
 }) {
   const outcomes = outcomeOrder.filter((name) => lines.some((l) => l.outcomeName === name));
   const bookmakers = Array.from(new Map(lines.map((l) => [l.bookmakerKey, l.bookmakerTitle])).entries());
-  const best = new Map<string, number>();
-  for (const line of lines) {
-    const current = best.get(line.outcomeName);
-    if (current === undefined || line.price > current) best.set(line.outcomeName, line.price);
-  }
+  const best = bestPriceByOutcome(lines);
 
   if (bookmakers.length === 0) {
     return <p className="text-sm text-fg-muted">Pas encore de cotes capturées pour ce marché.</p>;
@@ -70,21 +73,20 @@ function OddsTable({
               <td className="px-5 py-2.5 text-fg-muted">{bookmakerTitle}</td>
               {outcomes.map((outcome) => {
                 const line = lines.find((l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome);
-                const isBest = line && best.get(outcome) === line.price;
-                const isPick = pick && pick.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
+                const isPick = pick?.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
                 return (
-                  <td
-                    key={outcome}
-                    className={`px-3 py-2.5 text-right font-mono-tabular ${
-                      isBest ? "font-semibold text-accent-strong" : "text-fg"
-                    }`}
-                  >
-                    <span
-                      className={isPick ? "rounded border border-accent bg-accent-dim px-1.5 py-0.5" : undefined}
-                      title={isPick ? "La cote que le modèle prendrait" : undefined}
-                    >
-                      {line ? line.price.toFixed(2) : "—"}
-                    </span>
+                  <td key={outcome} className="px-2 py-1.5 text-right">
+                    {line ? (
+                      <OddsButton
+                        variant="cell"
+                        selection={selectionFor(match, line, match.edges)}
+                        isBest={best.get(outcome) === line.price}
+                        isPick={isPick}
+                        hint={isPick ? "La cote que le modèle prendrait" : undefined}
+                      />
+                    ) : (
+                      <span className="px-2 font-mono-tabular text-fg-muted">—</span>
+                    )}
                   </td>
                 );
               })}
@@ -143,11 +145,18 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const resume = (
     <div className="flex flex-col gap-6">
+      <p className="flex items-start gap-2 rounded-lg bg-accent-dim/50 px-3.5 py-2.5 text-sm text-fg">
+        <Icon name="wallet" className="mt-0.5 h-4 w-4 text-accent-strong" />
+        <span>
+          Clique sur une cote pour l&apos;ajouter à ta sélection : on t&apos;indique quel pourcentage de ta bankroll tu peux y
+          miser.
+        </span>
+      </p>
       <section>
         <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
           Résultat (1X2)
         </h3>
-        <OddsTable lines={match.h2h} outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]} pick={pickCell(h2hPick)} />
+        <OddsTable match={match} lines={match.h2h} outcomeOrder={[match.homeTeam, "Draw", match.awayTeam]} pick={pickCell(h2hPick)} />
       </section>
 
       {Array.from(totalsByPoint.entries())
@@ -158,6 +167,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               Total de buts — {point}
             </h3>
             <OddsTable
+              match={match}
               lines={lines}
               outcomeOrder={["Over", "Under"]}
               pick={totalsPick?.point === point ? pickCell(totalsPick) : null}
@@ -303,12 +313,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 
-  const boxes = resultBoxes(match.h2h, match.homeTeam, match.awayTeam);
-  const boxOutcomeName: Record<"1" | "X" | "2", string> = {
-    "1": match.homeTeam,
-    X: "Draw",
-    "2": match.awayTeam,
-  };
+  const boxes = resultBoxes(match.h2h, match.homeTeam, match.awayTeam, bookClassifier().isBettable);
 
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
@@ -338,23 +343,25 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           </p>
           <div className="mx-auto mt-5 flex max-w-xs justify-center gap-2">
             {boxes.map((box) => {
-              const isPick = h2hPick?.outcomeName === boxOutcomeName[box.label];
-              return (
-                <div
+              const isPick = h2hPick?.outcomeName === box.outcomeName;
+              return box.best ? (
+                <OddsButton
                   key={box.label}
-                  title={isPick && h2hPick ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}` : undefined}
-                  className={`flex flex-1 flex-col items-center rounded-lg border px-2 py-2 ${
-                    isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-elevated"
-                  }`}
-                >
-                  <span className={`text-[10px] font-semibold uppercase ${isPick ? "text-accent-strong" : "text-fg-muted"}`}>{box.label}</span>
-                  <span
-                    className={`font-mono-tabular text-sm font-semibold ${
-                      isPick ? "text-accent-strong" : "text-fg"
-                    }`}
-                  >
-                    {box.price ? box.price.toFixed(2) : "—"}
-                  </span>
+                  variant="box"
+                  label={box.label}
+                  selection={selectionFor(match, box.best, match.edges)}
+                  isPick={isPick}
+                  hint={
+                    isPick && h2hPick
+                      ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}`
+                      : undefined
+                  }
+                  className="flex-1 py-2"
+                />
+              ) : (
+                <div key={box.label} className="flex flex-1 flex-col items-center rounded-lg border border-border bg-bg-elevated px-2 py-2">
+                  <span className="text-[10px] font-semibold uppercase text-fg-muted">{box.label}</span>
+                  <span className="font-mono-tabular text-sm font-semibold text-fg-muted">—</span>
                 </div>
               );
             })}
