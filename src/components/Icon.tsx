@@ -133,6 +133,24 @@ const PATHS = {
       <path d="M13 11v2" />
     </>
   ),
+  // Drawn for the board (Lucide has no football): a ball with its centre panel and seams.
+  ball: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m12 8.4 3.42 2.49-1.3 4.02H9.88l-1.3-4.02z" />
+      <path d="M12 8.4V2M15.42 10.89l6.09-1.98M14.12 14.91l3.76 5.18M9.88 14.91l-3.76 5.18M8.58 10.89 2.49 8.91" />
+    </>
+  ),
+  trophy: (
+    <>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </>
+  ),
   trash: (
     <>
       <path d="M3 6h18" />

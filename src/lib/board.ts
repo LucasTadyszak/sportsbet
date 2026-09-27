@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { Edge, MatchPrediction } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { bookRole, isFrenchBook } from "@/lib/bookmakers";
-import { crestsByTeamName } from "@/lib/crests";
+import { teamLooksByName, type TeamLook } from "@/lib/crests";
 import { addDays, parisStartOfDay } from "@/lib/dates";
 import { findEventFixture } from "@/lib/footballDataMatches";
 import { isStakedTier } from "@/lib/methodology/config";
@@ -79,16 +79,23 @@ const BOARD_EDGES = {
 
 export type BoardEvent = {
   id: string;
+  /** The Odds API sport_key: the competition, whose look the match block takes (src/lib/competitions.ts). */
+  sportKey: string;
   sportTitle: string;
   homeTeam: string;
   awayTeam: string;
   homeCrest: string | null;
   awayCrest: string | null;
+  /** Kit colours of each club (src/lib/teamColors.ts); empty when unknown. */
+  homeColors: string[];
+  awayColors: string[];
   commenceTime: Date;
   /** Latest 1X2 price of every French book: the only books the site displays. */
   h2h: OddsLine[];
   /** 1X2 and totals. */
   oddsErrors: OddsError[];
+  /** The whole market's fair 1X2 probabilities (see FairMarket), by outcome name; null without a consensus. */
+  fairResult: Record<string, number> | null;
   prediction: ModelPrediction | null;
   verdicts: BoardVerdict[];
   /** The model's verdict on each priced outcome, so a price clicked into the slip can be sized. */
@@ -269,6 +276,7 @@ function toVerdict(edge: Pick<Edge, "marketKey" | "outcomeName" | "point" | "tie
 
 type EventRow = {
   id: string;
+  sportKey: string;
   sport: { title: string };
   homeTeam: string;
   awayTeam: string;
@@ -277,17 +285,31 @@ type EventRow = {
   edges: BoardEdge[];
 };
 
-function toBoardEvent(event: EventRow, lines: OddsLine[], crests: Map<string, string>, now: Date): BoardEvent {
+/** The fields of a board event that say how its two clubs look. */
+function teamLooks(event: { homeTeam: string; awayTeam: string }, looks: Map<string, TeamLook>) {
+  const home = looks.get(event.homeTeam);
+  const away = looks.get(event.awayTeam);
+  return {
+    homeCrest: home?.crest ?? null,
+    awayCrest: away?.crest ?? null,
+    homeColors: home?.colors ?? [],
+    awayColors: away?.colors ?? [],
+  };
+}
+
+function toBoardEvent(event: EventRow, lines: OddsLine[], looks: Map<string, TeamLook>, now: Date): BoardEvent {
+  const { fair, oddsErrors } = readMarket(lines, event, now);
   return {
     id: event.id,
+    sportKey: event.sportKey,
     sportTitle: event.sport.title,
     homeTeam: event.homeTeam,
     awayTeam: event.awayTeam,
-    homeCrest: crests.get(event.homeTeam) ?? null,
-    awayCrest: crests.get(event.awayTeam) ?? null,
+    ...teamLooks(event, looks),
     commenceTime: event.commenceTime,
     h2h: lines.filter((l) => l.marketKey === "h2h" && isFrenchBook(l.bookmakerKey)),
-    oddsErrors: readMarket(lines, event, now).oddsErrors,
+    oddsErrors,
+    fairResult: fair.find((m) => m.marketKey === "h2h")?.probabilities ?? null,
     prediction: event.prediction,
     verdicts: event.edges.filter((e) => e.isRecommended).map(toVerdict),
     edges: event.edges,
@@ -295,12 +317,12 @@ function toBoardEvent(event: EventRow, lines: OddsLine[], crests: Map<string, st
 }
 
 async function toBoardEvents(events: EventRow[]): Promise<BoardEvent[]> {
-  const [lines, crests] = await Promise.all([
+  const [lines, looks] = await Promise.all([
     latestLines(events.map((e) => e.id)),
-    crestsByTeamName(events.flatMap((e) => [e.homeTeam, e.awayTeam])),
+    teamLooksByName(events.flatMap((e) => [e.homeTeam, e.awayTeam])),
   ]);
   const now = new Date();
-  return events.map((event) => toBoardEvent(event, lines.get(event.id) ?? [], crests, now));
+  return events.map((event) => toBoardEvent(event, lines.get(event.id) ?? [], looks, now));
 }
 
 /** The recommended side of a market, if the methodology would stake it. */
@@ -385,14 +407,15 @@ export async function getBoard(opts: {
   return { events, lastCapturedAt: lastCaptured._max.capturedAt, upcomingFallback };
 }
 
-export function groupBySport(events: BoardEvent[]): [string, BoardEvent[]][] {
-  const bySport = new Map<string, BoardEvent[]>();
+/** Events by competition (sport_key), in the order each competition first appears. */
+export function groupByCompetition(events: BoardEvent[]): [string, BoardEvent[]][] {
+  const byCompetition = new Map<string, BoardEvent[]>();
   for (const event of events) {
-    const list = bySport.get(event.sportTitle) ?? [];
+    const list = byCompetition.get(event.sportKey) ?? [];
     list.push(event);
-    bySport.set(event.sportTitle, list);
+    byCompetition.set(event.sportKey, list);
   }
-  return Array.from(bySport.entries());
+  return Array.from(byCompetition.entries());
 }
 
 export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | null> => {
@@ -410,22 +433,23 @@ export const getMatchDetail = cache(async (id: string): Promise<MatchDetail | nu
     }
   }
 
-  const [latest, crests] = await Promise.all([latestLines([event.id]), crestsByTeamName([event.homeTeam, event.awayTeam])]);
+  const [latest, looks] = await Promise.all([latestLines([event.id]), teamLooksByName([event.homeTeam, event.awayTeam])]);
   const lines = latest.get(event.id) ?? [];
   const french = lines.filter((l) => isFrenchBook(l.bookmakerKey));
   const { fair, oddsErrors } = readMarket(lines, event, new Date());
   return {
     id: event.id,
+    sportKey: event.sportKey,
     sportTitle: event.sport.title,
     homeTeam: event.homeTeam,
     awayTeam: event.awayTeam,
-    homeCrest: crests.get(event.homeTeam) ?? null,
-    awayCrest: crests.get(event.awayTeam) ?? null,
+    ...teamLooks(event, looks),
     commenceTime: event.commenceTime,
     h2h: french.filter((l) => l.marketKey === "h2h"),
     totals: french.filter((l) => l.marketKey === "totals"),
     fair,
     oddsErrors,
+    fairResult: fair.find((m) => m.marketKey === "h2h")?.probabilities ?? null,
     prediction: event.prediction,
     predictionDetail: event.prediction,
     edges: event.edges,

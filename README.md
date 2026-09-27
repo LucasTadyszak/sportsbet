@@ -44,12 +44,13 @@ scripts/refresh-odds.ts     # point d'entrée CLI pour un cron (Render Cron Job)
 src/app/api/refresh-odds/   # endpoint HTTP protégé par CRON_SECRET pour déclencher un refresh
 
 # Statistiques + modèle (football-data.org)
-src/lib/footballDataApi.ts  # client football-data.org (standings, matches) + espacement 10 req/min
-src/lib/footballDataStats.ts # throttle -> fetch classement (et logo de chaque club) -> upsert TeamStats
+src/lib/footballDataApi.ts  # client football-data.org (standings, teams, matches) + espacement 10 req/min
+src/lib/footballDataStats.ts # throttle -> fetch classement (logo de chaque club) + couleurs des clubs -> upsert TeamStats
 src/lib/footballDataMatches.ts # tous les matchs des compétitions suivies -> Fixture (score à 90 min)
 src/lib/leagueMapping.ts    # sport_key (Odds API) -> code compétition (football-data.org)
 src/lib/teamNameMatch.ts    # rapproche les noms d'équipe entre les deux APIs
-src/lib/crests.ts           # nom d'équipe The Odds API -> logo du club (via Team -> TeamStats.crest)
+src/lib/crests.ts           # nom d'équipe The Odds API -> logo et couleurs du club (via Team -> TeamStats.crest/clubColors)
+src/lib/teamColors.ts       # couleurs d'un club ("Red / White") -> couleurs hex des blocs de match
 src/lib/ratings.ts          # rejoue l'Elo (réglé par ligue) + ajuste le modèle de buts, depuis les Fixture
 src/lib/predictions.ts      # Poisson sur le classement (repli quand le modèle de buts manque de données)
 src/lib/refreshStats.ts     # classements + résultats -> notes -> MatchPrediction (modèle brut)
@@ -84,12 +85,15 @@ scripts/refresh-edges.ts    # recalcule les verdicts sans appel API (après un c
 src/lib/dates.ts            # jours/formatage ancrés sur Europe/Paris
 src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (cotes françaises, probabilités du marché, erreurs de cote, logos)
 src/lib/journal.ts, src/lib/modelHealth.ts, src/lib/labels.ts  # lectures + libellés FR
+src/lib/competitions.ts     # identité de chaque compétition : nom FR, drapeau, dégradé et motif de son bandeau
 src/components/TeamCrest.tsx # logo d'un club à côté de son nom (bouclier neutre s'il n'y en a pas)
+src/components/Competition.tsx # drapeaux ronds, icône sport + drapeau, bandeau et motif d'une compétition
+src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, cadre aux couleurs des clubs, tuiles 1/N/2
 src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue
 src/lib/betSlip.ts          # état de la sélection et de la bankroll, dans le localStorage du navigateur
-src/components/OddsButton.tsx # une cote cliquable (cases 1/X/2, tableau de cotes, picks), flamme d'erreur de cote comprise
+src/components/OddsButton.tsx # une cote cliquable (tuiles 1/N/2, tableau de cotes, picks), flamme d'erreur de cote comprise
 src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection »
-src/app/page.tsx            # liste des matchs groupée par compétition, avec les verdicts
+src/app/page.tsx            # blocs de matchs groupés par compétition, barre latérale des compétitions, jours, filtres
 src/app/match/[id]/         # détail : cotes, Analyse (verdict, 5 signaux, modèle pièce par pièce), probabilités, matrice des scores
 src/app/picks/              # picks à venir (paliers misés)
 src/app/passes/             # centre des passes : chaque marché non misé et pourquoi
@@ -98,9 +102,18 @@ src/app/modele/             # santé du modèle : calibration, Brier vs marché,
 src/app/methodologie/       # la méthodologie, avec les valeurs de config.ts
 ```
 
-Board inspiré de [ZoneStat](https://www.zonestat.fr/football) : liste des matchs
-groupée par compétition (repliable), logo de chaque club, navigation par jour,
-filtres Tout / À venir / En cours, recherche par équipe, et une page détail par
+Board inspiré de Winamax et Betclic, en thème clair : chaque match est un **bloc**
+habillé aux couleurs de sa compétition (bandeau en dégradé avec son motif —
+chevrons, étoiles ou bandes — et son drapeau) et de ses deux clubs (cadre rayé aux
+couleurs du maillot de chaque équipe, logo cerclé de ces mêmes couleurs), avec les
+cotes principales 1 / N / 2 en grandes tuiles cliquables et, sous chacune, la
+probabilité du marché marge retirée. Les couleurs des clubs viennent de
+football-data.org (`clubColors`, un appel par compétition au rythme du classement) ;
+un club sans couleurs connues prend celles de sa compétition. Les blocs sont
+groupés par compétition (repliable, les plus grandes d'abord), avec une barre
+latérale des compétitions (des puces sur mobile) qui filtre le tableau
+(`?comp=<sport_key>`), une navigation par jour, les filtres Tout / À venir /
+En cours, une recherche par équipe, et une page détail par
 match (`/match/[id]`) avec un onglet **Résumé** (comparatif de cotes des
 bookmakers français, marchés 1X2 et totaux, la cote que le modèle prendrait
 surlignée, une flamme sur chaque erreur de cote), un onglet **Analyse** (verdict

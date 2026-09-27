@@ -5,23 +5,22 @@ import {
   bestPriceByOutcome,
   getMatchDetail,
   oddsErrorsFor,
-  resultBoxes,
   resultProbabilities,
   totalsProbabilities,
   type MatchDetail,
   type OddsError,
   type OddsLine,
 } from "@/lib/board";
-import { bookClassifier } from "@/lib/bookmakers";
+import { competitionTheme } from "@/lib/competitions";
 import { formatKickoff, hasKickedOff } from "@/lib/dates";
-import { oddsErrorsLabel, outcomeLabel } from "@/lib/labels";
+import { oddsErrorsLabel, outcomeLabel, upperFirst } from "@/lib/labels";
 import { ODDS_ERROR, isStakedTier } from "@/lib/methodology/config";
-import { userLabel } from "@/lib/methodology/verdict";
 import { selectionFor } from "@/lib/selection";
+import { CompetitionBand } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
+import { KitCrest, KitStripes, ResultTiles, kitOrTheme } from "@/components/MatchCard";
 import { OddsButton } from "@/components/OddsButton";
 import { PageFooter, SiteHeader } from "@/components/SiteHeader";
-import { TeamCrest } from "@/components/TeamCrest";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
 import { ScoreMatrix } from "./ScoreMatrix";
@@ -367,7 +366,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 
-  const boxes = resultBoxes(match.h2h, match.homeTeam, match.awayTeam, bookClassifier().isBettable);
+  const theme = competitionTheme(match.sportKey, match.sportTitle);
+  const homeKit = kitOrTheme(match.homeColors, theme, "home");
+  const awayKit = kitOrTheme(match.awayColors, theme, "away");
 
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
@@ -383,65 +384,42 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
       <div className="mx-auto w-full max-w-4xl px-4 pb-12 sm:px-6">
         <div className="overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-card">
-        <div className="relative px-5 py-7 text-center sm:px-8">
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-accent" />
-          <p className="text-xs font-semibold uppercase tracking-widest text-fg-muted">{match.sportTitle}</p>
-          <h1 className="mt-4 grid grid-cols-[1fr_auto_1fr] items-start gap-3 font-display text-xl font-bold text-fg sm:text-2xl">
-            <span className="flex flex-col items-center gap-2 text-center">
-              <TeamCrest src={match.homeCrest} size={48} />
-              {match.homeTeam}
-            </span>
-            <span className="flex h-12 items-center text-sm font-medium text-fg-muted">vs</span>
-            <span className="flex flex-col items-center gap-2 text-center">
-              <TeamCrest src={match.awayCrest} size={48} />
-              {match.awayTeam}
-            </span>
-          </h1>
-          <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-fg-muted">
-            <Icon name="clock" className="h-3.5 w-3.5" />
-            <time className="capitalize">{formatKickoff(match.commenceTime)}</time>
-          </p>
-          <div className="mx-auto mt-5 flex max-w-xs justify-center gap-2">
-            {boxes.map((box) => {
-              const isPick = h2hPick?.outcomeName === box.outcomeName;
-              return box.best ? (
-                <OddsButton
-                  key={box.label}
-                  variant="box"
-                  label={box.label}
-                  selection={selectionFor(match, box.best, match.edges)}
-                  isPick={isPick}
-                  disabled={kickedOff}
-                  hint={
-                    isPick && h2hPick
-                      ? `${userLabel(h2hPick.tier)} : ${outcomeLabel("h2h", h2hPick.outcomeName, null, match.homeTeam, match.awayTeam)}`
-                      : undefined
-                  }
-                  oddsError={oddsErrorsLabel(oddsErrorsFor(match.oddsErrors, "h2h", box.outcomeName))}
-                  className="flex-1 py-2"
-                />
-              ) : (
-                <div key={box.label} className="flex flex-1 flex-col items-center rounded-lg border border-border bg-bg-elevated px-2 py-2">
-                  <span className="text-[10px] font-semibold uppercase text-fg-muted">{box.label}</span>
-                  <span className="font-mono-tabular text-sm font-semibold text-fg-muted">—</span>
+          <div className="relative isolate bg-bg-row">
+            <KitStripes colors={homeKit} side="home" />
+            <KitStripes colors={awayKit} side="away" />
+            <CompetitionBand theme={theme} className="h-10 sm:px-5" />
+            <div className="mx-1.5 mb-1.5 rounded-b-lg bg-bg-elevated px-4 py-7 text-center sm:px-8">
+              <h1 className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 font-display text-xl font-bold text-fg sm:text-2xl">
+                <span className="flex flex-col items-center gap-3 text-center">
+                  <KitCrest crest={match.homeCrest} kit={homeKit} size={64} />
+                  {match.homeTeam}
+                </span>
+                <span className="flex h-[70px] items-center text-sm font-medium text-fg-muted">vs</span>
+                <span className="flex flex-col items-center gap-3 text-center">
+                  <KitCrest crest={match.awayCrest} kit={awayKit} size={64} />
+                  {match.awayTeam}
+                </span>
+              </h1>
+              <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-fg-muted">
+                <Icon name="clock" className="h-3.5 w-3.5" />
+                <time>{upperFirst(formatKickoff(match.commenceTime))}</time>
+              </p>
+              <ResultTiles event={match} className="mx-auto mt-5 max-w-md text-left" />
+              {h2hPick || totalsPick ? (
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {[h2hPick, totalsPick].map((edge) =>
+                    edge ? (
+                      <span key={edge.marketKey} className="inline-flex items-center gap-2">
+                        <TierBadge tier={edge.tier} />
+                        <span className="text-sm text-fg">
+                          {outcomeLabel(edge.marketKey, edge.outcomeName, edge.point, match.homeTeam, match.awayTeam)}
+                        </span>
+                      </span>
+                    ) : null
+                  )}
                 </div>
-              );
-            })}
-          </div>
-          {h2hPick || totalsPick ? (
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {[h2hPick, totalsPick].map((edge) =>
-                edge ? (
-                  <span key={edge.marketKey} className="inline-flex items-center gap-2">
-                    <TierBadge tier={edge.tier} />
-                    <span className="text-sm text-fg">
-                      {outcomeLabel(edge.marketKey, edge.outcomeName, edge.point, match.homeTeam, match.awayTeam)}
-                    </span>
-                  </span>
-                ) : null
-              )}
+              ) : null}
             </div>
-          ) : null}
           </div>
 
           <div className="border-t border-border">

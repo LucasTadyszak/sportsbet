@@ -122,6 +122,7 @@ model TeamStats {
   shortName       String?
   tla             String? // three-letter abbreviation, e.g. "MCI"
   crest           String? // club crest URL, e.g. "https://crests.football-data.org/65.png"
+  clubColors      String? // kit colours as football-data.org words them, e.g. "Red / White"
   position        Int?
   playedGames     Int
   won             Int

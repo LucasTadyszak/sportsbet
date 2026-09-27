@@ -117,6 +117,11 @@ export const STATUS_LABELS: Record<string, string> = {
   void: "Annulé",
 };
 
+/** "mar. 29 sept." → "Mar. 29 sept." (CSS capitalize would give "Mar. 29 Sept."). */
+export function upperFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export function formatPct(x: number | null | undefined, digits = 0): string {
   return x === null || x === undefined ? "—" : `${(x * 100).toFixed(digits)}%`;
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getStandings } from "@/lib/footballDataApi";
+import { getCompetitionTeams, getStandings } from "@/lib/footballDataApi";
 import { trackedCompetitionCodes } from "@/lib/leagueMapping";
 import { trackedSportKeys } from "@/lib/refreshOdds";
 
@@ -25,6 +25,27 @@ export type TeamStatsRefreshSummary = {
   skipped: boolean;
   teams: number;
 }[];
+
+/**
+ * Kit colours of a competition's clubs, which the board paints each match block with
+ * (src/lib/teamColors.ts). Standings don't carry them, so it costs one more call per
+ * competition, made on the standings' own throttle. Purely cosmetic: a failure here is
+ * logged and never holds up the stats the model needs.
+ */
+async function refreshClubColors(competitionCode: string) {
+  try {
+    const { teams } = await getCompetitionTeams(competitionCode);
+    for (const team of teams) {
+      if (!team.clubColors) continue;
+      await prisma.teamStats.updateMany({
+        where: { competitionCode, teamId: team.id },
+        data: { clubColors: team.clubColors },
+      });
+    }
+  } catch (err) {
+    console.warn(`[${competitionCode}] club colours not refreshed:`, err instanceof Error ? err.message : err);
+  }
+}
 
 /** Pulls current-season standings for every tracked competition, respecting the per-competition throttle. */
 export async function refreshTeamStats(): Promise<TeamStatsRefreshSummary> {
@@ -82,6 +103,7 @@ export async function refreshTeamStats(): Promise<TeamStatsRefreshSummary> {
         },
       });
     }
+    await refreshClubColors(competitionCode);
     await markFetched(resourceKey);
 
     summary.push({ competitionCode, skipped: false, teams: totalTable.length });

@@ -7,9 +7,10 @@ import { isSameOffer, type Selection } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
 
 /**
- * A price the user can click into their bet slip: a 1/X/2 box, a bookmaker's cell in an
- * odds table, or a pick's price. Pressed while that exact offer is in the slip; disabled
- * once the match has kicked off, when its pre-match price can't be taken any more.
+ * A price the user can click into their bet slip: a 1/X/2 box, a match block's tile, a
+ * bookmaker's cell in an odds table, or a pick's price. Pressed while that exact offer is
+ * in the slip; disabled once the match has kicked off, when its pre-match price can't be
+ * taken any more.
  */
 export function OddsButton({
   selection,
@@ -23,8 +24,8 @@ export function OddsButton({
   className = "",
 }: {
   selection: Selection;
-  variant: "box" | "cell" | "pick";
-  /** "1" / "X" / "2", shown above the price in a box. */
+  variant: "box" | "tile" | "cell" | "pick";
+  /** "1" / "X" / "2" in a box, the outcome ("Arsenal", "Match nul") in a tile: shown above the price. */
   label?: string;
   /** The price the model would take. */
   isPick?: boolean;
@@ -81,6 +82,42 @@ export function OddsButton({
         </span>
         {flame ? <span className="absolute right-1 top-1">{flame}</span> : null}
         <span className={`font-mono-tabular text-sm font-semibold ${selected ? "text-white" : isPick ? "text-accent-strong" : "text-fg"}`}>
+          {price}
+        </span>
+      </button>
+    );
+  }
+
+  if (variant === "tile") {
+    return (
+      <button
+        {...buttonProps}
+        className={`relative flex min-h-14 w-full flex-col items-center justify-center rounded-xl border px-2 py-1.5 transition-[border-color,background-color,box-shadow] duration-200 ${
+          selected
+            ? "border-fg bg-fg enabled:hover:bg-fg/90"
+            : isPick
+              ? "border-accent bg-accent-dim enabled:hover:border-accent-strong"
+              : "border-border bg-bg-elevated shadow-card enabled:hover:border-accent enabled:hover:shadow-md"
+        } ${className}`}
+      >
+        {isPick ? (
+          <span className="absolute -top-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-px text-[10px] font-bold uppercase leading-4 text-fg">
+            <Icon name="star" className="h-2.5 w-2.5" />
+            Pick
+          </span>
+        ) : null}
+        {flame ? <span className="absolute left-1.5 top-1.5">{flame}</span> : null}
+        <span
+          className={`flex max-w-full items-center gap-0.5 text-[11px] font-medium leading-4 ${
+            selected ? "text-white/80" : isPick ? "text-accent-strong" : "text-fg-muted"
+          }`}
+        >
+          {selected ? <Icon name="check" className="h-3 w-3" /> : null}
+          <span className="truncate">{label}</span>
+        </span>
+        <span
+          className={`font-display text-lg font-extrabold leading-6 tabular ${selected ? "text-white" : isPick ? "text-accent-strong" : "text-fg"}`}
+        >
           {price}
         </span>
       </button>
