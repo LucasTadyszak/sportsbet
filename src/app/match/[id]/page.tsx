@@ -283,8 +283,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </h3>
         {!match.prediction ? (
           <p className="text-sm text-fg-muted">
-            Pas de statistiques football-data.org disponibles pour ce match (compétition non couverte, ou
-            équipe non reconnue).
+            Pas de modèle pour ce match : compétition non couverte, ou équipe non reconnue.
           </p>
         ) : (
           <div className="flex flex-col gap-3">

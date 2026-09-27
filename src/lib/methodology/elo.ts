@@ -5,6 +5,8 @@
 // competition so Champions League matches connect the domestic leagues. Ratings are
 // replayed from scratch over the stored results on every refresh — cheap (a few
 // thousand matches) and deterministic, so retuning a constant never leaves stale state.
+// National teams (who never meet a club) are replayed on their own, over every
+// international since 1872, in one season: no regression toward the mean.
 import { ELO } from "@/lib/methodology/config";
 
 export type EloFixture = {
@@ -18,6 +20,8 @@ export type EloFixture = {
   awayName: string;
   homeGoals: number;
   awayGoals: number;
+  /** Played on neutral ground (a tournament finals match): no home advantage. */
+  neutral?: boolean;
 };
 
 export type EloLeagueParams = { kFactor: number; homeAdvantage: number };
@@ -122,7 +126,7 @@ export function replayElo(
     startSeason(away, f.season);
 
     const params = paramsFor(f.competitionCode);
-    const diff = home.elo + params.homeAdvantage - away.elo;
+    const diff = home.elo + (f.neutral ? 0 : params.homeAdvantage) - away.elo;
     const expected = expectedScore(diff);
     const actual = matchScore(f.homeGoals, f.awayGoals);
 

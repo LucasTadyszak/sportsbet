@@ -10,7 +10,8 @@ import { GOALS } from "@/lib/methodology/config";
 import { breakEvenProbability, totalsLineProbabilities } from "@/lib/methodology/settlement";
 import type { OutcomeProbs } from "@/lib/methodology/elo";
 
-export type GoalsFixture = { homeId: number; awayId: number; homeGoals: number; awayGoals: number; date: Date };
+/** `neutral`: played on neutral ground, so the home multiplier doesn't apply (nor is it learnt from it). */
+export type GoalsFixture = { homeId: number; awayId: number; homeGoals: number; awayGoals: number; date: Date; neutral?: boolean };
 
 export type TeamStrength = { attack: number; defense: number; games: number };
 
@@ -57,10 +58,16 @@ export function fitGoalsModel(fixtures: GoalsFixture[], asOf: Date): GoalsModel 
   const meanGoals = (homeAvg + awayAvg) / 2;
   const prior = GOALS.priorGames * meanGoals;
 
+  // The home multiplier is only learnt from (and applied to) matches with a real home side.
+  const atHome = rows.filter((r) => !r.neutral);
+  const atHomeHomeGoals = atHome.reduce((s, r) => s + r.w * r.homeGoals, 0);
+  const atHomeAwayGoals = atHome.reduce((s, r) => s + r.w * r.awayGoals, 0);
+
   let base = awayAvg;
-  let homeAdv = homeAvg / awayAvg;
+  let homeAdv = atHomeHomeGoals > 0 && atHomeAwayGoals > 0 ? atHomeHomeGoals / atHomeAwayGoals : 1;
   const a = (id: number) => attack.get(id) ?? 1;
   const d = (id: number) => defense.get(id) ?? 1;
+  const h = (r: { neutral?: boolean }) => (r.neutral ? 1 : homeAdv);
 
   // Coordinate-wise weighted Poisson maximum likelihood (each update is the exact
   // conditional optimum), with the pseudo-game prior on every team strength.
@@ -70,7 +77,7 @@ export function fitGoalsModel(fixtures: GoalsFixture[], asOf: Date): GoalsModel 
     for (const r of rows) {
       scored.set(r.homeId, (scored.get(r.homeId) ?? 0) + r.w * r.homeGoals);
       scored.set(r.awayId, (scored.get(r.awayId) ?? 0) + r.w * r.awayGoals);
-      scoredExp.set(r.homeId, (scoredExp.get(r.homeId) ?? 0) + r.w * base * homeAdv * d(r.awayId));
+      scoredExp.set(r.homeId, (scoredExp.get(r.homeId) ?? 0) + r.w * base * h(r) * d(r.awayId));
       scoredExp.set(r.awayId, (scoredExp.get(r.awayId) ?? 0) + r.w * base * d(r.homeId));
     }
     for (const id of ids) attack.set(id, ((scored.get(id) ?? 0) + prior) / ((scoredExp.get(id) ?? 0) + prior));
@@ -81,16 +88,15 @@ export function fitGoalsModel(fixtures: GoalsFixture[], asOf: Date): GoalsModel 
       conceded.set(r.homeId, (conceded.get(r.homeId) ?? 0) + r.w * r.awayGoals);
       conceded.set(r.awayId, (conceded.get(r.awayId) ?? 0) + r.w * r.homeGoals);
       concededExp.set(r.homeId, (concededExp.get(r.homeId) ?? 0) + r.w * base * a(r.awayId));
-      concededExp.set(r.awayId, (concededExp.get(r.awayId) ?? 0) + r.w * base * homeAdv * a(r.homeId));
+      concededExp.set(r.awayId, (concededExp.get(r.awayId) ?? 0) + r.w * base * h(r) * a(r.homeId));
     }
     for (const id of ids) defense.set(id, ((conceded.get(id) ?? 0) + prior) / ((concededExp.get(id) ?? 0) + prior));
 
-    const homeGoalsSum = rows.reduce((s, r) => s + r.w * r.homeGoals, 0);
-    const homeExp = rows.reduce((s, r) => s + r.w * base * a(r.homeId) * d(r.awayId), 0);
-    homeAdv = homeGoalsSum / homeExp;
+    const homeExp = atHome.reduce((s, r) => s + r.w * base * a(r.homeId) * d(r.awayId), 0);
+    if (homeExp > 0 && atHomeHomeGoals > 0) homeAdv = atHomeHomeGoals / homeExp;
 
     const goalsSum = rows.reduce((s, r) => s + r.w * (r.homeGoals + r.awayGoals), 0);
-    const goalsExp = rows.reduce((s, r) => s + r.w * (homeAdv * a(r.homeId) * d(r.awayId) + a(r.awayId) * d(r.homeId)), 0);
+    const goalsExp = rows.reduce((s, r) => s + r.w * (h(r) * a(r.homeId) * d(r.awayId) + a(r.awayId) * d(r.homeId)), 0);
     base = goalsSum / goalsExp;
 
     // Identifiability: average team has attack = defense = 1; the scale lives in base.
@@ -112,7 +118,7 @@ export function fitGoalsModel(fixtures: GoalsFixture[], asOf: Date): GoalsModel 
     let valid = true;
     for (const r of rows) {
       if (r.homeGoals > 1 || r.awayGoals > 1) continue;
-      const lambdaHome = base * homeAdv * a(r.homeId) * d(r.awayId);
+      const lambdaHome = base * h(r) * a(r.homeId) * d(r.awayId);
       const lambdaAway = base * a(r.awayId) * d(r.homeId);
       const tau = dixonColesTau(r.homeGoals, r.awayGoals, lambdaHome, lambdaAway, candidate);
       if (tau <= 0) {
@@ -132,12 +138,17 @@ export function fitGoalsModel(fixtures: GoalsFixture[], asOf: Date): GoalsModel 
   return { base, homeAdv, rho, teams, matches: rows.length };
 }
 
-export function expectedGoals(model: GoalsModel, homeId: number, awayId: number): { home: number; away: number } | null {
+export function expectedGoals(
+  model: GoalsModel,
+  homeId: number,
+  awayId: number,
+  opts: { neutral?: boolean } = {}
+): { home: number; away: number } | null {
   const home = model.teams[String(homeId)];
   const away = model.teams[String(awayId)];
   if (!home || !away || home.games < GOALS.minTeamGames || away.games < GOALS.minTeamGames) return null;
   return {
-    home: model.base * model.homeAdv * home.attack * away.defense,
+    home: model.base * (opts.neutral ? 1 : model.homeAdv) * home.attack * away.defense,
     away: model.base * away.attack * home.defense,
   };
 }

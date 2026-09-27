@@ -1,6 +1,6 @@
 // "Matrice" tab: the probability of every exact score, rebuilt from what the raw prediction
 // stores for its goals model (expected goals + Dixon-Coles ρ) — the grid itself isn't
-// stored. Once football-data.org has the result, the 90-minute score is ticked in the grid.
+// stored. Once the results source has it, the 90-minute score is ticked in the grid.
 import type { MatchDetail } from "@/lib/board";
 import { formatKickoff } from "@/lib/dates";
 import { formatPct } from "@/lib/labels";
@@ -73,7 +73,7 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
       <p className="text-sm text-fg-muted">
         {beyondPredictionWindow(match.commenceTime)
           ? `Le modèle ne chiffre que les matchs des ${PREDICTION_WINDOW_DAYS} prochains jours : la matrice apparaîtra à l'approche de celui-ci.`
-          : "Pas de statistiques football-data.org disponibles pour ce match (compétition non couverte, ou équipe non reconnue)."}
+          : "Pas de modèle pour ce match : compétition non couverte, ou équipe non reconnue."}
       </p>
     );
   }
@@ -95,7 +95,9 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
   const isFinal = (home: number, away: number) => final !== null && final.home === home && final.away === away;
   const finalRank = final ? ranked.findIndex((score) => isFinal(score.home, score.away)) + 1 : 0;
   const finalInMatrix = final !== null && final.home <= SHOWN_GOALS && final.away <= SHOWN_GOALS;
-  const goalsFitted = (prediction.components as { goalsFitted?: boolean } | null)?.goalsFitted === true;
+  const components = prediction.components as { goalsFitted?: boolean; competitionCode?: string } | null;
+  const goalsFitted = components?.goalsFitted === true;
+  const national = components?.competitionCode?.startsWith("INT-") ?? false;
 
   return (
     <div className="flex flex-col gap-8">
@@ -104,7 +106,7 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
           <h3 className={SECTION_TITLE}>Probabilité du score</h3>
           <p className="mt-1 text-xs leading-relaxed text-fg-muted">
             {goalsFitted
-              ? "Modèle de buts Dixon-Coles, ajusté sur les résultats de la compétition (les plus récents pèsent davantage)"
+              ? `Modèle de buts Dixon-Coles, ajusté sur ${national ? "tous les matchs internationaux récents" : "les résultats de la compétition"} (les plus récents pèsent davantage)`
               : "Loi de Poisson sur le classement (repli, faute d'assez de résultats pour ajuster le modèle Dixon-Coles)"}
             {" · "}buts attendus {match.homeTeam} {lambdaHome.toFixed(2)} – {lambdaAway.toFixed(2)} {match.awayTeam}.
           </p>

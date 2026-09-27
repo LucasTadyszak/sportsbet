@@ -55,6 +55,14 @@ test("replay is zero-sum and rewards the winner", () => {
   assert.ok(Math.abs(home.residuals[0] + away.residuals[0]) < 1e-12);
 });
 
+test("on neutral ground the home side gets no home advantage", () => {
+  const { teams, predictions } = replayElo([fixture({ id: 1, homeId: 1, awayId: 2, homeGoals: 1, awayGoals: 0, neutral: true })], params);
+  assert.equal(predictions[0].diff, 0);
+  assert.equal(predictions[0].expected, 0.5);
+  // 20 · 1 · (1 - E(0)): the full half of K, not the smaller reward of a home win.
+  assert.ok(Math.abs(teams.get(1)!.elo - ELO.initial - 10) < 1e-9);
+});
+
 test("ratings regress toward the mean when a new season starts", () => {
   const { teams } = replayElo(
     [

@@ -1,16 +1,23 @@
 import { prisma } from "@/lib/prisma";
-import { getOddsForSport, type OddsApiEvent } from "@/lib/oddsApi";
+import { isNationalTeamSport, trackedNationalSportKeys } from "@/lib/leagueMapping";
+import { getOddsForSport, listSports, type OddsApiEvent } from "@/lib/oddsApi";
 
 const DEFAULT_SPORT_KEYS = ["soccer_epl", "soccer_uefa_champs_league"];
 const REFRESH_INTERVAL_MINUTES = Number(process.env.ODDS_REFRESH_INTERVAL_MINUTES ?? 30);
 
-export function trackedSportKeys(): string[] {
+/** Club competitions to follow: ODDS_SPORT_KEYS, else the defaults. */
+export function trackedClubSportKeys(): string[] {
   const fromEnv = process.env.ODDS_SPORT_KEYS;
   if (!fromEnv) return DEFAULT_SPORT_KEYS;
   return fromEnv
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Every competition followed: the club ones, then the national-team ones (see leagueMapping.ts). */
+export function trackedSportKeys(): string[] {
+  return Array.from(new Set([...trackedClubSportKeys(), ...trackedNationalSportKeys()]));
 }
 
 async function canFetch(resourceKey: string): Promise<boolean> {
@@ -109,30 +116,59 @@ async function insertOddsSnapshot(event: OddsApiEvent): Promise<number> {
 export type RefreshSummary = {
   sportKey: string;
   skipped: boolean;
+  /** Why nothing was fetched: fetched too recently, or a national-team competition out of season. */
+  reason?: "throttled" | "out_of_season";
   events: number;
   oddsCaptured: number;
+  /** The fetch failed; the other competitions were still refreshed. */
+  error?: string;
 }[];
 
-/** Pulls fresh odds for every tracked sport, respecting the per-sport throttle. */
+/**
+ * Keys of the sports The Odds API has in season. The sports list doesn't count against the
+ * quota; null when it can't be read.
+ */
+async function inSeasonSportKeys(): Promise<Set<string> | null> {
+  try {
+    return new Set((await listSports()).filter((s) => s.active).map((s) => s.key));
+  } catch (err) {
+    console.warn("The Odds API sports list unavailable:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/**
+ * Pulls fresh odds for every tracked sport, respecting the per-sport throttle. National-team
+ * competitions only play a few weeks a year, so they are only fetched while The Odds API lists
+ * them in season (or when that list can't be read) instead of spending credits on empty fetches.
+ */
 export async function refreshOdds(): Promise<RefreshSummary> {
   const summary: RefreshSummary = [];
 
+  const due: string[] = [];
   for (const sportKey of trackedSportKeys()) {
-    const resourceKey = `odds:${sportKey}`;
-    if (!(await canFetch(resourceKey))) {
-      summary.push({ sportKey, skipped: true, events: 0, oddsCaptured: 0 });
+    if (await canFetch(`odds:${sportKey}`)) due.push(sportKey);
+    else summary.push({ sportKey, skipped: true, reason: "throttled", events: 0, oddsCaptured: 0 });
+  }
+  const inSeason = due.some(isNationalTeamSport) ? await inSeasonSportKeys() : null;
+
+  for (const sportKey of due) {
+    if (inSeason && isNationalTeamSport(sportKey) && !inSeason.has(sportKey)) {
+      summary.push({ sportKey, skipped: true, reason: "out_of_season", events: 0, oddsCaptured: 0 });
       continue;
     }
-
-    const events = await getOddsForSport(sportKey);
-    let oddsCaptured = 0;
-    for (const event of events) {
-      await upsertEvent(event);
-      oddsCaptured += await insertOddsSnapshot(event);
+    try {
+      const events = await getOddsForSport(sportKey);
+      let oddsCaptured = 0;
+      for (const event of events) {
+        await upsertEvent(event);
+        oddsCaptured += await insertOddsSnapshot(event);
+      }
+      await markFetched(`odds:${sportKey}`);
+      summary.push({ sportKey, skipped: false, events: events.length, oddsCaptured });
+    } catch (err) {
+      summary.push({ sportKey, skipped: false, events: 0, oddsCaptured: 0, error: err instanceof Error ? err.message : String(err) });
     }
-    await markFetched(resourceKey);
-
-    summary.push({ sportKey, skipped: false, events: events.length, oddsCaptured });
   }
 
   return summary;

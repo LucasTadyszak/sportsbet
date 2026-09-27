@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
     const summary = await refreshOdds();
     const edges = await refreshEdges();
     const logos = await refreshLogos({ maxRequests: LOGO_REQUESTS_PER_ODDS_REFRESH });
-    return NextResponse.json({ ok: true, summary, edges, logos });
+    // A competition that failed doesn't stop the others; the response still says it failed.
+    const ok = !summary.some((row) => row.error);
+    return NextResponse.json({ ok, summary, edges, logos }, { status: ok ? 200 : 502 });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
