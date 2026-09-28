@@ -2,10 +2,11 @@
 // (/vestiaire, src/lib/commandRuns.ts): the same code and the same output lines, whether a job is
 // run from a terminal, a cron or a button.
 import type { ApiProvider } from "@/lib/apiProviders";
+import { addDays, parisDateKey } from "@/lib/dates";
 import { hourlyUsage, liveFootballGet } from "@/lib/liveFootballApi";
 import { runNightly } from "@/lib/nightly";
 import { refreshEdges, type EdgesSummary } from "@/lib/refreshEdges";
-import { describeLiveRefresh, liveRefreshFailed, refreshLiveMatches } from "@/lib/refreshLiveMatches";
+import { describeLiveRefresh, liveMatchesOverview, liveRefreshFailed, refreshLiveMatches } from "@/lib/refreshLiveMatches";
 import { describeLogoRefresh, LOGO_REQUESTS_PER_ODDS_REFRESH, refreshLogos } from "@/lib/refreshLogos";
 import { refreshOdds } from "@/lib/refreshOdds";
 import { refreshStats } from "@/lib/refreshStats";
@@ -19,13 +20,33 @@ function describeEdges(edges: EdgesSummary): string {
   return `edges: ${edges.edges} verdicts over ${edges.events} events, ${edges.picksPublished} picks published`;
 }
 
-/** `npm run refresh:matches [-- --force]`: fixtures and live scores of the followed competitions. */
+// The day lists refresh:matches reads: yesterday to a week ahead.
+const REFRESH_MATCHES_DAYS = 9;
+
+const isoDay = (date: Date | null) => (date ? date.toISOString().slice(0, 10) : "?");
+
+/**
+ * `npm run refresh:matches [-- --force]`: fixtures and live scores of the followed competitions
+ * (a week of day lists, the league lists, the live feed), then what the database holds for each
+ * competition — what the board can show.
+ */
 export async function refreshMatchesJob(log: Log, { force = false } = {}): Promise<boolean> {
-  const summary = await refreshLiveMatches({ force });
+  const yesterday = addDays(parisDateKey(new Date()), -1);
+  const days = Array.from({ length: REFRESH_MATCHES_DAYS }, (_, i) => addDays(yesterday, i));
+  const summary = await refreshLiveMatches({ force, days });
   for (const line of describeLiveRefresh(summary).split("\n")) log(line);
   if (summary.configured) {
     const { used, limit } = await hourlyUsage();
     log(`${used}/${limit} requests over the last hour`);
+  }
+  log("");
+  log("In the database (what the board shows):");
+  for (const c of await liveMatchesOverview()) {
+    log(
+      c.matches === 0
+        ? `  ${c.name}: no match`
+        : `  ${c.name}: ${c.matches} match${c.matches === 1 ? "" : "es"}, ${isoDay(c.first)} → ${isoDay(c.last)}, ${c.upcoming} to come, ${c.today} today`
+    );
   }
   return !summary.configured || liveRefreshFailed(summary);
 }
@@ -155,14 +176,16 @@ const COMMAND_TABLE = {
   "refresh:matches": {
     npm: "npm run refresh:matches",
     title: "Matchs et scores en direct",
-    description: "Ce qui est dû : la liste de chaque compétition à relire, puis le flux live si un match suivi est en cours.",
+    description:
+      "Ce qui est dû : les matchs des jours de la semaine à venir et la liste de chaque compétition à relire, puis le flux live si un match suivi est en cours, et enfin ce que la base contient pour chaque compétition.",
     apis: ["free-api-live-football-data"],
     run: (log) => refreshMatchesJob(log),
   },
   "refresh:matches:force": {
     npm: "npm run refresh:matches -- --force",
     title: "Toutes les listes, même fraîches",
-    description: "Une requête par compétition suivie, puis le flux live : pour une première synchro ou après avoir changé de compétitions.",
+    description:
+      "Toutes les listes, même fraîches (une requête par jour de la semaine à venir et par compétition suivie), puis le flux live et le contenu de la base : pour une première synchro ou après avoir changé de compétitions.",
     apis: ["free-api-live-football-data"],
     run: (log) => refreshMatchesJob(log, { force: true }),
   },

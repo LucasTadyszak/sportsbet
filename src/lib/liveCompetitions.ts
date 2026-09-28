@@ -74,3 +74,15 @@ export function followedLiveCompetitions(): LiveCompetition[] {
 export function liveCompetition(leagueId: number): LiveCompetition | undefined {
   return BY_LEAGUE_ID.get(leagueId);
 }
+
+/**
+ * The followed competition a match of a day's list belongs to: the first of its league ids
+ * (its own, then its group's — src/lib/liveMatches.ts) that is followed, if any.
+ */
+export function followedCompetitionOf(leagueIds: number[], followed: LiveCompetition[]): LiveCompetition | undefined {
+  for (const leagueId of leagueIds) {
+    const competition = followed.find((c) => c.leagueId === leagueId);
+    if (competition) return competition;
+  }
+  return undefined;
+}

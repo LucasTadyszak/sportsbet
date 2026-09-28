@@ -89,7 +89,7 @@ scripts/refresh-logos.ts    # point d'entrée CLI : tous les logos dus d'un coup
 src/lib/liveFootballApi.ts  # client (x-rapidapi-key/host) + plafond de requêtes par heure glissante, partagé via la base
 src/lib/liveCompetitions.ts # compétitions suivies : id de ligue FotMob -> clé de compétition du tableau
 src/lib/liveMatches.ts      # lecture des réponses (où qu'y soient les matchs), statut d'un match, quand relire
-src/lib/refreshLiveMatches.ts # liste de chaque ligue due + flux live -> LiveMatch (réservé dans FetchLog)
+src/lib/refreshLiveMatches.ts # listes des jours affichés + de chaque ligue dues + flux live -> LiveMatch (réservé dans FetchLog)
 src/lib/matchPairing.ts     # quel LiveMatch est le même match qu'un Event coté (compétition, horaire, noms)
 scripts/refresh-live-matches.ts # point d'entrée CLI (npm run refresh:matches)
 src/app/api/refresh-matches/ # endpoint HTTP protégé par CRON_SECRET, pour un pinger
@@ -209,23 +209,34 @@ sous une clé du même style (`soccer_international_friendlies`…), avec son no
 pour les cinq championnats seuls ; vide pour aucune) ; ajouter une compétition, c'est une ligne
 de plus dans la table (l'id est dans l'URL de sa page sur fotmob.com).
 
-Deux sortes de requêtes, stockées dans `LiveMatch` :
+Trois sortes de requêtes, stockées dans `LiveMatch` :
+- la **liste d'un jour** (`/football-get-matches-by-date`) : tous les matchs d'une date UTC, toutes
+  ligues confondues, dont on garde ceux des compétitions suivies (par l'id de ligue du match, ou
+  celui de son groupe : une phase de groupes a parfois son propre id). Elle est lue pour les jours
+  que montre le tableau — aujourd'hui, les deux jours suivants et le jour affiché (deux dates UTC
+  chacun : un jour de Paris commence la veille au soir en UTC) —, si bien que ces jours sont
+  complets et à jour quoi que disent les listes des ligues ;
 - la **liste d'une ligue** (`/football-get-all-matches-by-league`) : toute sa saison, calendrier
-  et résultats, en une requête. Elle est relue toutes les 12 h, toutes les heures quand la
-  compétition joue aujourd'hui ou demain (les horaires bougent), toutes les 10 min quand un
-  match aurait dû commencer, toutes les 3 min quand un match en cours a quitté le flux live
-  (il vient de finir : score final) ;
+  et résultats, en une requête, pour le reste du calendrier. Une liste sans aucun match à venir
+  (compétition entre deux éditions, ou liste encore sur la saison passée) n'est plus relue qu'une
+  fois par jour ;
 - le **flux live** (`/football-current-live`) : tous les matchs en cours dans le monde, en une
   requête, lu au plus une fois par minute et seulement quand un match suivi est en cours ou va
   commencer. Il donne le score et la minute ; les matchs non suivis sont ignorés.
 
-Une journée chargée coûte donc quelques dizaines de requêtes par heure, loin du plafond. Tout
-passe par le chargement du tableau : ce qui est dû est lu en parallèle, la page attend au plus
-3 s puis s'affiche avec ce qu'elle a, et la lecture se termine après la réponse (`after()`).
-Chaque lecture est réservée dans `FetchLog` avant de partir : plusieurs pages ouvertes en même
-temps (ou un cron) ne font jamais deux fois la même requête. Une lecture qui échoue est retentée
-5 min plus tard ; au plafond horaire, plus rien ne part jusqu'à ce qu'une place se libère. Sans
-`RAPIDAPI_KEY`, rien n'est lu et le tableau n'affiche que les matchs cotés, comme avant.
+Une liste (d'un jour ou d'une ligue) est relue toutes les 12 h, toutes les heures quand elle a des
+matchs aujourd'hui ou demain (les horaires bougent), toutes les 10 min quand un match aurait dû
+commencer, toutes les 3 min quand un match en cours a quitté le flux live (il vient de finir :
+score final). Une journée chargée coûte donc quelques dizaines de requêtes par heure, loin du
+plafond. Tout passe par le chargement du tableau : ce qui est dû est lu en parallèle (les jours
+affichés d'abord), la page attend au plus 3 s puis s'affiche avec ce qu'elle a, et la lecture se
+termine après la réponse (`after()`). Chaque lecture est réservée dans `FetchLog` avant de
+partir : plusieurs pages ouvertes en même temps (ou un cron) ne font jamais deux fois la même
+requête. Une lecture qui échoue est retentée 5 min plus tard ; au plafond horaire, plus rien ne
+part jusqu'à ce qu'une place se libère. Le tableau affiche les matchs en base même quand le site
+n'a pas `RAPIDAPI_KEY` (seul `npm run refresh:matches` l'a, par exemple) : il ne les met alors
+simplement pas à jour lui-même, et le signale une fois dans les logs du serveur. À côté de l'heure
+des cotes, il indique l'heure de la dernière lecture réussie (« Matchs mis à jour … »).
 
 Un match que les deux sources connaissent n'apparaît qu'une fois (`src/lib/matchPairing.ts`) :
 même compétition, coups d'envoi à moins de 6 h d'écart, et noms d'équipe qui concordent après
@@ -460,12 +471,14 @@ Clé football-data.org gratuite : à récupérer sur
 Clé RapidAPI (`RAPIDAPI_KEY`, la même pour toutes les API RapidAPI du compte) : s'abonner
 au plan gratuit de
 [Free API Live Football Data](https://rapidapi.com/Creativesdev/api/free-api-live-football-data)
-puis copier la valeur `x-rapidapi-key` de ses exemples de code. Sans elle, le tableau
-n'affiche que les matchs cotés par The Odds API. Après l'avoir renseignée, `npm run
-refresh:matches -- --force` récupère d'un coup toutes les compétitions suivies (une requête
-chacune) ; une ligne « no match found » signale une réponse dont aucun match n'a pu être lu :
-`npm run live-football -- /football-get-all-matches-by-league leagueid=47` montre la réponse
-brute.
+puis copier la valeur `x-rapidapi-key` de ses exemples de code, dans `.env` (le site et les
+scripts la lisent de là ; redémarrer `npm run dev` après l'avoir ajoutée). Sans elle, rien n'est
+récupéré. `npm run refresh:matches -- --force` récupère d'un coup la semaine à venir et toutes les
+compétitions suivies, puis affiche ce que la base contient pour chacune — nombre de matchs,
+première et dernière date, matchs à venir, matchs du jour —, c'est-à-dire ce que le tableau peut
+afficher. Une ligne « no match found » signale une réponse dont aucun match n'a pu être lu (`npm
+run live-football -- /football-get-all-matches-by-league leagueid=47` montre la réponse brute) ;
+« none to come » une liste sans match à venir, que les listes des jours complètent.
 
 ### Déclencher un refresh manuellement
 
@@ -476,7 +489,7 @@ npm run nightly         # résultats récents, gradation des picks, calibration,
 npm run refresh:edges   # verdicts seuls, sans appel API (après un changement dans config.ts)
 npm run refresh:logos   # logos des compétitions et des clubs (TheSportsDB), tous ceux qui sont dus
 npm run refresh:matches # matchs des compétitions suivies + scores en direct (Free API Live Football Data), ce qui est dû
-npm run refresh:matches -- --force   # la liste de chaque compétition, même fraîche (première synchro)
+npm run refresh:matches -- --force   # toutes les listes (semaine à venir, chaque compétition), même fraîches, puis le contenu de la base
 npm test                # tests unitaires de la méthodologie
 npm run live-football -- /football-current-live   # un endpoint de Free API Live Football Data, JSON brut (compte dans le plafond)
 ```

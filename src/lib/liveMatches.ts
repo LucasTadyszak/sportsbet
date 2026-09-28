@@ -2,12 +2,13 @@
 // match stands, and when to read them again. Pure (unit tested): the fetching and storing are in
 // src/lib/refreshLiveMatches.ts.
 //
-// The API relays FotMob's data. A match is { id, home: { id, name, longName?, score? }, away,
-// status: { utcTime, started, finished, cancelled, scoreStr?, reason?: { short, long… },
-// liveTime?: { short } } }, wherever it sits: a league's season list, a day's list grouped by
-// league, the live feed. So matches are looked for anywhere in a payload rather than at one path,
-// and each field is read defensively (ids can come as strings, a list may only give the score as
-// "2 - 1" in scoreStr).
+// The API relays FotMob's data. A match is { id, leagueId?, home: { id, name, longName?, score? },
+// away, status: { utcTime, started, finished, cancelled, scoreStr?, reason?: { short, long… },
+// liveTime?: { short } } }, wherever it sits: a league's season list, a day's list (flat, or
+// grouped by league: { id, primaryId, parentLeagueId, name, matches }), the live feed. So matches
+// are looked for anywhere in a payload rather than at one path, and each field is read
+// defensively (ids can come as strings, a list may only give the score as "2 - 1" in scoreStr).
+import { addDays, parisStartOfDay } from "@/lib/dates";
 
 export type LiveStatus = "scheduled" | "live" | "finished" | "postponed" | "cancelled" | "abandoned";
 
@@ -21,6 +22,11 @@ export type ApiTeam = {
 
 export type ApiMatch = {
   id: number;
+  /**
+   * League ids the payload files the match under: its own `leagueId`, then those of the league
+   * group around it — a group stage can have an id of its own under its competition's.
+   */
+  leagueIds: number[];
   kickoff: Date;
   home: ApiTeam;
   away: ApiTeam;
@@ -84,7 +90,7 @@ function parseScoreStr(value: unknown): [number, number] | null {
   return match ? [Number(match[1]), Number(match[2])] : null;
 }
 
-function parseMatch(node: Json): ApiMatch | null {
+function parseMatch(node: Json, groupLeagueIds: number[]): ApiMatch | null {
   const id = toInt(node.id);
   const home = parseTeam(node.home);
   const away = parseTeam(node.away);
@@ -108,8 +114,10 @@ function parseMatch(node: Json): ApiMatch | null {
       ? [home.score, away.score]
       : (fromText ?? [null, null]);
 
+  const ownLeagueIds = [node.leagueId, node.parentLeagueId].map(toInt).filter((leagueId) => leagueId !== null);
   return {
     id,
+    leagueIds: Array.from(new Set([...ownLeagueIds, ...groupLeagueIds])),
     kickoff,
     home: { ...home, score: scores[0] },
     away: { ...away, score: scores[1] },
@@ -122,28 +130,52 @@ function parseMatch(node: Json): ApiMatch | null {
 
 const MAX_DEPTH = 12;
 
-function collect(node: unknown, found: Map<number, ApiMatch>, depth: number) {
+function collect(node: unknown, found: Map<number, ApiMatch>, groupLeagueIds: number[], depth: number) {
   if (depth > MAX_DEPTH) return;
   if (Array.isArray(node)) {
-    for (const item of node) collect(item, found, depth + 1);
+    for (const item of node) collect(item, found, groupLeagueIds, depth + 1);
     return;
   }
   if (!isObject(node)) return;
-  const match = parseMatch(node);
+  const match = parseMatch(node, groupLeagueIds);
   if (match) {
     found.set(match.id, match);
     return;
   }
+  // A league group hands its ids down to its matches: its competition's first.
+  const ids = Array.isArray(node.matches) ? [node.primaryId, node.parentLeagueId, node.id].map(toInt).filter((leagueId) => leagueId !== null) : [];
+  const inner = ids.length > 0 ? Array.from(new Set([...ids, ...groupLeagueIds])) : groupLeagueIds;
   for (const value of Object.values(node)) {
-    if (typeof value === "object" && value !== null) collect(value, found, depth + 1);
+    if (typeof value === "object" && value !== null) collect(value, found, inner, depth + 1);
   }
 }
 
 /** Every match in a payload of the API, whatever its layout; one per match id. */
 export function parseMatches(payload: unknown): ApiMatch[] {
   const found = new Map<number, ApiMatch>();
-  collect(payload, found, 0);
+  collect(payload, found, [], 0);
   return Array.from(found.values());
+}
+
+/** The API's date (YYYYMMDD, UTC) of an instant. */
+function apiDate(instant: Date): string {
+  return instant.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+/**
+ * The API dates a board day (Europe/Paris, YYYY-MM-DD) spans: the day's lists are by UTC date, and
+ * a Paris day starts the evening before in UTC — when some matches in the Americas kick off.
+ */
+export function apiDatesOf(dayKey: string): string[] {
+  const start = parisStartOfDay(dayKey);
+  const end = new Date(parisStartOfDay(addDays(dayKey, 1)).getTime() - 1);
+  return Array.from(new Set([apiDate(start), apiDate(end)]));
+}
+
+/** An API date's span, [start, end), in UTC. */
+export function apiDateSpan(date: string): { start: Date; end: Date } {
+  const start = new Date(`${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}T00:00:00Z`);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
 // FotMob's image CDN, which the API's logo endpoints point at: a logo per team and per league id,
@@ -191,11 +223,12 @@ export const LIVE_FEED_INTERVAL_MS = MINUTE_MS;
 const LIVE_FEED_SILENCE_MS = 3 * MINUTE_MS;
 
 /**
- * How long a league's match list stays fresh, from its matches around now (kick-off within the
- * last 12 hours or the next 36): every few minutes while one of them should have a result soon,
- * hourly while it plays today or tomorrow (kick-off times still move), twice a day otherwise.
+ * How long a list of matches (a league's season, or a day's) stays fresh, from its followed
+ * matches around now (kick-off within the last 12 hours or the next 36): every few minutes while
+ * one of them should have a result soon, hourly while it has some today or tomorrow (kick-off
+ * times still move), twice a day otherwise.
  */
-export function leagueRefreshIntervalMs(nearby: TrackedMatch[], now: Date): number {
+export function listRefreshIntervalMs(nearby: TrackedMatch[], now: Date): number {
   const t = now.getTime();
   const sinceKickoff = (m: TrackedMatch) => t - m.kickoff.getTime();
   const droppedFromFeed = nearby.some(
