@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import { BetSlip } from "@/components/BetSlip";
+import { SecretKnock } from "@/components/SecretKnock";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {children}
         <BetSlip />
+        <SecretKnock />
       </body>
     </html>
   );

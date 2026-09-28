@@ -13,10 +13,12 @@ const FILES = ["results", "goalscorers", "former_names"] as const;
 
 export type InternationalDataset = Record<(typeof FILES)[number], string>;
 
-export async function fetchInternationalDataset(): Promise<InternationalDataset> {
+/** `logRequest` is handed each file's path once its response is in, to count the download (ApiUsageLog). */
+export async function fetchInternationalDataset(logRequest: (endpoint: string) => Promise<unknown>): Promise<InternationalDataset> {
   const entries = await Promise.all(
     FILES.map(async (file) => {
       const res = await fetch(`${BASE_URL}/${file}.csv`, { cache: "no-store" });
+      await logRequest(`/${file}.csv`);
       if (!res.ok) throw new Error(`international results ${file}.csv failed: ${res.status} ${res.statusText}`);
       return [file, await res.text()] as const;
     })
