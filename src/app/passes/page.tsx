@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getUpcomingVerdicts } from "@/lib/journal";
 import { formatKickoff } from "@/lib/dates";
 import { formatOdds, formatPts, mainPassReason, marketLabel, outcomeLabel, reasonLabel } from "@/lib/labels";
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
@@ -23,12 +23,6 @@ export default async function PassesPage() {
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="passes" />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
-        <PageIntro title="Centre des passes">
-          Tous les marchés que le modèle ne mise pas, et pourquoi. Les petits edges et les longshots ne coûtent rien à passer
-          aujourd&apos;hui, et beaucoup à jouer sur la durée. Un MARGINAL est tentant mais a une raison d&apos;être douteux ; un
-          PASS n&apos;a simplement pas d&apos;edge.
-        </PageIntro>
-
         {reasonCounts.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {reasonCounts.map(([reason, count]) => (
@@ -89,7 +83,6 @@ export default async function PassesPage() {
           </div>
         )}
       </main>
-      <PageFooter />
     </div>
   );
 }

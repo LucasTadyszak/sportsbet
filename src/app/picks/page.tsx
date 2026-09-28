@@ -8,7 +8,7 @@ import { selectionFor } from "@/lib/selection";
 import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, ReasonList, StatTile, TierBadge } from "@/components/Verdict";
 
@@ -123,16 +123,6 @@ export default async function PicksPage() {
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="picks" />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
-        <PageIntro title="Picks à venir">
-          Les marchés où le modèle, une fois calibré, s&apos;écarte assez du consensus de marché (sans marge, Pinnacle compté
-          double) pour miser, avec un prix +EV chez un bookmaker jouable. Chaque pick est journalisé tel quel puis gradé
-          contre le résultat et la cote de clôture sur{" "}
-          <Link href="/historique" className="font-medium text-link underline underline-offset-2">
-            l&apos;historique
-          </Link>
-          .
-        </PageIntro>
-
         {verdicts.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile label="Picks" value={String(verdicts.length)} icon="target" />
@@ -161,7 +151,6 @@ export default async function PicksPage() {
           </div>
         )}
       </main>
-      <PageFooter />
     </div>
   );
 }

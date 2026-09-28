@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { HeaderBankroll } from "@/components/BetSlip";
 import { Straight, slantTabClass } from "@/components/Slant";
 
-export type NavKey = "board" | "picks" | "bets" | "passes" | "track" | "model" | "method";
+export type NavKey = "board" | "picks" | "bets" | "passes" | "track" | "model";
 
 const NAV: { key: NavKey; href: string; label: string }[] = [
   { key: "board", href: "/", label: "Tableau" },
@@ -12,7 +12,6 @@ const NAV: { key: NavKey; href: string; label: string }[] = [
   { key: "passes", href: "/passes", label: "Passes" },
   { key: "track", href: "/historique", label: "Historique" },
   { key: "model", href: "/modele", label: "Modèle" },
-  { key: "method", href: "/methodologie", label: "Méthodologie" },
 ];
 
 /** The logo's mark: a slanted orange bar, the only orange that isn't a pick, a selection or the slip. */
@@ -59,20 +58,6 @@ export function SiteHeader({ active, right }: { active?: NavKey; right?: ReactNo
         </nav>
       </div>
     </header>
-  );
-}
-
-export function PageFooter() {
-  return (
-    <footer className="mt-auto border-t-[3px] border-slate bg-bg-deep px-6 py-7">
-      <p className="mx-auto max-w-3xl text-center text-xs leading-relaxed text-fg-muted">
-        Cotes fournies par The Odds API, calendrier et scores en direct par Free API Live Football Data, résultats et
-        classements par football-data.org, résultats des sélections par le jeu de données international_results (domaine
-        public). Probabilités et verdicts calculés
-        par le modèle du site — usage informatif uniquement, aucun pari n&apos;est garanti. Jouer comporte des risques :
-        endettement, isolement, dépendance. Pour être aidé, appelez le 09 74 75 13 13 (appel non surtaxé).
-      </p>
-    </footer>
   );
 }
 

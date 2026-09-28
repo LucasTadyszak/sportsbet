@@ -136,6 +136,7 @@ src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flotta
 src/app/globals.css         # le design system « Stade » : couleurs en variables CSS, polices, ombres franches, coupe en biais
 src/lib/designTokens.test.ts # contrastes WCAG des couleurs de globals.css, sur chaque fond où elles se lisent
 src/components/Slant.tsx    # les onglets et étiquettes penchés du design system
+src/app/fonts/              # les polices du design system (latin, licence SIL OFL), chargées par next/font/local
 src/lib/savedBets.ts        # « Mes paris » : un pari enregistré, son règlement au score à 90 min (simple ou combiné), le bilan
 src/lib/myBets.ts           # les paris enregistrés, dans le localStorage du navigateur
 src/lib/betResults.ts       # où en sont les matchs des paris enregistrés : score à 90 min, score en direct, annulation
@@ -202,7 +203,7 @@ de section, acier `#a8b6ca` pour les textes secondaires et ce qui est actif, et 
 
 | Élément | Règle |
 | --- | --- |
-| **Typographie** | Anton pour les titres, les cotes et les chiffres clés, en capitales ; Barlow Condensed pour les étiquettes, les onglets et les noms d'équipes ; Barlow pour le texte courant ; IBM Plex Mono pour la console. Chargées par `next/font` dans `src/app/layout.tsx` |
+| **Typographie** | Anton pour les titres, les cotes et les chiffres clés, en capitales ; Barlow Condensed pour les étiquettes, les onglets et les noms d'équipes ; Barlow pour le texte courant ; IBM Plex Mono pour la console. Servies depuis `src/app/fonts` (sous-ensembles latins, licence SIL OFL) par `next/font/local` dans `src/app/layout.tsx` : ni le build ni le navigateur ne contactent Google Fonts |
 | **Formes** | Angles vifs, ombres franches décalées (`shadow-hard`), onglets et étiquettes penchés de 12° (`src/components/Slant.tsx`), bandeau de compétition coupé en biais (`cut-slant`) |
 | **Orange** | La cote que le modèle prendrait (cerclée d'orange, étiquette « Pick »), une cote dans « Ma sélection » (pleine d'orange), l'en-tête et le bouton de la sélection, les mises conseillées, les « Top pick » |
 | **Acier** | Navigation, jours, filtres et onglets actifs, bouton « Enregistrer » : tout ce qui n'est pas orange, pour que l'orange veuille toujours dire « regarde ici » |

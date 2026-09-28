@@ -1,33 +1,48 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, Barlow, Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { BetSlip } from "@/components/BetSlip";
 import { SecretKnock } from "@/components/SecretKnock";
+
 import "./globals.css";
 
 // The « Stade » type system (src/app/globals.css): Anton for titles and figures, Barlow
 // Condensed for labels, Barlow for text; IBM Plex Mono only where code or a terminal shows.
-const anton = Anton({
+// Their latin subsets live in ./fonts (SIL Open Font License, see ./fonts/OFL.txt): nothing
+// is fetched from Google Fonts, neither by the build nor by the browser.
+const anton = localFont({
   variable: "--font-anton",
-  subsets: ["latin"],
+  src: "./fonts/anton-latin-400-normal.woff2",
   weight: "400",
 });
 
-const barlow = Barlow({
+const barlow = localFont({
   variable: "--font-barlow",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  src: [
+    { path: "./fonts/barlow-latin-400-normal.woff2", weight: "400" },
+    { path: "./fonts/barlow-latin-500-normal.woff2", weight: "500" },
+    { path: "./fonts/barlow-latin-600-normal.woff2", weight: "600" },
+    { path: "./fonts/barlow-latin-700-normal.woff2", weight: "700" },
+  ],
 });
 
-const barlowCondensed = Barlow_Condensed({
+const barlowCondensed = localFont({
   variable: "--font-barlow-condensed",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  src: [
+    { path: "./fonts/barlow-condensed-latin-500-normal.woff2", weight: "500" },
+    { path: "./fonts/barlow-condensed-latin-600-normal.woff2", weight: "600" },
+    { path: "./fonts/barlow-condensed-latin-700-normal.woff2", weight: "700" },
+    { path: "./fonts/barlow-condensed-latin-800-normal.woff2", weight: "800" },
+  ],
 });
 
-const mono = IBM_Plex_Mono({
+const mono = localFont({
   variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
+  src: [
+    { path: "./fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400" },
+    { path: "./fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500" },
+  ],
+  // Arial's metrics would make a poor stand-in for a monospace font: globals.css falls back to ui-monospace.
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -39,7 +54,11 @@ export const viewport: Viewport = {
   themeColor: "#232228",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="fr" className={`${anton.variable} ${barlow.variable} ${barlowCondensed.variable} ${mono.variable} h-full`}>
       <body className="min-h-full flex flex-col">

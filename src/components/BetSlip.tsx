@@ -88,7 +88,7 @@ export function BankrollField({ id, className = "" }: { id: string; className?: 
         </span>
       </div>
       <p id={`${id}-hint`} className={`text-xs ${invalid ? "text-fall" : "text-fg-muted"}`}>
-        {invalid ? "Entre un montant positif, par exemple 500 ou 1 250,50." : "Enregistrée uniquement dans ce navigateur."}
+        {invalid ? "Entre un montant positif, par exemple 500 ou 1 250,50." : ""}
       </p>
     </div>
   );
@@ -109,10 +109,7 @@ export function BankrollPrompt({ className = "" }: { className?: string }) {
           <h2 id="bankroll-prompt-title" className="font-display text-xl uppercase leading-tight tracking-wide text-fg">
             Combien miser sur ta sélection ?
           </h2>
-          <p className="max-w-xl text-sm leading-relaxed text-fg-muted">
-            Indique ta bankroll, puis clique sur les cotes qui t&apos;intéressent : pour chacune, tu vois quel pourcentage de ta
-            bankroll tu peux miser, avec les mêmes règles de mise que les picks du modèle.
-          </p>
+
         </div>
       </div>
       <BankrollField id="prompt-bankroll" className="sm:w-60 sm:shrink-0" />
@@ -646,7 +643,7 @@ export function BetSlip() {
       {count > 0 ? (
         <>
           {/* Keeps the end of every page clear of the floating button. */}
-          <div aria-hidden className="h-24 shrink-0 bg-bg-deep" />
+          <div aria-hidden className="h-24 shrink-0" />
           {!open ? (
             <SlipLauncher
               count={count}

@@ -9,7 +9,7 @@ import { CompetitionIcon } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { MatchCard } from "@/components/MatchCard";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { Straight, slantTabClass } from "@/components/Slant";
 import { EmptyState } from "@/components/Verdict";
 
@@ -503,8 +503,6 @@ export default async function Home({
           )}
         </main>
       </div>
-
-      <PageFooter />
     </div>
   );
 }
