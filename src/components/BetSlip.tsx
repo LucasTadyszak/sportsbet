@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { betSlip, useBetSlip, type SlipState } from "@/lib/betSlip";
-import { formatKickoff } from "@/lib/dates";
+import { formatKickoff, hasKickedOff } from "@/lib/dates";
 import {
   COMBO_BLOCKER_LABELS,
   formatBankrollShare,
@@ -15,7 +15,9 @@ import {
   stakeBlockerLabel,
 } from "@/lib/labels";
 import { comboStake, singleStake, type ComboStake, type SingleStake } from "@/lib/methodology/stake";
-import { parseBankroll, selectionKey, type Selection, type SlipMode } from "@/lib/selection";
+import { myBets, newBetId, useMyBets } from "@/lib/myBets";
+import { newSavedBet } from "@/lib/savedBets";
+import { COMBO_STAKE, advisedAmount, parseBankroll, selectionKey, type Selection, type SlipMode } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
 import { TierBadge } from "@/components/Verdict";
 
@@ -173,6 +175,67 @@ function StakeLine({ selection, stake, bankroll }: { selection: Selection; stake
   );
 }
 
+/** A bet's stake in euros — the one typed, else the advised one — and what it would pay back. */
+function StakeField({
+  label,
+  typed,
+  advised,
+  price,
+  onChange,
+}: {
+  label: string;
+  typed: number | null;
+  advised: number | null;
+  /** The bet's odds. */
+  price: number;
+  /** An amount typed, or null once the field is emptied (back to the advised stake). */
+  onChange: (amount: number | null) => void;
+}) {
+  const id = useId();
+  // The raw text while the field is being edited; otherwise it shows the stake.
+  const [draft, setDraft] = useState<string | null>(null);
+  const stake = typed ?? advised;
+  const value = draft ?? (stake === null ? "" : formatAmount(stake));
+  const invalid = draft !== null && draft.trim() !== "" && parseBankroll(draft) === null;
+
+  return (
+    <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id} className="text-xs font-semibold text-fg-muted">
+          {label}
+        </label>
+        <div className="relative w-32">
+          <input
+            id={id}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="ex. 10"
+            value={value}
+            aria-invalid={invalid}
+            onFocus={() => setDraft(value)}
+            onBlur={() => setDraft(null)}
+            onChange={(event) => {
+              const text = event.target.value;
+              setDraft(text);
+              const amount = parseBankroll(text);
+              if (amount !== null || text.trim() === "") onChange(amount);
+            }}
+            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-7 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/25 aria-[invalid=true]:border-fall"
+          />
+          <span aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm font-medium text-fg-muted">
+            €
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-0.5 pb-2">
+        <span className="text-xs text-fg-muted">Gain potentiel</span>
+        <span className="font-mono-tabular text-sm font-semibold text-fg">{stake === null ? "—" : formatMoney(stake * price)}</span>
+      </div>
+    </div>
+  );
+}
+
 /** In a combo, each leg only says whether it would be worth a bet on its own. */
 function LegLine({ selection, stake }: { selection: Selection; stake: SingleStake }) {
   const blocked = stakeBlockerLabel(stake, selection.verdict);
@@ -204,11 +267,14 @@ function SelectionItem({
   stake,
   mode,
   bankroll,
+  typedStake,
 }: {
   selection: Selection;
   stake: SingleStake;
   mode: SlipMode;
   bankroll: number | null;
+  /** The stake typed for it as a single bet. */
+  typedStake: number | null;
 }) {
   const outcome = outcomeLabel(s.marketKey, s.outcomeName, s.point, s.homeTeam, s.awayTeam);
   return (
@@ -239,8 +305,111 @@ function SelectionItem({
           </button>
         </div>
       </div>
-      {mode === "simple" ? <StakeLine selection={s} stake={stake} bankroll={bankroll} /> : <LegLine selection={s} stake={stake} />}
+      {mode === "simple" ? (
+        <>
+          <StakeLine selection={s} stake={stake} bankroll={bankroll} />
+          <StakeField
+            label="Ma mise"
+            typed={typedStake}
+            advised={advisedAmount(bankroll, stake.units)}
+            price={s.price}
+            onChange={(amount) => betSlip.setStake(selectionKey(s), amount)}
+          />
+        </>
+      ) : (
+        <LegLine selection={s} stake={stake} />
+      )}
     </li>
+  );
+}
+
+type BetDraft = { selections: Selection[]; stake: number | null; advisedUnits: number };
+
+/** The bets saving the slip makes — the combo, or a single bet per selection — each with its stake, typed or advised. */
+function betDrafts({ selections, stakes, bankroll }: SlipState, summary: SlipSummary): BetDraft[] {
+  const { combo } = summary;
+  if (combo) return [{ selections, stake: stakes[COMBO_STAKE] ?? advisedAmount(bankroll, combo.units), advisedUnits: combo.units }];
+  return selections.map((s, i) => {
+    const { units } = summary.stakes[i];
+    return { selections: [s], stake: stakes[selectionKey(s)] ?? advisedAmount(bankroll, units), advisedUnits: units };
+  });
+}
+
+type SaveNotice = { kind: "saved"; count: number } | { kind: "started" };
+
+/** Saves the slip in "Mes paris" as if it had been played, then empties it. */
+function SaveButton({ slip, summary, onDone }: { slip: SlipState; summary: SlipSummary; onDone: (notice: SaveNotice) => void }) {
+  const drafts = betDrafts(slip, summary);
+  const sameEvent = summary.combo?.blocker === "SAME_EVENT";
+  const missing = drafts.some((draft) => draft.stake === null);
+  const total = drafts.reduce((sum, draft) => sum + (draft.stake ?? 0), 0);
+  const label = summary.combo ? "Enregistrer le combiné" : drafts.length > 1 ? `Enregistrer ces ${drafts.length} paris` : "Enregistrer ce pari";
+  const hint = sameEvent
+    ? "Deux sélections du même match ne se combinent pas : passe en simples, ou gardes-en une par match."
+    : missing
+      ? summary.combo
+        ? "Indique ta mise sur le combiné pour l'enregistrer."
+        : "Indique ta mise sur chaque pari pour l'enregistrer."
+      : "Rien n'est parié pour de vrai : Mes paris te dira ce que tu aurais gagné.";
+
+  const save = () => {
+    if (sameEvent || missing) return;
+    const now = new Date();
+    // Its price was only on offer until kickoff: a match that has started is dropped, not saved.
+    if (slip.selections.some((s) => hasKickedOff(new Date(s.commenceTime), now))) {
+      betSlip.dropStarted();
+      onDone({ kind: "started" });
+      return;
+    }
+    myBets.add(drafts.map((draft) => newSavedBet(draft.selections, draft.stake ?? 0, draft.advisedUnits, now, newBetId(now))));
+    betSlip.clear();
+    onDone({ kind: "saved", count: drafts.length });
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={save}
+        disabled={sameEvent || missing}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-fg px-4 text-[15px] font-semibold text-white shadow-card transition-colors duration-200 enabled:hover:bg-fg/90 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <Icon name="ticket" className="h-4 w-4 text-accent" />
+        {label}
+        {!sameEvent && !missing ? <span className="font-mono-tabular font-medium text-white/80">· {formatMoney(total)}</span> : null}
+      </button>
+      <p className="text-xs leading-relaxed text-fg-muted">{hint}</p>
+    </div>
+  );
+}
+
+/** What saving just did: the bets are in "Mes paris", or a match had started. */
+function SaveNoticeBanner({ notice }: { notice: SaveNotice }) {
+  if (notice.kind === "started") {
+    return (
+      <p role="alert" className="flex items-start gap-2.5 rounded-xl border border-fall/30 bg-fall/5 px-4 py-3 text-sm leading-relaxed text-fg">
+        <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 text-fall" />
+        Un match de ta sélection a commencé : sa cote n&apos;est plus proposée, elle a été retirée. Vérifie ta sélection avant de
+        l&apos;enregistrer.
+      </p>
+    );
+  }
+  const many = notice.count > 1;
+  return (
+    <div role="status" className="flex items-start gap-3 rounded-xl border border-rise/30 bg-rise/5 px-4 py-3">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rise text-white">
+        <Icon name="check" className="h-3.5 w-3.5" />
+      </span>
+      <div className="flex flex-col gap-1 text-sm">
+        <span className="font-semibold text-fg">{many ? `${notice.count} paris enregistrés` : "Pari enregistré"}</span>
+        <span className="leading-relaxed text-fg-muted">
+          Une fois les matchs joués, Mes paris te dira {many ? "s'ils auraient été gagnants" : "s'il aurait été gagnant"}.
+        </span>
+        <Link href="/mes-paris" onClick={betSlip.close} className="inline-flex w-fit items-center gap-1 font-medium text-accent-strong hover:underline">
+          Voir mes paris <Icon name="chevron-right" className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -296,8 +465,10 @@ function SlipTotal({ summary, bankroll, count }: { summary: SlipSummary; bankrol
 }
 
 function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary }) {
-  const { bankroll, selections } = slip;
+  const { bankroll, selections, stakes } = slip;
   const count = selections.length;
+  const savedBets = useMyBets();
+  const [notice, setNotice] = useState<SaveNotice | null>(null);
 
   return (
     <>
@@ -324,6 +495,7 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
+        {notice ? <SaveNoticeBanner notice={notice} /> : null}
         <BankrollField id={BANKROLL_INPUT_ID} />
         {count === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-5 py-8 text-center">
@@ -338,13 +510,25 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
             <Link href="/picks" onClick={betSlip.close} className="mt-1 text-sm font-medium text-accent-strong hover:underline">
               Voir les picks du modèle
             </Link>
+            {savedBets && savedBets.length > 0 ? (
+              <Link href="/mes-paris" onClick={betSlip.close} className="text-sm font-medium text-accent-strong hover:underline">
+                Mes paris enregistrés ({savedBets.length})
+              </Link>
+            ) : null}
           </div>
         ) : (
           <>
             {count >= 2 ? <ModeSwitch mode={summary.mode} /> : null}
             <ul className="flex flex-col gap-3">
               {selections.map((s, i) => (
-                <SelectionItem key={selectionKey(s)} selection={s} stake={summary.stakes[i]} mode={summary.mode} bankroll={bankroll} />
+                <SelectionItem
+                  key={selectionKey(s)}
+                  selection={s}
+                  stake={summary.stakes[i]}
+                  mode={summary.mode}
+                  bankroll={bankroll}
+                  typedStake={stakes[selectionKey(s)] ?? null}
+                />
               ))}
             </ul>
           </>
@@ -354,6 +538,16 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
       {count > 0 ? (
         <footer className="flex shrink-0 flex-col gap-3 border-t border-border bg-bg-row/60 px-5 py-4">
           <SlipTotal summary={summary} bankroll={bankroll} count={count} />
+          {summary.combo ? (
+            <StakeField
+              label="Ma mise sur le combiné"
+              typed={stakes[COMBO_STAKE] ?? null}
+              advised={advisedAmount(bankroll, summary.combo.units)}
+              price={summary.combo.price}
+              onChange={(amount) => betSlip.setStake(COMBO_STAKE, amount)}
+            />
+          ) : null}
+          <SaveButton slip={slip} summary={summary} onDone={setNotice} />
           <div className="flex items-center justify-between gap-3 text-sm">
             <button
               type="button"

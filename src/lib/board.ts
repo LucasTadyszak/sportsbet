@@ -376,6 +376,13 @@ function asPairing(match: LiveMatch): (PairingMatch & { id: number }) | null {
   return { id: match.id, sportKey: competition.sportKey, kickoff: match.kickoff, homeTeam: match.homeTeam, awayTeam: match.awayTeam };
 }
 
+/** A priced event, as the pairing sees it. */
+type PricedEvent = Pick<BoardEvent, "id" | "sportKey" | "homeTeam" | "awayTeam" | "commenceTime">;
+
+function asEventPairing(event: PricedEvent): PairingMatch & { id: string } {
+  return { id: event.id, sportKey: event.sportKey, kickoff: event.commenceTime, homeTeam: event.homeTeam, awayTeam: event.awayTeam };
+}
+
 /** A match only Free API Live Football Data lists: no odds, no model, no match page. */
 function unpricedBoardEvent(match: LiveMatch, sports: Map<string, { title: string; logo: string | null }>): BoardEvent | null {
   const competition = liveCompetition(match.leagueId);
@@ -414,13 +421,6 @@ async function mergeBoard(eventRows: EventRow[], liveMatches: LiveMatch[]): Prom
   if (liveMatches.length === 0) return priced;
 
   const liveById = new Map(liveMatches.map((match) => [match.id, match]));
-  const asEventPairing = (event: BoardEvent) => ({
-    id: event.id,
-    sportKey: event.sportKey,
-    kickoff: event.commenceTime,
-    homeTeam: event.homeTeam,
-    awayTeam: event.awayTeam,
-  });
   const pairs = pairMatches(priced.map(asEventPairing), liveMatches.flatMap((match) => asPairing(match) ?? []));
   for (const event of priced) {
     const matchId = pairs.get(event.id);
@@ -491,6 +491,37 @@ async function getUpcomingFallback(): Promise<BoardEvent[]> {
 // A priced event and its LiveMatch can be a few hours apart (see matchPairing.ts): the matches
 // are read that much beyond the day, so a pair across midnight still finds its other half.
 const PAIRING_MARGIN_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Where each of these priced events stands according to Free API Live Football Data, as its block
+ * on the board says: the LiveMatch it's paired with, among the followed matches and the priced
+ * events around its kickoff (the pairing weighs them all, as the board's does).
+ */
+export async function liveScoresOf(events: PricedEvent[]): Promise<Map<string, LiveScore>> {
+  const scores = new Map<string, LiveScore>();
+  const leagueIds = followedLiveCompetitions().map((competition) => competition.leagueId);
+  if (events.length === 0 || leagueIds.length === 0) return scores;
+  const around = events.map((event) => ({
+    gte: new Date(event.commenceTime.getTime() - PAIRING_MARGIN_MS),
+    lt: new Date(event.commenceTime.getTime() + PAIRING_MARGIN_MS),
+  }));
+  const [liveMatches, neighbours] = await Promise.all([
+    prisma.liveMatch.findMany({ where: { leagueId: { in: leagueIds }, OR: around.map((kickoff) => ({ kickoff })) } }),
+    prisma.event.findMany({
+      where: { OR: around.map((commenceTime) => ({ commenceTime })) },
+      select: { id: true, sportKey: true, homeTeam: true, awayTeam: true, commenceTime: true },
+    }),
+  ]);
+  const liveById = new Map(liveMatches.map((match) => [match.id, match]));
+  const pairs = pairMatches(neighbours.map(asEventPairing), liveMatches.flatMap((match) => asPairing(match) ?? []));
+  for (const event of events) {
+    const matchId = pairs.get(event.id);
+    const match = matchId === undefined ? undefined : liveById.get(matchId);
+    const pairing = match && asPairing(match);
+    if (match && pairing) scores.set(event.id, toLiveScore(match, isSwapped(asEventPairing(event), pairing)));
+  }
+  return scores;
+}
 
 /** Lowercase, without accents: "Atlético" is found by "atletico". */
 function foldForSearch(text: string): string {

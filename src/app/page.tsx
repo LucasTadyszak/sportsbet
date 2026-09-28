@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { after } from "next/server";
 import { boardPhase, getBoard, groupByCompetition, groupOddsErrors, stakedVerdict, type BoardEvent, type StatusFilter } from "@/lib/board";
 import { byRank, competitionTheme, type CompetitionTheme } from "@/lib/competitions";
 import { addDays, formatDayLabel, formatKickoff, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
 import { upperFirst } from "@/lib/labels";
-import { describeLiveRefresh, liveRefreshFailed, refreshLiveMatches } from "@/lib/refreshLiveMatches";
+import { syncLiveMatches } from "@/lib/liveSync";
 import { BankrollPrompt } from "@/components/BetSlip";
 import { CompetitionIcon } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
@@ -15,29 +14,9 @@ import { EmptyState } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
 
-// How long a page waits for Free API Live Football Data before rendering with what it has: the
-// rest of the refresh finishes after the response, and shows from the next render on.
-const LIVE_SYNC_WAIT_MS = 3000;
 // While a followed match is on, or kicks off within KICKOFF_SOON_MS, the board re-renders itself this often.
 const LIVE_REFRESH_MS = 60_000;
 const KICKOFF_SOON_MS = 10 * 60_000;
-
-let reportedMissingKey = false;
-
-/** Fixtures and live scores of the followed competitions, the day viewed included: whatever is due (src/lib/refreshLiveMatches.ts). */
-async function syncLiveMatches(dayKey: string) {
-  const sync = refreshLiveMatches({ days: [dayKey] }).then((summary) => {
-    if (!summary.configured && !reportedMissingKey) {
-      reportedMissingKey = true;
-      console.warn("RAPIDAPI_KEY is not set for the site: the board shows the matches already in the database, without refreshing them");
-    }
-    if (liveRefreshFailed(summary)) console.warn(`Free API Live Football Data refresh:\n${describeLiveRefresh(summary)}`);
-  });
-  after(() => sync);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  await Promise.race([sync, new Promise((resolve) => (timer = setTimeout(resolve, LIVE_SYNC_WAIT_MS)))]);
-  clearTimeout(timer);
-}
 
 /** A followed match on screen is on, or about to kick off: its score is worth watching. */
 function hasLiveAction(events: BoardEvent[], now = Date.now()): boolean {
@@ -309,7 +288,7 @@ function StatusTabs({
   );
 }
 
-/** Match blocks by competition, biggest first, each under a collapsible heading. */
+/** Match blocks by competition, biggest first, each under a collapsible heading; one block per row. */
 function MatchGroups({ events }: { events: BoardEvent[] }) {
   const groups = groupByCompetition(events)
     .map(([sportKey, competitionEvents]) => ({ theme: competitionTheme(sportKey, competitionEvents[0].sportTitle), competitionEvents }))
@@ -327,7 +306,7 @@ function MatchGroups({ events }: { events: BoardEvent[] }) {
               <span aria-hidden className="h-px flex-1 bg-border" />
               <Icon name="chevron-down" className="h-4 w-4 text-fg-muted transition-transform duration-200 group-open/section:rotate-180" />
             </summary>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-4">
               {competitionEvents.map((event) => (
                 <MatchCard key={event.id} event={event} />
               ))}
@@ -373,7 +352,7 @@ export default async function Home({
     comp: params.comp || undefined,
   };
 
-  await syncLiveMatches(current.date);
+  await syncLiveMatches([current.date]);
   const { events, lastCapturedAt, matchesSyncedAt, upcomingFallback, hasMatches } = await getBoard({
     dateKey: current.date,
     status: current.status,

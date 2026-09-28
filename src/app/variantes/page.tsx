@@ -73,7 +73,7 @@ export default async function Variantes({ searchParams }: { searchParams: Promis
               </h2>
               <p className="max-w-2xl text-sm text-fg-muted">{v.pitch}</p>
             </div>
-            <div className={`grid gap-4 ${v.look === "liste" ? "" : "md:grid-cols-2"}`}>
+            <div className="flex flex-col gap-4">
               {(v.look === "liste" ? rows : cards).map((event) => (
                 <VariantCard key={event.id} event={event} look={v.look} />
               ))}

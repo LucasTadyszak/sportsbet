@@ -4,11 +4,13 @@
 import { useSyncExternalStore } from "react";
 import {
   EMPTY_SLIP,
+  keptStakes,
   parseStoredSlip,
   refreshSelection,
   selectionKey,
   toggleSelection,
   upcomingOnly,
+  withStake,
   type Selection,
   type SlipMode,
   type StoredSlip,
@@ -42,10 +44,11 @@ function emit() {
 function update(change: Partial<SlipState>) {
   const next = { ...snapshot(), ...change };
   // A match that kicks off while the page is open leaves the slip at its next change.
-  state = { ...next, selections: upcomingOnly(next.selections, new Date()) };
-  const { bankroll, selections, mode } = state;
+  const upcoming = upcomingOnly(next.selections, new Date());
+  state = { ...next, selections: upcoming, stakes: keptStakes(next.stakes, upcoming) };
+  const { bankroll, selections, mode, stakes } = state;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ bankroll, selections, mode }));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ bankroll, selections, mode, stakes }));
   } catch {
     // Not persisted, but the slip keeps working for this page view.
   }
@@ -81,8 +84,12 @@ export const betSlip = {
   },
   remove: (key: string) => update({ selections: snapshot().selections.filter((s) => selectionKey(s) !== key) }),
   clear: () => update({ selections: [] }),
+  /** Drops the selections whose match has kicked off since the slip last changed. */
+  dropStarted: () => update({}),
   setBankroll: (bankroll: number | null) => update({ bankroll }),
   setMode: (mode: SlipMode) => update({ mode }),
+  /** The stake of a single bet (its selectionKey) or of the combo (COMBO_STAKE); null goes back to the advised one. */
+  setStake: (key: string, amount: number | null) => update({ stakes: withStake(snapshot().stakes, key, amount) }),
   open: () => update({ open: true }),
   close: () => update({ open: false }),
 };

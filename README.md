@@ -129,10 +129,15 @@ src/components/Competition.tsx # logo de la compétition (sinon icône sport + d
 src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, cadre aux couleurs des clubs, tuiles 1/N/2, score en direct
 src/components/LiveRefresh.tsx # rafraîchit le tableau chaque minute tant qu'un match suivi est en cours
 src/components/RemoteLogo.tsx # logo distant, remplacé par le bouclier (club) ou sport + drapeau (compétition) s'il ne charge pas
-src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue
-src/lib/betSlip.ts          # état de la sélection et de la bankroll, dans le localStorage du navigateur
+src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue, les mises tapées
+src/lib/betSlip.ts          # état de la sélection, de la bankroll et des mises, dans le localStorage du navigateur
 src/components/OddsButton.tsx # une cote cliquable (tuiles 1/N/2, tableau de cotes, picks), flamme d'erreur de cote comprise
-src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection »
+src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection » (mises, enregistrement)
+src/lib/savedBets.ts        # « Mes paris » : un pari enregistré, son règlement au score à 90 min (simple ou combiné), le bilan
+src/lib/myBets.ts           # les paris enregistrés, dans le localStorage du navigateur
+src/lib/betResults.ts       # où en sont les matchs des paris enregistrés : score à 90 min, score en direct, annulation
+src/lib/liveSync.ts         # mise à jour des matchs (ce qui est dû) au service d'une page ou d'une action, 3 s d'attente au plus
+src/app/mes-paris/          # « Mes paris » : chaque pari enregistré, ce qu'il aurait rapporté, le bilan (profit, ROI)
 src/app/page.tsx            # blocs de matchs groupés par compétition, barre latérale des compétitions, jours, filtres
 src/app/match/[id]/         # détail : cotes, Analyse (verdict, 5 signaux, modèle pièce par pièce), probabilités, matrice des scores
 src/app/picks/              # picks à venir (paliers misés)
@@ -163,8 +168,8 @@ chevrons, étoiles ou bandes — et son logo, sinon son drapeau) et de ses deux 
 couleurs), avec les cotes principales 1 / N / 2 en grandes tuiles cliquables et, sous
 chacune, la probabilité du marché marge retirée. Les couleurs des clubs viennent de
 football-data.org (`clubColors`, un appel par compétition au rythme du classement) ;
-un club sans couleurs connues prend celles de sa compétition. Les blocs sont
-groupés par compétition (repliable, les plus grandes d'abord), avec une barre
+un club sans couleurs connues prend celles de sa compétition. Les blocs, un par
+ligne, sont groupés par compétition (repliable, les plus grandes d'abord), avec une barre
 latérale des compétitions (des puces sur mobile) qui filtre le tableau
 (`?comp=<sport_key>`), une navigation par jour, les filtres Tout / À venir /
 En cours, une recherche par équipe, et une page détail par
@@ -183,7 +188,8 @@ partir des buts attendus et du ρ Dixon-Coles déjà stockés dans `MatchPredict
 rien de plus en base. Les pages
 `/picks`, `/passes`, `/historique`, `/modele` et `/methodologie` reprennent les
 écrans de Lakeshore Edge (slate, No-Bet Center, Track Record, Model Health,
-Methodology).
+Methodology) ; `/mes-paris` suit les paris que l'utilisateur a enregistrés (voir
+« Mes paris » plus bas).
 
 ### Tous les matchs (Free API Live Football Data)
 
@@ -268,8 +274,39 @@ plafonné selon le palier, et 0 % — avec la raison — quand le modèle passe 
 quand la cote dépasse 5.00 ou quand la marge du bookmaker mange l'edge à ce prix
 (la cote minimale est alors indiquée). En **combiné**, cotes et probabilités se
 multiplient et la mise est plafonnée par la sélection au palier le plus bas ; chaque
-sélection doit valoir une mise seule, une seule par match. La bankroll et la
-sélection restent dans le `localStorage` du navigateur : rien n'est envoyé au serveur.
+sélection doit valoir une mise seule, une seule par match. La bankroll, la
+sélection et les mises tapées restent dans le `localStorage` du navigateur : rien
+n'est envoyé au serveur.
+
+### Mes paris : et si je l'avais joué ?
+
+Sous chaque cote (en simples) ou pour le combiné, le panneau a un champ **Ma mise**,
+pré-rempli avec le montant conseillé quand il y en a un (il faut une bankroll), et le
+**gain potentiel**. « Enregistrer » range la sélection dans **Mes paris** (`/mes-paris`)
+comme si elle avait été jouée — un pari par cote en simples, un seul en combiné —, avec
+la cote et le bookmaker du moment, la mise et le conseil du modèle, puis vide le
+panneau. Un combiné de deux sélections du même match n'est pas enregistrable, et une
+sélection dont le match a commencé est retirée au lieu d'être enregistrée.
+
+Mes paris règle chaque pari comme un bookmaker, avec les règles des picks du journal
+(`src/lib/methodology/settlement.ts`) : sur le score à 90 minutes, lignes entières et
+quarts de ligne compris (remboursé, ½ gagné, ½ perdu). Un combiné est perdu dès qu'une
+sélection l'est ; une sélection remboursée y compte pour une cote de 1. Un match annulé
+ou arrêté est remboursé. La page affiche pour chaque pari le score ou l'état de ses
+matchs (à venir, minute et score en direct, « en attente » après une prolongation), ce
+qu'il aurait rapporté, et en tête le bilan : profit, ROI, gagnés-perdus-remboursés,
+mises encore en jeu.
+
+Le score vient de `src/lib/betResults.ts` : celui qui grade le journal (football-data.org,
+international_results) dès qu'il est connu, sinon le score final de Free API Live Football
+Data quand le match s'est fini dans le temps réglementaire (« FT ») — quelques minutes
+après le coup de sifflet ; après une prolongation, il faut attendre le premier. La page
+demande ces résultats au serveur (une Server Action, qui met d'abord à jour les matchs
+comme le tableau), de nouveau chaque minute tant qu'un match est en cours, et chaque
+fois que l'onglet revient au premier plan. Les paris restent dans le `localStorage` du
+navigateur, comme la sélection : le serveur ne reçoit que les identifiants de leurs
+matchs. Un résultat définitif est gardé sur le pari et n'est plus redemandé. Un
+navigateur ou un appareil ne voit donc que ses propres paris.
 
 Tout ce qu'un sync ramène est conservé en base, y compris ce qui ne change
 pas d'un appel à l'autre :
