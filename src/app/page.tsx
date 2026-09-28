@@ -22,9 +22,15 @@ const LIVE_SYNC_WAIT_MS = 3000;
 const LIVE_REFRESH_MS = 60_000;
 const KICKOFF_SOON_MS = 10 * 60_000;
 
-/** Fixtures and live scores of the followed competitions: whatever is due (src/lib/refreshLiveMatches.ts). */
-async function syncLiveMatches() {
-  const sync = refreshLiveMatches().then((summary) => {
+let reportedMissingKey = false;
+
+/** Fixtures and live scores of the followed competitions, the day viewed included: whatever is due (src/lib/refreshLiveMatches.ts). */
+async function syncLiveMatches(dayKey: string) {
+  const sync = refreshLiveMatches({ days: [dayKey] }).then((summary) => {
+    if (!summary.configured && !reportedMissingKey) {
+      reportedMissingKey = true;
+      console.warn("RAPIDAPI_KEY is not set for the site: the board shows the matches already in the database, without refreshing them");
+    }
     if (liveRefreshFailed(summary)) console.warn(`Free API Live Football Data refresh:\n${describeLiveRefresh(summary)}`);
   });
   after(() => sync);
@@ -255,7 +261,24 @@ function DayStrip({ current, todayKey }: { current: BoardQuery; todayKey: string
   );
 }
 
-function StatusTabs({ current, lastCapturedAt }: { current: BoardQuery; lastCapturedAt: Date | null }) {
+/** How fresh the board is: matches (Free API Live Football Data) and odds (The Odds API). */
+function syncLabel(matchesSyncedAt: Date | null, lastCapturedAt: Date | null): string {
+  const parts = [
+    matchesSyncedAt ? `Matchs mis à jour ${formatKickoff(matchesSyncedAt)}` : null,
+    lastCapturedAt ? `${matchesSyncedAt ? "cotes" : "Cotes mises à jour"} ${formatKickoff(lastCapturedAt)}` : null,
+  ].filter((part) => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : "En attente de la première synchro";
+}
+
+function StatusTabs({
+  current,
+  lastCapturedAt,
+  matchesSyncedAt,
+}: {
+  current: BoardQuery;
+  lastCapturedAt: Date | null;
+  matchesSyncedAt: Date | null;
+}) {
   return (
     <div className="flex items-end justify-between gap-4 border-b border-border">
       <nav aria-label="Statut des matchs" className="flex gap-5">
@@ -280,7 +303,7 @@ function StatusTabs({ current, lastCapturedAt }: { current: BoardQuery; lastCapt
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
         </span>
-        {lastCapturedAt ? `Cotes mises à jour ${formatKickoff(lastCapturedAt)}` : "En attente de la première synchro"}
+        {syncLabel(matchesSyncedAt, lastCapturedAt)}
       </span>
     </div>
   );
@@ -350,8 +373,8 @@ export default async function Home({
     comp: params.comp || undefined,
   };
 
-  await syncLiveMatches();
-  const { events, lastCapturedAt, upcomingFallback, hasMatches } = await getBoard({
+  await syncLiveMatches(current.date);
+  const { events, lastCapturedAt, matchesSyncedAt, upcomingFallback, hasMatches } = await getBoard({
     dateKey: current.date,
     status: current.status,
     query: current.q ?? "",
@@ -388,7 +411,7 @@ export default async function Home({
 
         <main className="flex min-w-0 flex-1 flex-col gap-5">
           <DayStrip current={current} todayKey={todayKey} />
-          <StatusTabs current={current} lastCapturedAt={lastCapturedAt} />
+          <StatusTabs current={current} lastCapturedAt={lastCapturedAt} matchesSyncedAt={matchesSyncedAt} />
           <div className="flex flex-col gap-3 lg:hidden">
             <SearchForm id="team-search-mobile" current={current} />
             {entries.length > 0 ? <CompetitionChips entries={entries} total={dayOrNext.length} current={current} /> : null}

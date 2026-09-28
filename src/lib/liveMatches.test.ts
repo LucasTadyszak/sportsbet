@@ -1,10 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { liveStatusLabel } from "@/lib/labels";
+import { followedCompetitionOf, LIVE_COMPETITIONS } from "@/lib/liveCompetitions";
 import {
+  apiDateSpan,
+  apiDatesOf,
   fotmobLeagueLogo,
   fotmobTeamLogo,
-  leagueRefreshIntervalMs,
+  listRefreshIntervalMs,
   matchPhase,
   needsLiveFeed,
   parseMatches,
@@ -48,6 +51,7 @@ test("a league's season list: string ids, full names, the score read from scoreS
   const [played, upcoming] = parseMatches(payload).sort((a, b) => a.id - b.id);
   assert.deepEqual(played, {
     id: 4813001,
+    leagueIds: [],
     kickoff: new Date("2026-09-26T14:00:00.000Z"),
     home: { id: 8456, name: "Manchester City", score: 2 },
     away: { id: 9825, name: "Arsenal", score: 1 },
@@ -91,6 +95,42 @@ test("a day's list grouped by league: the long name wins, a 0-0 before kick-off 
   assert.equal(match.away.name, "Manchester United");
   assert.equal(match.home.score, null);
   assert.equal(match.status, "scheduled");
+  assert.deepEqual(match.leagueIds, [47]);
+});
+
+test("a day's matches are filed under their league: their own id first, then their group's", () => {
+  const match = (id: number, leagueId?: number) => ({
+    id,
+    ...(leagueId ? { leagueId } : {}),
+    home: { id: 1, name: "France" },
+    away: { id: 2, name: "Italy" },
+    status: { utcTime: "2026-09-27T18:45:00Z", started: false },
+  });
+  const grouped = parseMatches({
+    response: [
+      // A group stage with an id of its own, under its competition's.
+      { ccode: "INT", id: 912345, primaryId: 9806, parentLeagueId: 9806, name: "UEFA Nations League A Grp. 2", matches: [match(1, 912345)] },
+      { ccode: "INT", id: 114, primaryId: 114, name: "Friendlies", matches: [match(2)] },
+    ],
+  });
+  assert.deepEqual(grouped.find((m) => m.id === 1)?.leagueIds, [912345, 9806]);
+  assert.deepEqual(grouped.find((m) => m.id === 2)?.leagueIds, [114]);
+
+  const flat = parseMatches({ status: "success", response: { matches: [match(3, 47)] } });
+  assert.deepEqual(flat[0].leagueIds, [47]);
+
+  const followed = [LIVE_COMPETITIONS.find((c) => c.leagueId === 9806)!, LIVE_COMPETITIONS.find((c) => c.leagueId === 47)!];
+  assert.equal(followedCompetitionOf(grouped.find((m) => m.id === 1)!.leagueIds, followed)?.sportKey, "soccer_uefa_nations_league");
+  assert.equal(followedCompetitionOf(flat[0].leagueIds, followed)?.sportKey, "soccer_epl");
+  assert.equal(followedCompetitionOf([114], followed), undefined, "friendlies aren't followed here");
+});
+
+test("a board day spans two of the API's UTC dates: its first hours are the evening before", () => {
+  assert.deepEqual(apiDatesOf("2026-09-27"), ["20260926", "20260927"], "summer: Paris is UTC+2");
+  assert.deepEqual(apiDatesOf("2026-01-15"), ["20260114", "20260115"], "winter: UTC+1");
+  const span = apiDateSpan("20260927");
+  assert.equal(span.start.toISOString(), "2026-09-27T00:00:00.000Z");
+  assert.equal(span.end.toISOString(), "2026-09-28T00:00:00.000Z");
 });
 
 test("the live feed: score, clock, half-time", () => {
@@ -200,17 +240,17 @@ const tracked = (kickoff: Date, status: TrackedMatch["status"], liveUpdatedAt: D
   liveUpdatedAt,
 });
 
-test("a league's list is read again within minutes of a result, hourly on match days, else twice a day", () => {
-  assert.equal(leagueRefreshIntervalMs([tracked(ago(100 * MINUTE), "live", ago(5 * MINUTE))], NOW), 3 * MINUTE, "gone from the live feed");
+test("a list (a league's season or a day) is read again within minutes of a result, hourly on match days, else twice a day", () => {
+  assert.equal(listRefreshIntervalMs([tracked(ago(100 * MINUTE), "live", ago(5 * MINUTE))], NOW), 3 * MINUTE, "gone from the live feed");
   assert.equal(
-    leagueRefreshIntervalMs([tracked(ago(60 * MINUTE), "live", ago(30_000))], NOW),
+    listRefreshIntervalMs([tracked(ago(60 * MINUTE), "live", ago(30_000))], NOW),
     12 * HOUR,
     "the live feed keeps it up to date"
   );
-  assert.equal(leagueRefreshIntervalMs([tracked(ago(20 * MINUTE), "scheduled")], NOW), 10 * MINUTE, "should have kicked off");
-  assert.equal(leagueRefreshIntervalMs([tracked(inFuture(20 * HOUR), "scheduled")], NOW), HOUR);
-  assert.equal(leagueRefreshIntervalMs([tracked(ago(3 * HOUR), "finished")], NOW), 12 * HOUR);
-  assert.equal(leagueRefreshIntervalMs([], NOW), 12 * HOUR);
+  assert.equal(listRefreshIntervalMs([tracked(ago(20 * MINUTE), "scheduled")], NOW), 10 * MINUTE, "should have kicked off");
+  assert.equal(listRefreshIntervalMs([tracked(inFuture(20 * HOUR), "scheduled")], NOW), HOUR);
+  assert.equal(listRefreshIntervalMs([tracked(ago(3 * HOUR), "finished")], NOW), 12 * HOUR);
+  assert.equal(listRefreshIntervalMs([], NOW), 12 * HOUR);
 });
 
 test("the live feed is only read while a followed match is on or kicking off", () => {

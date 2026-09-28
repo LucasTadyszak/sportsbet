@@ -6,12 +6,12 @@ import { teamLooksByName, type TeamLook } from "@/lib/crests";
 import { addDays, parisStartOfDay } from "@/lib/dates";
 import { findEventResult } from "@/lib/eventResults";
 import { followedLiveCompetitions, liveCompetition } from "@/lib/liveCompetitions";
-import { isLiveFootballConfigured } from "@/lib/liveFootballApi";
 import { fotmobLeagueLogo, fotmobTeamLogo, matchPhase, type LiveStatus } from "@/lib/liveMatches";
 import { servableLogo } from "@/lib/logoMatch";
 import { isSwapped, pairMatches, type PairingMatch } from "@/lib/matchPairing";
 import { isStakedTier } from "@/lib/methodology/config";
 import { detectOddsErrors, marketConsensus, type BookQuote } from "@/lib/methodology/oddsErrors";
+import { LIVE_SYNC_OK_KEY } from "@/lib/refreshLiveMatches";
 import type { OutcomeEdge } from "@/lib/selection";
 
 export type OddsLine = {
@@ -448,9 +448,11 @@ async function mergeBoard(eventRows: EventRow[], liveMatches: LiveMatch[]): Prom
   );
 }
 
-/** The followed competitions' matches kicking off in [from, to), when the API is configured. */
+/**
+ * The followed competitions' matches kicking off in [from, to), whatever process stored them: the
+ * site shows them even when only the CLI or a cron has the RapidAPI key.
+ */
 async function followedLiveMatches(where: { from: Date; to?: Date; scheduledOnly?: boolean }, take?: number): Promise<LiveMatch[]> {
-  if (!isLiveFootballConfigured()) return [];
   const leagueIds = followedLiveCompetitions().map((competition) => competition.leagueId);
   if (leagueIds.length === 0) return [];
   return prisma.liveMatch.findMany({
@@ -509,7 +511,14 @@ export async function getBoard(opts: {
   dateKey: string;
   status: StatusFilter;
   query: string;
-}): Promise<{ events: BoardEvent[]; lastCapturedAt: Date | null; upcomingFallback: BoardEvent[]; hasMatches: boolean }> {
+}): Promise<{
+  events: BoardEvent[];
+  lastCapturedAt: Date | null;
+  /** Last successful read of Free API Live Football Data (src/lib/refreshLiveMatches.ts). */
+  matchesSyncedAt: Date | null;
+  upcomingFallback: BoardEvent[];
+  hasMatches: boolean;
+}> {
   const dayStart = parisStartOfDay(opts.dateKey);
   const dayEnd = parisStartOfDay(addDays(opts.dateKey, 1));
   const search = opts.query.trim();
@@ -518,7 +527,7 @@ export async function getBoard(opts: {
   // day/status/search can legitimately have zero matches right after a successful
   // sync (e.g. no kickoffs today), and these should still reflect that a sync did
   // happen, rather than looking exactly like "never synced".
-  const [rawEvents, liveMatches, lastCaptured, anyLiveMatch] = await Promise.all([
+  const [rawEvents, liveMatches, lastCaptured, anyLiveMatch, lastSync] = await Promise.all([
     prisma.event.findMany({
       where: { commenceTime: { gte: dayStart, lt: dayEnd } },
       orderBy: { commenceTime: "asc" },
@@ -534,7 +543,8 @@ export async function getBoard(opts: {
       to: new Date(dayEnd.getTime() + PAIRING_MARGIN_MS),
     }),
     prisma.odds.aggregate({ _max: { capturedAt: true } }),
-    isLiveFootballConfigured() ? prisma.liveMatch.findFirst({ select: { id: true } }) : null,
+    prisma.liveMatch.findFirst({ select: { id: true } }),
+    prisma.fetchLog.findUnique({ where: { resourceKey: LIVE_SYNC_OK_KEY } }),
   ]);
 
   const now = new Date();
@@ -555,6 +565,7 @@ export async function getBoard(opts: {
   return {
     events,
     lastCapturedAt: lastCaptured._max.capturedAt,
+    matchesSyncedAt: lastSync?.lastFetchedAt ?? null,
     upcomingFallback,
     hasMatches: lastCaptured._max.capturedAt !== null || anyLiveMatch !== null,
   };
