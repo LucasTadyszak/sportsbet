@@ -110,9 +110,14 @@ export function competitionLabel(code: string, prefixed = false): string {
   return prefixed ? `Sélections · ${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
 }
 
+/** The Odds API titles each French book "Winamax (FR)", "Betclic (FR)"… — stripped for display. */
+export function bookmakerLabel(title: string): string {
+  return title.replace(/\s*\(FR\)\s*$/i, "");
+}
+
 /** What the flame says: "Erreur de cote : Winamax à 2.45, cote juste 2.20 (EV +11.4%)". */
 export function oddsErrorLabel(error: { bookmakerTitle: string; price: number; fairProb: number; ev: number }): string {
-  return `Erreur de cote : ${error.bookmakerTitle} à ${formatOdds(error.price)}, cote juste ${formatOdds(1 / error.fairProb)} (EV ${formatSignedPct(error.ev)})`;
+  return `Erreur de cote : ${bookmakerLabel(error.bookmakerTitle)} à ${formatOdds(error.price)}, cote juste ${formatOdds(1 / error.fairProb)} (EV ${formatSignedPct(error.ev)})`;
 }
 
 /** The flame's tooltip for every book flagged on one price; undefined when none is. */

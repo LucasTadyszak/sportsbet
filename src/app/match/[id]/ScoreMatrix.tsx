@@ -2,17 +2,14 @@
 // stores for its goals model (expected goals + Dixon-Coles ρ) — the grid itself isn't
 // stored. Once the results source has it, the 90-minute score is ticked in the grid.
 import type { MatchDetail } from "@/lib/board";
-import { formatKickoff } from "@/lib/dates";
 import { formatPct } from "@/lib/labels";
-import { ELO_BLEND_WEIGHT } from "@/lib/methodology/config";
-import { gridOutcomes, rankedScores, scoreGrid } from "@/lib/methodology/goals";
+import { rankedScores, scoreGrid } from "@/lib/methodology/goals";
 import { PREDICTION_WINDOW_DAYS } from "@/lib/refreshStats";
 import { Icon } from "@/components/Icon";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// 0 to 5 goals a side, the usual score grid. The model's own grid goes further
-// (GOALS.maxGoals): what falls outside the matrix is given in the footnote.
+// 0 to 5 goals a side, the usual score grid.
 const SHOWN_GOALS = 5;
 const GOALS_AXIS = Array.from({ length: SHOWN_GOALS + 1 }, (_, goals) => goals);
 const FAVORITES = 3;
@@ -89,8 +86,6 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
 
   const grid = scoreGrid(lambdaHome, lambdaAway, prediction.rho);
   const ranked = rankedScores(grid);
-  const outcomes = gridOutcomes(grid);
-  const outsideMatrix = 1 - GOALS_AXIS.reduce((sum, home) => sum + GOALS_AXIS.reduce((row, away) => row + grid[home][away], 0), 0);
   const final = match.finalScore;
   const isFinal = (home: number, away: number) => final !== null && final.home === home && final.away === away;
   const finalRank = final ? ranked.findIndex((score) => isFinal(score.home, score.away)) + 1 : 0;
@@ -251,18 +246,6 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
           </p>
         ) : null}
       </section>
-
-      <p className="text-xs leading-relaxed text-fg-muted">
-        La matrice vient du seul modèle de buts : additionnée, elle donne 1 / X / 2 = {formatPct(outcomes.home)} /{" "}
-        {formatPct(outcomes.draw)} / {formatPct(outcomes.away)}.
-        {prediction.eloHomeWin !== null
-          ? ` Le modèle brut de l'onglet Probabilités (${formatPct(prediction.homeWinProbability)} / ${formatPct(prediction.drawProbability)} / ${formatPct(prediction.awayWinProbability)}) mélange ${Math.round(ELO_BLEND_WEIGHT * 100)} % Elo et ${Math.round((1 - ELO_BLEND_WEIGHT) * 100)} % buts.`
-          : ""}
-        {outsideMatrix >= 0.0005
-          ? ` Scores où une équipe marque ${SHOWN_GOALS + 1} buts ou plus (hors matrice) : ${formatPct(outsideMatrix, 1)}.`
-          : ""}{" "}
-        Calculé {formatKickoff(prediction.computedAt)} — indicatif, pas un pronostic garanti.
-      </p>
     </div>
   );
 }

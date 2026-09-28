@@ -5,6 +5,7 @@ import { isFrenchBook } from "@/lib/bookmakers";
 import { formatKickoff } from "@/lib/dates";
 import {
   DATA_QUALITY_LABELS,
+  bookmakerLabel,
   competitionLabel,
   formatOdds,
   formatPct,
@@ -77,7 +78,7 @@ function steamBooks(books: string[], title: (key: string) => string): string {
 
 function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }) {
   const s = signalsOf(edge);
-  const title = (key: string) => bookTitles.get(key) ?? key;
+  const title = (key: string) => bookmakerLabel(bookTitles.get(key) ?? key);
   const sharpTone: Tone =
     (s.predictedMove ?? 0) <= -SIGNALS.predictedMoveAgainst ? "against" : toneOf(s.sharpDivergence, SIGNALS.sharpDivergence);
   return (
@@ -174,7 +175,7 @@ function BooksTable({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }
               {books.map((b) => (
                 <tr key={b.bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <td className="px-4 py-2 text-fg">
-                    {bookTitles.get(b.bookmakerKey) ?? b.bookmakerKey}
+                    {bookmakerLabel(bookTitles.get(b.bookmakerKey) ?? b.bookmakerKey)}
                     {b.bettable ? "" : <span className="ml-1.5 text-xs text-fg-muted">(pas de compte)</span>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatOdds(b.price)}</td>
@@ -268,7 +269,7 @@ function MarketAnalysis({
             <Icon name="clock" className="mt-px h-3.5 w-3.5" />
             <span>
             Journalisé {formatKickoff(pick.publishedAt)} : {outcomeLabel(pick.marketKey, pick.outcomeName, pick.point, match.homeTeam, match.awayTeam)} @
-            {formatOdds(pick.price)} chez {bookTitles.get(pick.bookmakerKey) ?? pick.bookmakerKey} ({pick.tier.replace("_", " ")},{" "}
+            {formatOdds(pick.price)} chez {bookmakerLabel(bookTitles.get(pick.bookmakerKey) ?? pick.bookmakerKey)} ({pick.tier.replace("_", " ")},{" "}
             {formatUnits(pick.stakeUnits)}) — ce snapshot ne change plus.
             </span>
           </p>

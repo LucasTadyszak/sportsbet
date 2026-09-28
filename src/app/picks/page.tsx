@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getUpcomingVerdicts, type VerdictListItem } from "@/lib/journal";
 import { formatKickoff } from "@/lib/dates";
-import { formatOdds, formatPct, formatPts, formatSignedPct, formatUnits, marketLabel, outcomeLabel } from "@/lib/labels";
+import { bookmakerLabel, formatOdds, formatPct, formatPts, formatSignedPct, formatUnits, marketLabel, outcomeLabel } from "@/lib/labels";
 import { STAKING } from "@/lib/methodology/config";
 import { userLabel } from "@/lib/methodology/verdict";
 import { selectionFor } from "@/lib/selection";
@@ -77,7 +77,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
           <span className="truncate font-cond text-xl font-extrabold uppercase leading-tight tracking-wide text-fg">
             {outcomeLabel(v.marketKey, v.outcomeName, v.point, v.homeTeam, v.awayTeam)}
           </span>
-          {v.bestBookmakerTitle ? <span className="text-xs text-fg-muted">chez {v.bestBookmakerTitle}</span> : null}
+          {v.bestBookmakerTitle ? <span className="text-xs text-fg-muted">chez {bookmakerLabel(v.bestBookmakerTitle)}</span> : null}
         </div>
         <div className="relative z-10 flex shrink-0 flex-col items-end gap-1">
           {selection ? (
@@ -102,7 +102,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
         <span className="flex items-center gap-1.5">
           <Icon name={v.journaled ? "check" : "clock"} className="h-3.5 w-3.5" />
           {v.journaled
-            ? `Journalisé @ ${formatOdds(v.journaled.price)} (${v.journaled.bookmakerTitle})`
+            ? `Journalisé @ ${formatOdds(v.journaled.price)} (${bookmakerLabel(v.journaled.bookmakerTitle)})`
             : `Journalisé à ${STAKING.publishWindowHours} h du coup d'envoi`}
         </span>
         <span className="inline-flex items-center gap-0.5 font-cond text-sm font-bold uppercase tracking-wider text-link">

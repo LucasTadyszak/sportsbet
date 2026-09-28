@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatKickoff } from "@/lib/dates";
-import { STATUS_LABELS, formatBankrollShare, formatFrPct, formatMoney, formatOdds, marketLabel, outcomeLabel } from "@/lib/labels";
+import { STATUS_LABELS, bookmakerLabel, formatBankrollShare, formatFrPct, formatMoney, formatOdds, marketLabel, outcomeLabel } from "@/lib/labels";
 import { myBets, useMyBets } from "@/lib/myBets";
 import {
   matchesInPlay,
@@ -204,7 +204,7 @@ function LegRow({ leg, status, result }: { leg: SavedLeg; status: LegStatus; res
           {outcomeLabel(leg.marketKey, leg.outcomeName, leg.point, leg.homeTeam, leg.awayTeam)}
         </span>
         <span className="text-xs text-fg-muted">
-          {marketLabel(leg.marketKey, leg.point)} · {leg.bookmakerTitle}
+          {marketLabel(leg.marketKey, leg.point)} · {bookmakerLabel(leg.bookmakerTitle)}
         </span>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">

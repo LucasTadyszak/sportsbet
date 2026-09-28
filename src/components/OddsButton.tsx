@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { betSlip, useBetSlip } from "@/lib/betSlip";
-import { formatOdds, outcomeLabel } from "@/lib/labels";
+import { bookmakerLabel, formatOdds, outcomeLabel } from "@/lib/labels";
 import { isSameOffer, type Selection } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
 
@@ -46,7 +46,7 @@ export function OddsButton({
     if (held) betSlip.refresh(selection);
   }, [held, selection]);
 
-  const offer = `${outcomeLabel(selection.marketKey, selection.outcomeName, selection.point, selection.homeTeam, selection.awayTeam)} à ${formatOdds(selection.price)} (${selection.bookmakerTitle})`;
+  const offer = `${outcomeLabel(selection.marketKey, selection.outcomeName, selection.point, selection.homeTeam, selection.awayTeam)} à ${formatOdds(selection.price)} (${bookmakerLabel(selection.bookmakerTitle)})`;
   const buttonProps = {
     type: "button" as const,
     "aria-pressed": selected,

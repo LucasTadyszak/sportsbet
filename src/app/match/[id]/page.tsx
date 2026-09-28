@@ -13,7 +13,7 @@ import {
 } from "@/lib/board";
 import { competitionTheme } from "@/lib/competitions";
 import { formatKickoff, hasKickedOff } from "@/lib/dates";
-import { oddsErrorsLabel, outcomeLabel, upperFirst } from "@/lib/labels";
+import { bookmakerLabel, oddsErrorsLabel, outcomeLabel, upperFirst } from "@/lib/labels";
 import { ODDS_ERROR, isStakedTier } from "@/lib/methodology/config";
 import { selectionFor } from "@/lib/selection";
 import { CompetitionBand } from "@/components/Competition";
@@ -103,7 +103,7 @@ function OddsTable({
         <tbody>
           {bookmakers.map(([bookmakerKey, bookmakerTitle]) => (
             <tr key={bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
-              <td className="px-3 py-2 font-cond text-[15px] font-bold uppercase tracking-wide text-fg-muted sm:px-5">{bookmakerTitle}</td>
+              <td className="px-3 py-2 font-cond text-[15px] font-bold uppercase tracking-wide text-fg-muted sm:px-5">{bookmakerLabel(bookmakerTitle)}</td>
               {outcomes.map((outcome) => {
                 const line = lines.find((l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome);
                 const isPick = pick?.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
@@ -256,13 +256,6 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const probabilites = (
     <div className="flex flex-col gap-9">
-      <p className="text-xs leading-relaxed text-fg-muted">
-        Probabilités « de-vig » : la marge de chaque bookmaker est retirée (méthode de Shin), puis le résultat est moyenné sur
-        tous les bookmakers suivis — Pinnacle compté double, comme pour les verdicts. Les cotes affichées sont les meilleures
-        des bookmakers français ; une flamme signale une erreur de cote par rapport à ces probabilités. Donnée indicative
-        calculée à partir des cotes stockées — pas un pronostic garanti.
-      </p>
-
       <section className="flex flex-col gap-3">
         <SectionTitle as="h3">Résultat — implicite (cotes)</SectionTitle>
         {!hasResults ? (

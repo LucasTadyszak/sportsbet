@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { betSlip, useBetSlip, type SlipState } from "@/lib/betSlip";
 import { formatKickoff, hasKickedOff } from "@/lib/dates";
 import {
+  bookmakerLabel,
   COMBO_BLOCKER_LABELS,
   formatBankrollShare,
   formatFrPct,
@@ -289,7 +290,7 @@ export function SelectionItem({
           </Link>
           <span className="truncate font-cond text-xl font-extrabold uppercase leading-tight tracking-wide text-fg">{outcome}</span>
           <span className="text-xs text-fg-muted">
-            {marketLabel(s.marketKey, s.point)} · {s.bookmakerTitle}
+            {marketLabel(s.marketKey, s.point)} · {bookmakerLabel(s.bookmakerTitle)}
           </span>
         </div>
         <div className="flex shrink-0 items-start gap-1">

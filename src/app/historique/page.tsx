@@ -3,6 +3,7 @@ import { getTrackRecord, type TrackFilter } from "@/lib/journal";
 import { formatKickoff } from "@/lib/dates";
 import {
   STATUS_LABELS,
+  bookmakerLabel,
   formatOdds,
   formatPct,
   formatSignedPct,
@@ -115,7 +116,7 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
                     <td className="px-3 py-2.5">
                       <span className="text-fg">{outcomeLabel(p.marketKey, p.outcomeName, p.point, p.event.homeTeam, p.event.awayTeam)}</span>
                       <span className="block text-xs text-fg-muted">
-                        {marketLabel(p.marketKey)} · {p.bookmakerTitle}
+                        {marketLabel(p.marketKey)} · {bookmakerLabel(p.bookmakerTitle)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
