@@ -154,7 +154,7 @@ export default async function PicksPage() {
             .
           </EmptyState>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-4">
             {verdicts.map((v) => (
               <PickCard key={v.edgeId} v={v} />
             ))}

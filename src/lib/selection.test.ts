@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  COMBO_STAKE,
   EMPTY_SLIP,
+  advisedAmount,
+  keptStakes,
   parseBankroll,
   parseStoredSlip,
   refreshSelection,
@@ -9,6 +12,7 @@ import {
   selectionKey,
   toggleSelection,
   upcomingOnly,
+  withStake,
   type Selection,
 } from "@/lib/selection";
 
@@ -84,6 +88,32 @@ test("the stored slip drops malformed entries and matches that have started", ()
   assert.deepEqual(parseStoredSlip(null, new Date()), EMPTY_SLIP);
   assert.deepEqual(parseStoredSlip("{not json", new Date()), EMPTY_SLIP);
   assert.equal(parseStoredSlip(JSON.stringify({ bankroll: -5, selections: "x" }), new Date()).bankroll, null);
+});
+
+test("typed stakes are kept for the selections still in the slip, and the combo's", () => {
+  const home = selectionFor(event, offer("winamax_fr", 2.1), [edge]);
+  const draw = selectionFor(event, offer("winamax_fr", 3.4, "Draw"), [edge]);
+  let stakes = withStake({}, selectionKey(home), 10);
+  stakes = withStake(stakes, selectionKey(draw), 5);
+  stakes = withStake(stakes, COMBO_STAKE, 20);
+  assert.deepEqual(keptStakes(stakes, [home]), { [selectionKey(home)]: 10, [COMBO_STAKE]: 20 });
+  assert.deepEqual(keptStakes(stakes, []), {}, "an empty slip keeps none, the combo's included");
+  assert.deepEqual(withStake(stakes, selectionKey(draw), null), { [selectionKey(home)]: 10, [COMBO_STAKE]: 20 });
+
+  const raw = JSON.stringify({ selections: [home], stakes: { ...stakes, [selectionKey(home)]: "10", [COMBO_STAKE]: -1 } });
+  assert.deepEqual(parseStoredSlip(raw, new Date("2026-09-26T20:00:00Z")).stakes, {}, "malformed stakes are dropped");
+  assert.deepEqual(parseStoredSlip(JSON.stringify({ selections: [home], stakes }), new Date("2026-09-26T20:00:00Z")).stakes, {
+    [selectionKey(home)]: 10,
+    [COMBO_STAKE]: 20,
+  });
+});
+
+test("the advised stake is the bankroll's share, to the cent", () => {
+  assert.equal(advisedAmount(500, 1.5), 7.5);
+  assert.equal(advisedAmount(333.33, 1.25), 4.17);
+  assert.equal(advisedAmount(500, 0), null, "no stake advised");
+  assert.equal(advisedAmount(null, 1.5), null, "no bankroll");
+  assert.equal(advisedAmount(0.1, 0.01), null, "less than a cent");
 });
 
 test("a selection leaves the slip at kickoff, when its pre-match price is gone", () => {

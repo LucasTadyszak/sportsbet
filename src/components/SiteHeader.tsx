@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type NavKey = "board" | "picks" | "passes" | "track" | "model" | "method";
+export type NavKey = "board" | "picks" | "bets" | "passes" | "track" | "model" | "method";
 
 const NAV: { key: NavKey; href: string; label: string }[] = [
   { key: "board", href: "/", label: "Tableau" },
   { key: "picks", href: "/picks", label: "Picks" },
+  { key: "bets", href: "/mes-paris", label: "Mes paris" },
   { key: "passes", href: "/passes", label: "Passes" },
   { key: "track", href: "/historique", label: "Historique" },
   { key: "model", href: "/modele", label: "Modèle" },

@@ -24,7 +24,15 @@ export type Selection = {
 
 export type SlipMode = "simple" | "combo";
 
-export type StoredSlip = { bankroll: number | null; selections: Selection[]; mode: SlipMode };
+/**
+ * The stakes typed in the slip, in euros: a single bet's under its selectionKey, the combo's under
+ * COMBO_STAKE. A bet without one is staked what the slip advises (advisedAmount).
+ */
+export type SlipStakes = Record<string, number>;
+
+export const COMBO_STAKE = "combo";
+
+export type StoredSlip = { bankroll: number | null; selections: Selection[]; mode: SlipMode; stakes: SlipStakes };
 
 /** One outcome of one market: the slip holds at most one price per outcome. */
 export function selectionKey(s: Pick<Selection, "eventId" | "marketKey" | "outcomeName" | "point">): string {
@@ -107,7 +115,7 @@ export function selectionFor(
 
 export const MAX_BANKROLL = 100_000_000;
 
-/** "1 250,50 €" → 1250.5. Null unless it's a positive amount (cents are kept, no more). */
+/** "1 250,50 €" → 1250.5. Null unless it's a positive amount (cents are kept, no more). Stakes read the same way. */
 export function parseBankroll(input: string): number | null {
   const cleaned = input.replace(/[\s  €]/g, "").replace(",", ".");
   if (!/^\d+(\.\d*)?$|^\.\d+$/.test(cleaned)) return null;
@@ -115,7 +123,31 @@ export function parseBankroll(input: string): number | null {
   return amount > 0 && amount <= MAX_BANKROLL ? amount : null;
 }
 
+/** The stake the slip advises, in euros to the cent (units are % of the bankroll); null without a bankroll or a stake to advise. */
+export function advisedAmount(bankroll: number | null, units: number): number | null {
+  if (bankroll === null || units <= 0) return null;
+  const amount = Math.round(bankroll * units) / 100;
+  return amount > 0 ? amount : null;
+}
+
+/** A stake typed (an amount), or cleared (null: back to the advised one). */
+export function withStake(stakes: SlipStakes, key: string, amount: number | null): SlipStakes {
+  const next = { ...stakes };
+  if (amount === null) delete next[key];
+  else next[key] = amount;
+  return next;
+}
+
+/** The stakes of the selections still in the slip, and the combo's while there is any. */
+export function keptStakes(stakes: SlipStakes, selections: Selection[]): SlipStakes {
+  if (selections.length === 0) return {};
+  const keys = new Set([COMBO_STAKE, ...selections.map(selectionKey)]);
+  return Object.fromEntries(Object.entries(stakes).filter(([key]) => keys.has(key)));
+}
+
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null;
+
+const isAmount = (x: unknown): x is number => typeof x === "number" && x > 0 && x <= MAX_BANKROLL;
 
 function isVerdict(x: unknown): x is OutcomeVerdict {
   return isObject(x) && typeof x.modelProb === "number" && typeof x.tier === "string" && Array.isArray(x.reasons);
@@ -133,7 +165,7 @@ function isSelection(x: unknown): x is Selection {
   );
 }
 
-export const EMPTY_SLIP: StoredSlip = { bankroll: null, selections: [], mode: "simple" };
+export const EMPTY_SLIP: StoredSlip = { bankroll: null, selections: [], mode: "simple", stakes: {} };
 
 /** What the browser kept, minus anything malformed and any match that has already started. */
 export function parseStoredSlip(raw: string | null, now: Date): StoredSlip {
@@ -145,7 +177,13 @@ export function parseStoredSlip(raw: string | null, now: Date): StoredSlip {
     return EMPTY_SLIP;
   }
   if (!isObject(data)) return EMPTY_SLIP;
-  const bankroll = typeof data.bankroll === "number" && data.bankroll > 0 && data.bankroll <= MAX_BANKROLL ? data.bankroll : null;
+  const bankroll = isAmount(data.bankroll) ? data.bankroll : null;
   const selections = upcomingOnly((Array.isArray(data.selections) ? data.selections : []).filter(isSelection), now);
-  return { bankroll, selections, mode: data.mode === "combo" ? "combo" : "simple" };
+  const typed = isObject(data.stakes) ? Object.entries(data.stakes).filter((entry): entry is [string, number] => isAmount(entry[1])) : [];
+  return {
+    bankroll,
+    selections,
+    mode: data.mode === "combo" ? "combo" : "simple",
+    stakes: keptStakes(Object.fromEntries(typed), selections),
+  };
 }
