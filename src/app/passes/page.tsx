@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getUpcomingVerdicts } from "@/lib/journal";
 import { formatKickoff } from "@/lib/dates";
 import { formatOdds, formatPts, mainPassReason, marketLabel, outcomeLabel, reasonLabel } from "@/lib/labels";
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { TeamName } from "@/components/TeamCrest";
 import { EmptyState, TierBadge } from "@/components/Verdict";
 
@@ -89,7 +89,6 @@ export default async function PassesPage() {
           </div>
         )}
       </main>
-      <PageFooter />
     </div>
   );
 }

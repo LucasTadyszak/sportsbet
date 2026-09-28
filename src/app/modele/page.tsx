@@ -4,7 +4,7 @@ import { formatKickoff } from "@/lib/dates";
 import { TIER_INFO, competitionLabel, formatPct, formatPts, formatSignedPct, marketLabel } from "@/lib/labels";
 import { CALIBRATION } from "@/lib/methodology/config";
 import { calibrationBand, type CalibrationBand } from "@/lib/methodology/metrics";
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { StatTile } from "@/components/Verdict";
 import { ReliabilityChart } from "./ReliabilityChart";
 
@@ -310,7 +310,6 @@ export default async function ModelHealthPage() {
           )}
         </Section>
       </main>
-      <PageFooter />
     </div>
   );
 }

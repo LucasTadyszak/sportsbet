@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { EmptyState } from "@/components/Verdict";
 
 // Every 404 of the site, an unknown URL as much as a page calling notFound() — the hidden console
@@ -17,7 +17,6 @@ export default function NotFound() {
           </Link>
         </EmptyState>
       </main>
-      <PageFooter />
     </div>
   );
 }

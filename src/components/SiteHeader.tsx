@@ -61,20 +61,6 @@ export function SiteHeader({ active, right }: { active?: NavKey; right?: ReactNo
   );
 }
 
-export function PageFooter() {
-  return (
-    <footer className="mt-auto border-t border-border bg-bg-elevated px-6 py-6">
-      <p className="mx-auto max-w-3xl text-center text-xs leading-relaxed text-fg-muted">
-        Cotes fournies par The Odds API, calendrier et scores en direct par Free API Live Football Data, résultats et
-        classements par football-data.org, résultats des sélections par le jeu de données international_results (domaine
-        public). Probabilités et verdicts calculés
-        par le modèle du site — usage informatif uniquement, aucun pari n&apos;est garanti. Jouer comporte des risques :
-        endettement, isolement, dépendance. Pour être aidé, appelez le 09 74 75 13 13 (appel non surtaxé).
-      </p>
-    </footer>
-  );
-}
-
 /** Page title block shared by every secondary page. */
 export function PageIntro({ title, children, aside }: { title: string; children?: ReactNode; aside?: ReactNode }) {
   return (

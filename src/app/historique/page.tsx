@@ -10,7 +10,7 @@ import {
   marketLabel,
   outcomeLabel,
 } from "@/lib/labels";
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, StatTile, TierBadge } from "@/components/Verdict";
 
@@ -162,7 +162,6 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
           </div>
         )}
       </main>
-      <PageFooter />
     </div>
   );
 }

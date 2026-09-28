@@ -1,4 +1,4 @@
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { MyBets } from "./MyBets";
 
 export const metadata = { title: "Mes paris — SportsBet" };
@@ -16,7 +16,6 @@ export default function MyBetsPage() {
         </PageIntro>
         <MyBets />
       </main>
-      <PageFooter />
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { selectionFor } from "@/lib/selection";
 import { BankrollPrompt } from "@/components/BetSlip";
 import { Icon } from "@/components/Icon";
 import { OddsButton } from "@/components/OddsButton";
-import { PageFooter, PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { PageIntro, SiteHeader } from "@/components/SiteHeader";
 import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, ReasonList, StatTile, TierBadge } from "@/components/Verdict";
 
@@ -161,7 +161,6 @@ export default async function PicksPage() {
           </div>
         )}
       </main>
-      <PageFooter />
     </div>
   );
 }

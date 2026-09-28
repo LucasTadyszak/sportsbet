@@ -17,7 +17,7 @@ import {
 } from "@/lib/methodology/config";
 import { TIER_INFO } from "@/lib/labels";
 import { Icon } from "@/components/Icon";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata = { title: "Méthodologie — SportsBet" };
 
@@ -410,7 +410,6 @@ export default function MethodologyPage() {
         </Block>
         </div>
       </main>
-      <PageFooter />
     </div>
   );
 }

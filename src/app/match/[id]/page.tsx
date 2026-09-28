@@ -20,7 +20,7 @@ import { CompetitionBand } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
 import { KitCrest, KitStripes, ResultTiles, kitOrTheme } from "@/components/MatchCard";
 import { OddsButton } from "@/components/OddsButton";
-import { PageFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
 import { ScoreMatrix } from "./ScoreMatrix";
@@ -433,7 +433,6 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
       </div>
-      <PageFooter />
     </div>
   );
 }
