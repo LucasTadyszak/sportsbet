@@ -1,10 +1,14 @@
 // Logos from TheSportsDB (src/lib/theSportsDbApi.ts): the emblem of each competition The Odds
 // API syncs, and the crest of each club of its recent and upcoming matches. Stored on
 // Sport.logo and Team.logo and looked up again now and then: the pages only read them back.
+// Also each club's FotMob id, read off the matches of Free API Live Football Data its matches
+// are paired with (Team.fotmobTeamId): the logo of last resort (src/lib/crests.ts).
 import type { Team } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { SPORT_KEY_TO_THESPORTSDB_LEAGUE, theSportsDbTeamLookup } from "@/lib/leagueMapping";
+import { liveCompetition } from "@/lib/liveCompetitions";
 import { leagueLogo, matchSportsDbTeam, teamLogo, type TeamLookup } from "@/lib/logoMatch";
+import { fotmobTeamIds, pairMatches } from "@/lib/matchPairing";
 import { lookupAllTeams, lookupLeague, lookupTeam, searchTeams, type SportsDbTeam } from "@/lib/theSportsDbApi";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,6 +53,8 @@ function requestBudget(max: number) {
 type Budget = ReturnType<typeof requestBudget>;
 
 export type LogoRefreshSummary = {
+  /** Clubs whose FotMob id was learned (or changed) this run. */
+  fotmobIds: number;
   /** Competitions looked up this run, and whether they have a logo now. */
   competitions: { sportKey: string; found: boolean }[];
   /** Clubs looked up this run: how many have a logo now, and the ones that don't. */
@@ -171,13 +177,68 @@ async function refreshTeamLogos(budget: Budget, now: Date, summary: LogoRefreshS
 }
 
 /**
- * Looks up every logo that is due: never looked up yet, or long enough ago. `maxRequests` caps
- * the run's calls to TheSportsDB; whatever it leaves out is due at the next run.
+ * The FotMob id of each club of the recent and upcoming matches, from the followed competitions'
+ * matches they're paired with, as on the board (src/lib/matchPairing.ts). No request, only what
+ * the database holds: every run goes through all of them.
+ */
+async function refreshFotmobTeamIds(now: Date, summary: LogoRefreshSummary) {
+  const since = new Date(now.getTime() - RECENT_DAYS * DAY_MS);
+  const [events, liveMatches] = await Promise.all([
+    prisma.event.findMany({
+      where: { commenceTime: { gte: since } },
+      select: { id: true, sportKey: true, commenceTime: true, homeTeam: true, awayTeam: true },
+    }),
+    prisma.liveMatch.findMany({
+      where: { kickoff: { gte: since } },
+      select: { id: true, leagueId: true, kickoff: true, homeTeam: true, homeTeamId: true, awayTeam: true, awayTeamId: true },
+    }),
+  ]);
+  const eventById = new Map(events.map((event) => [event.id, { ...event, kickoff: event.commenceTime }]));
+  // Under the board key of its competition, as the pairing compares them.
+  const matchById = new Map(
+    liveMatches.flatMap((match) => {
+      const competition = liveCompetition(match.leagueId);
+      return competition ? [[match.id, { ...match, sportKey: competition.sportKey }] as const] : [];
+    })
+  );
+  const pairs = Array.from(pairMatches(Array.from(eventById.values()), Array.from(matchById.values()))).flatMap(([eventId, matchId]) => {
+    const event = eventById.get(eventId);
+    const match = matchById.get(matchId);
+    return event && match ? [{ event, match }] : [];
+  });
+  const ids = fotmobTeamIds(pairs);
+  if (ids.size === 0) return;
+
+  const teams = await prisma.team.findMany({
+    where: { name: { in: Array.from(ids.keys()) } },
+    select: { id: true, name: true, fotmobTeamId: true, lastSeenAt: true },
+  });
+  for (const team of teams) {
+    const fotmobTeamId = ids.get(team.name);
+    if (fotmobTeamId === undefined || fotmobTeamId === team.fotmobTeamId) continue;
+    // Not a sighting either: lastSeenAt stays when The Odds API last listed the team.
+    await prisma.team.update({ where: { id: team.id }, data: { fotmobTeamId, lastSeenAt: team.lastSeenAt } });
+    summary.fotmobIds++;
+  }
+}
+
+/**
+ * Reads every club's FotMob id off the stored matches, then looks up every logo that is due:
+ * never looked up yet, or long enough ago. `maxRequests` caps the run's calls to TheSportsDB;
+ * whatever it leaves out is due at the next run.
  */
 export async function refreshLogos({ maxRequests = Infinity, now = new Date() }: { maxRequests?: number; now?: Date } = {}): Promise<LogoRefreshSummary> {
   const budget = requestBudget(maxRequests);
-  const summary: LogoRefreshSummary = { competitions: [], teams: { checked: 0, found: 0, missing: [] }, requests: 0, stoppedEarly: null };
+  const summary: LogoRefreshSummary = {
+    fotmobIds: 0,
+    competitions: [],
+    teams: { checked: 0, found: 0, missing: [] },
+    requests: 0,
+    stoppedEarly: null,
+  };
   try {
+    // First: no request, so neither the cap nor TheSportsDB being down can hold it up.
+    await refreshFotmobTeamIds(now, summary);
     await refreshCompetitionLogos(budget, now, summary);
     await refreshTeamLogos(budget, now, summary);
   } catch (err) {
@@ -191,8 +252,9 @@ export async function refreshLogos({ maxRequests = Infinity, now = new Date() }:
 }
 
 /** One line for a job's log. */
-export function describeLogoRefresh({ competitions, teams, requests, stoppedEarly }: LogoRefreshSummary): string {
+export function describeLogoRefresh({ fotmobIds, competitions, teams, requests, stoppedEarly }: LogoRefreshSummary): string {
   const parts: string[] = [];
+  if (fotmobIds > 0) parts.push(`${fotmobIds} FotMob club id${fotmobIds === 1 ? "" : "s"} learned`);
   if (competitions.length > 0) parts.push(`${competitions.filter((c) => c.found).length}/${competitions.length} competitions found`);
   if (teams.checked > 0) {
     const missing = teams.missing.length > 0 ? ` (not found: ${teams.missing.join(", ")})` : "";
