@@ -2,6 +2,9 @@
   "name": "sportsbet",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "predev": "prisma generate",
     "dev": "next dev --webpack",
@@ -24,6 +27,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
+    "@tailwindcss/postcss": "^4",
     "dotenv": "^18.0.4",
     "next": "16.3.6",
     "pg": "^8.23.0",
@@ -32,10 +36,6 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
