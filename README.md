@@ -65,7 +65,7 @@ src/lib/footballDataMatches.ts # tous les matchs des compétitions suivies -> Fi
 src/lib/leagueMapping.ts    # sport_key (Odds API) -> code compétition (football-data.org), id de ligue (TheSportsDB) ; compétitions de sélections
 src/lib/teamNames.ts        # normalisation des noms d'équipe (accents, suffixes « FC », alias), commune aux rapprochements
 src/lib/teamNameMatch.ts    # rapproche les noms d'équipe entre The Odds API et football-data.org
-src/lib/crests.ts           # nom d'équipe The Odds API -> logo du club (Team.logo, sinon TeamStats.crest) et ses couleurs (TeamStats.clubColors)
+src/lib/crests.ts           # nom d'équipe The Odds API -> logo du club (Team.logo, sinon TeamStats.crest, sinon FotMob par Team.fotmobTeamId) et ses couleurs (TeamStats.clubColors)
 src/lib/teamColors.ts       # couleurs d'un club ("Red / White") -> couleurs hex des blocs de match
 src/lib/ratings.ts          # rejoue l'Elo (réglé par ligue) + ajuste le modèle de buts, depuis les Fixture
 src/lib/predictions.ts      # Poisson sur le classement (repli quand le modèle de buts manque de données)
@@ -82,7 +82,7 @@ src/lib/eventResults.ts            # score à 90' d'un événement : football-da
 # Logos (TheSportsDB)
 src/lib/theSportsDbApi.ts   # client TheSportsDB v1 (clé gratuite « 123 » par défaut) + espacement 30 req/min
 src/lib/logoMatch.ts        # quelle équipe TheSportsDB est la nôtre (sport, nom exact ou alternatif) + URLs de logo servables
-src/lib/refreshLogos.ts     # logo de chaque compétition (Sport.logo) et de chaque club des matchs récents/à venir (Team.logo)
+src/lib/refreshLogos.ts     # logo de chaque compétition (Sport.logo) et de chaque club des matchs récents/à venir (Team.logo), id FotMob de chaque club (Team.fotmobTeamId)
 scripts/refresh-logos.ts    # point d'entrée CLI : tous les logos dus d'un coup (npm run refresh:logos)
 
 # Tous les matchs et scores en direct (Free API Live Football Data, RapidAPI)
@@ -90,7 +90,7 @@ src/lib/liveFootballApi.ts  # client (x-rapidapi-key/host) + plafond de requête
 src/lib/liveCompetitions.ts # compétitions suivies : id de ligue FotMob -> clé de compétition du tableau
 src/lib/liveMatches.ts      # lecture des réponses (où qu'y soient les matchs), statut d'un match, quand relire
 src/lib/refreshLiveMatches.ts # listes des jours affichés + de chaque ligue dues + flux live -> LiveMatch (réservé dans FetchLog)
-src/lib/matchPairing.ts     # quel LiveMatch est le même match qu'un Event coté (compétition, horaire, noms)
+src/lib/matchPairing.ts     # quel LiveMatch est le même match qu'un Event coté (compétition, horaire, noms) ; l'id FotMob de chaque équipe qu'on en déduit
 scripts/refresh-live-matches.ts # point d'entrée CLI (npm run refresh:matches)
 src/app/api/refresh-matches/ # endpoint HTTP protégé par CRON_SECRET, pour un pinger
 scripts/live-football.ts    # appelle un endpoint et affiche le JSON (tester la clé, voir une vraie réponse)
@@ -401,10 +401,17 @@ nouveau tous les 7 jours. La synchro des cotes s'en charge à chaque passage (20
 requêtes TheSportsDB au plus, soit ~45 s, les plus proches matchs d'abord) ;
 `npm run refresh:logos` fait tout d'un coup, par exemple juste après le déploiement.
 Un club sans logo TheSportsDB garde celui du classement football-data.org
-(`TeamStats.crest`, via le rapprochement décrit plus haut), sinon un bouclier neutre. Les
+(`TeamStats.crest`, via le rapprochement décrit plus haut), sinon celui de FotMob, sinon un
+bouclier neutre. Le logo FotMob se déduit de l'id FotMob du club (`Team.fotmobTeamId`), lu
+sur les matchs de Free API Live Football Data appariés à ses matchs cotés (comme sur le
+tableau, voir « Tous les matchs ») : `refreshLogos()` le relit à chaque passage, sans aucune
+requête, pour chaque club des matchs des 180 derniers jours et à venir, en ne retenant que
+les appariements où son nom concorde et l'id que donnent la plupart d'entre eux. C'est ce
+qui donne un logo, sur toutes les pages, aux sélections que la recherche TheSportsDB
+(quelques résultats seulement avec la clé gratuite, tous sports confondus) ne trouve pas. Les
 images sont servies par `next/image`, qui n'accepte que les domaines listés dans
 `next.config.ts` (`r2.thesportsdb.com`, `www.thesportsdb.com/images`,
-`crests.football-data.org`).
+`crests.football-data.org`, `images.fotmob.com`).
 
 ## Installation locale
 

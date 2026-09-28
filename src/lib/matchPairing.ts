@@ -2,7 +2,8 @@
 // own spellings ("Brighton and Hove Albion" / "Brighton & Hove Albion", "USA" / "United States").
 // A priced Event and a LiveMatch are one match on the board when they're in the same competition,
 // kick off within a few hours of each other and their teams' names agree — or, failing the names,
-// when each is the only one of its kind at that kick-off in that competition. Pure (unit tested).
+// when each is the only one of its kind at that kick-off in that competition. The pairs also give
+// each Odds API team its FotMob id, hence a logo (src/lib/refreshLogos.ts). Pure (unit tested).
 import { canonicalCountryName } from "@/lib/nationalTeamNames";
 import { normalizeTeamName } from "@/lib/teamNames";
 
@@ -113,4 +114,35 @@ export function pairMatches(
     if (rivals.length === 0) pair(c);
   }
   return pairs;
+}
+
+/** A LiveMatch as its teams' FotMob ids are read off it. */
+export type IdentifiedMatch = PairingMatch & { homeTeamId: number | null; awayTeamId: number | null };
+
+/**
+ * FotMob's id of each Odds API team name, read off the LiveMatch each of its events is paired
+ * with: the id most of its pairs give its side, counting a pair only when its name for that side
+ * agrees with ours too — a pair made on the kick-off slot alone says nothing about a name. A name
+ * whose pairs are split evenly gets none: better no logo than a wrong one.
+ */
+export function fotmobTeamIds(pairs: { event: PairingMatch; match: IdentifiedMatch }[]): Map<string, number> {
+  const votes = new Map<string, Map<number, number>>();
+  const vote = (name: string, theirName: string, id: number | null) => {
+    if (id === null || sameTeamScore(name, theirName) === 0) return;
+    const byId = votes.get(name) ?? new Map<number, number>();
+    byId.set(id, (byId.get(id) ?? 0) + 1);
+    votes.set(name, byId);
+  };
+  for (const { event, match } of pairs) {
+    const swapped = isSwapped(event, match);
+    vote(event.homeTeam, swapped ? match.awayTeam : match.homeTeam, swapped ? match.awayTeamId : match.homeTeamId);
+    vote(event.awayTeam, swapped ? match.homeTeam : match.awayTeam, swapped ? match.homeTeamId : match.awayTeamId);
+  }
+
+  const ids = new Map<string, number>();
+  for (const [name, byId] of votes) {
+    const [first, second] = Array.from(byId).sort((a, b) => b[1] - a[1]);
+    if (!second || first[1] > second[1]) ids.set(name, first[0]);
+  }
+  return ids;
 }

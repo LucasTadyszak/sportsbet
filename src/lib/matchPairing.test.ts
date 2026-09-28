@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isSwapped, pairMatches, sameTeamScore, type PairingMatch } from "@/lib/matchPairing";
+import { fotmobTeamIds, isSwapped, pairMatches, sameTeamScore, type IdentifiedMatch, type PairingMatch } from "@/lib/matchPairing";
 
 const at = (hhmm: string, day = "2026-09-27") => new Date(`${day}T${hhmm}:00Z`);
 
@@ -72,4 +72,43 @@ test("names no table knows: paired when alone in their competition's kick-off sl
     [live(1, "Lyon", "Saint-Etienne", at("19:00"), "soccer_france_ligue_one"), live(2, "Lille", "Lens", at("19:00"), "soccer_france_ligue_one")]
   );
   assert.equal(crowded.size, 0);
+});
+
+// The LiveMatch of a pair, with its teams' FotMob ids (sport and kick-off don't matter here).
+function identified(homeTeam: string, homeTeamId: number | null, awayTeam: string, awayTeamId: number | null): IdentifiedMatch {
+  return { sportKey: "soccer_uefa_nations_league", kickoff: at("18:45"), homeTeam, homeTeamId, awayTeam, awayTeamId };
+}
+
+test("each side of a paired match gets its FotMob id, whichever way round and however spelt", () => {
+  const nl = "soccer_uefa_nations_league";
+  const ids = fotmobTeamIds([
+    { event: event("a", "Germany", "Serbia", at("18:45"), nl), match: identified("Germany", 1, "Serbia", 2) },
+    { event: event("b", "Bulgaria", "Estonia", at("16:00"), nl), match: identified("Estonia", 3, "Bulgaria", 4) },
+    { event: event("c", "Czech Republic", "Bosnia & Herzegovina", at("18:45"), nl), match: identified("Czechia", 5, "Bosnia and Herzegovina", 6) },
+  ]);
+  assert.deepEqual(Object.fromEntries(ids), {
+    Germany: 1,
+    Serbia: 2,
+    Bulgaria: 4,
+    Estonia: 3,
+    "Czech Republic": 5,
+    "Bosnia & Herzegovina": 6,
+  });
+});
+
+test("a side whose names don't agree (a pair made on the slot alone), or without an id, gets none", () => {
+  const ids = fotmobTeamIds([
+    { event: event("e", "Olympique Lyonnais", "AS Saint-Etienne", at("19:00")), match: identified("OL", 1, "Saint-Etienne", 2) },
+    { event: event("f", "Arsenal", "Chelsea", at("14:00")), match: identified("Arsenal", null, "Chelsea", 3) },
+  ]);
+  assert.deepEqual(Object.fromEntries(ids), { "AS Saint-Etienne": 2, Chelsea: 3 });
+});
+
+test("the id most of a team's pairs give wins; an even split gives none", () => {
+  const pair = (latviaId: number, montenegroId: number) => ({
+    event: event("x", "Latvia", "Montenegro", at("16:00")),
+    match: identified("Latvia", latviaId, "Montenegro", montenegroId),
+  });
+  const ids = fotmobTeamIds([pair(1, 2), pair(1, 3), pair(4, 2), pair(1, 3)]);
+  assert.deepEqual(Object.fromEntries(ids), { Latvia: 1 });
 });

@@ -62,6 +62,9 @@ model Team {
   sportsDbTeamId     String?
   logo               String? // club badge from TheSportsDB
   logoCheckedAt      DateTime? // last lookup, found or not: when it's next due
+  // FotMob team id, read off the LiveMatch its events are paired with (src/lib/refreshLogos.ts):
+  // the logo shown when neither TheSportsDB nor football-data.org has one (src/lib/crests.ts).
+  fotmobTeamId       Int?
   firstSeenAt        DateTime  @default(now())
   lastSeenAt         DateTime  @updatedAt
 
