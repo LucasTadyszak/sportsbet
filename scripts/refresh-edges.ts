@@ -2,12 +2,11 @@
 // changing a constant in src/lib/methodology/config.ts.
 // Usage: npx tsx scripts/refresh-edges.ts
 import "dotenv/config";
-import { refreshEdges } from "@/lib/refreshEdges";
+import { refreshEdgesJob } from "@/lib/commands";
 import { prisma } from "@/lib/prisma";
 
 async function main() {
-  const edges = await refreshEdges();
-  console.log(`edges: ${edges.edges} verdicts over ${edges.events} events, ${edges.picksPublished} picks published`);
+  if (await refreshEdgesJob(console.log)) process.exitCode = 1;
 }
 
 main()

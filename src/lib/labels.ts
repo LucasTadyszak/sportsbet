@@ -205,6 +205,31 @@ export function formatFrPct(x: number, signed = false): string {
   return (signed ? SIGNED_PERCENT : PERCENT).format(x);
 }
 
+const COUNT = new Intl.NumberFormat("fr-FR");
+
+/** A whole count with French digit grouping: 12345 → "12 345". */
+export function formatCount(n: number): string {
+  return COUNT.format(n);
+}
+
+/** How long ago: "à l'instant", "il y a 5 min", "il y a 3 h", "il y a 2 j". */
+export function formatAgo(date: Date, now = new Date()): string {
+  const minutes = Math.round((now.getTime() - date.getTime()) / 60_000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 24 ? `il y a ${hours} h` : `il y a ${Math.round(hours / 24)} j`;
+}
+
+/** A run's length: "8 s", "2 min 05 s", "1 h 04 min". */
+export function formatDuration(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`;
+  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
+}
+
 /** Why a selection gets no stake: a short title and the detail behind it. */
 export function stakeBlockerLabel(stake: SingleStake, verdict: OutcomeVerdict | null): { title: string; detail: string } | null {
   switch (stake.blocker) {

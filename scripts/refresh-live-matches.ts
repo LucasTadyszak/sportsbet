@@ -4,18 +4,11 @@
 // Usage: npm run refresh:matches            (whatever is due)
 //        npm run refresh:matches -- --force (every league's list, fresh or not)
 import "dotenv/config";
-import { hourlyUsage } from "@/lib/liveFootballApi";
+import { refreshMatchesJob } from "@/lib/commands";
 import { prisma } from "@/lib/prisma";
-import { describeLiveRefresh, liveRefreshFailed, refreshLiveMatches } from "@/lib/refreshLiveMatches";
 
 async function main() {
-  const summary = await refreshLiveMatches({ force: process.argv.includes("--force") });
-  console.log(describeLiveRefresh(summary));
-  if (!summary.configured || liveRefreshFailed(summary)) process.exitCode = 1;
-  if (summary.configured) {
-    const { used, limit } = await hourlyUsage();
-    console.log(`${used}/${limit} requests over the last hour`);
-  }
+  if (await refreshMatchesJob(console.log, { force: process.argv.includes("--force") })) process.exitCode = 1;
 }
 
 main()

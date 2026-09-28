@@ -167,9 +167,10 @@ model Odds {
 // One row per API call, with the usage headers it came back with, so we never blow
 // through a plan's quota. For Free API Live Football Data the row is written before the
 // call goes out: its last hour of rows is what the hourly cap counts (src/lib/liveFootballApi.ts).
+// The request dashboard (/vestiaire/requetes, src/lib/apiUsage.ts) counts them per provider.
 model ApiUsageLog {
   id                BigInt   @id @default(autoincrement())
-  provider          String // "the-odds-api" | "football-data.org" | "free-api-live-football-data"
+  provider          String // a key of API_PROVIDERS (src/lib/apiProviders.ts), e.g. "the-odds-api"
   endpoint          String
   requestsUsed      Int?
   requestsRemaining Int?
@@ -178,6 +179,24 @@ model ApiUsageLog {
 
   @@index([provider, capturedAt])
   @@map("api_usage_log")
+}
+
+// One run of a maintenance command (src/lib/commands.ts) started from the hidden console
+// (/vestiaire, src/lib/commandRuns.ts). Its output is written as it goes, along with a heartbeat:
+// a run still marked running whose heartbeat stopped was cut off (the server restarted under it).
+model CommandRun {
+  id          String    @id @default(cuid())
+  command     String // a key of COMMANDS, e.g. "refresh:matches:force"
+  args        String? // the arguments typed for a command that takes some (live-football)
+  status      String // running | succeeded | failed
+  output      String    @default("")
+  startedAt   DateTime  @default(now())
+  heartbeatAt DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([startedAt])
+  @@index([command, status])
+  @@map("command_runs")
 }
 
 // Throttling guard: last successful fetch per resource key, so a refresh route

@@ -140,6 +140,20 @@ src/app/passes/             # centre des passes : chaque marché non misé et po
 src/app/historique/         # track record : chaque pick gradé, CLV, ROI
 src/app/modele/             # santé du modèle : calibration, Brier vs marché, fiabilité, couverture
 src/app/methodologie/       # la méthodologie, avec les valeurs de config.ts
+src/app/not-found.tsx       # la page 404 de tout le site (URL inconnue comme vestiaire fermé)
+
+# Vestiaire : console cachée (voir « Vestiaire » plus bas)
+src/lib/commands.ts         # les jobs des scripts npm (un log(line) par ligne de sortie), partagés par scripts/*.ts et la console
+src/lib/commandRuns.ts      # exécution d'une commande en arrière-plan du serveur -> CommandRun (sortie, heartbeat), une à la fois par commande
+src/lib/runState.ts         # statut d'une exécution (interrompue si son heartbeat s'arrête), sortie plafonnée, erreurs affichées
+src/lib/adminSession.ts     # le code (ADMIN_SECRET, sinon CRON_SECRET), cookie de session signé HMAC, limite d'essais
+src/lib/secretKnock.ts      # l'easter egg : code Konami ou 7 tapes sur le logo -> cookie de passage
+src/components/SecretKnock.tsx # l'écoute de l'easter egg sur toutes les pages
+src/proxy.ts                # /vestiaire sans passage ni session : la même 404 qu'une URL inconnue
+src/app/vestiaire/          # la console (boutons des commandes, sortie en direct, historique) et ses Server Actions
+src/app/vestiaire/requetes/ # le tableau de bord des requêtes par API
+src/lib/apiProviders.ts     # chaque API appelée (clé `provider` d'ApiUsageLog), son rôle et sa limite
+src/lib/apiUsage.ts, src/lib/usagePeriods.ts # comptes par API, par heure ou jour de Paris, par endpoint, quotas
 ```
 
 Board inspiré de Winamax et Betclic, en thème clair : chaque match est un **bloc**
@@ -267,10 +281,13 @@ Des garde-fous pour ne pas cramer le quota gratuit des API :
   Ce throttle limite le nombre d'*appels API*, pas ce qui est enregistré une
   fois l'appel fait : à chaque fetch réellement exécuté, tout son contenu est
   persisté (voir ci-dessus).
-- **`ApiUsageLog`** : log les headers de quota à chaque appel (`x-requests-used`
-  / `x-requests-remaining` / `x-requests-last` pour The Odds API,
-  `x-requests-available-minute` pour football-data.org,
-  `x-ratelimit-requests-*` pour RapidAPI), pour surveiller la conso des plans.
+- **`ApiUsageLog`** : une ligne par appel à une API externe, site et crons confondus
+  (The Odds API, football-data.org, Free API Live Football Data, TheSportsDB et les
+  fichiers d'international_results), avec les headers de quota quand l'API en renvoie
+  (`x-requests-used` / `x-requests-remaining` / `x-requests-last` pour The Odds API,
+  `x-requests-available-minute` pour football-data.org, `x-ratelimit-requests-*` pour
+  RapidAPI), pour surveiller la conso des plans : c'est ce que lit le tableau de bord des
+  requêtes du vestiaire.
 - **Plafond horaire** (Free API Live Football Data) : au plus
   `LIVE_FOOTBALL_MAX_REQUESTS_PER_HOUR` appels (1000 par défaut) sur les 60
   dernières minutes, site et crons confondus. Chaque appel est inscrit dans
@@ -424,6 +441,8 @@ Variables utiles en plus des clés :
 - `LIVE_FOOTBALL_LEAGUE_IDS` : ids de ligue FotMob des compétitions dont le tableau affiche
   tous les matchs, parmi celles de `src/lib/liveCompetitions.ts` (par défaut toutes : voir
   « Tous les matchs » ; vide pour aucune).
+- `ADMIN_SECRET` : le code du vestiaire (voir plus bas). Sans lui, c'est `CRON_SECRET` qui
+  ouvre le vestiaire ; sans aucun des deux, le vestiaire reste fermé.
 
 Sports suivis par défaut : `soccer_epl,soccer_uefa_champs_league` côté clubs, plus
 les compétitions de sélections (voir « Sélections nationales »). Pour suivre d'autres
@@ -462,7 +481,8 @@ npm test                # tests unitaires de la méthodologie
 npm run live-football -- /football-current-live   # un endpoint de Free API Live Football Data, JSON brut (compte dans le plafond)
 ```
 
-ou en HTTP (utile pour tester les endpoints que le cron appellera) :
+ou d'un bouton, depuis le vestiaire (ci-dessous), ou en HTTP (utile pour tester les endpoints
+que le cron appellera) :
 
 ```bash
 curl "http://localhost:3000/api/refresh-odds?secret=$CRON_SECRET"
@@ -470,6 +490,46 @@ curl "http://localhost:3000/api/refresh-stats?secret=$CRON_SECRET"
 curl "http://localhost:3000/api/nightly?secret=$CRON_SECRET"
 curl "http://localhost:3000/api/refresh-matches?secret=$CRON_SECRET"
 ```
+
+### Vestiaire : la console cachée
+
+Une page que le site ne montre nulle part, avec un bouton pour chaque script npm et le
+tableau de bord des requêtes envoyées à chaque API.
+
+**L'ouvrir.** Sur n'importe quelle page du site, taper le code Konami au clavier
+(↑ ↑ ↓ ↓ ← → ← → B A, hors d'un champ de saisie), ou, sur un téléphone, toucher 7 fois de
+suite le logo SPORTSBET (en moins de 4 s). Le site va alors sur `/vestiaire`, qui demande
+le code : `ADMIN_SECRET` (à défaut `CRON_SECRET`). Une fois entré, la session dure 30
+jours sur cet appareil (cookie `httpOnly`, signé avec le code : changer le code
+déconnecte partout), et `/vestiaire` s'ouvre alors directement ; « Fermer » y met fin.
+
+**Ce qui la protège.** L'easter egg ne fait que cacher la porte : quelqu'un qui lit le
+JavaScript du site peut la retrouver. Le verrou, c'est le code, vérifié sur le serveur
+par chaque page et chaque action : choisir un code long et aléatoire
+(`openssl rand -base64 24`), distinct de `CRON_SECRET`, que les pingers connaissent. Après
+10 codes faux en 15 min, plus aucun essai n'est accepté jusqu'à ce que le plus ancien ait
+15 min. Pour tous les autres visiteurs, `/vestiaire` n'existe pas : `src/proxy.ts` y
+répond exactement la même 404 que pour une URL inconnue.
+
+**Commandes** (`/vestiaire`). Chaque bouton lance, sur le serveur web, ce que fait sa
+commande dans un terminal : `refresh:matches` (avec ou sans `--force`), `refresh:odds`,
+`refresh:stats`, `nightly`, `refresh:edges`, `refresh:logos` et `live-football` (avec
+l'endpoint et ses paramètres dans un champ). Le code et les lignes de sortie sont les
+mêmes que ceux des scripts (`src/lib/commands.ts`). La commande tourne en arrière-plan
+(`after()`) : sa sortie s'affiche en direct et reste dans l'historique 30 jours
+(`CommandRun`, 60 000 caractères gardés par exécution). Une commande ne tourne qu'une fois
+à la fois (un deuxième clic la retrouve), plusieurs commandes différentes peuvent tourner
+ensemble. Une commande qui ne logue qu'à la fin (`refresh:stats`, `nightly`) reste « En
+cours » jusque-là, comme dans un terminal. Un redémarrage ou un déploiement pendant une
+exécution la coupe : elle est alors marquée « Interrompue » (son heartbeat s'est arrêté),
+ce qu'elle a enregistré avant reste en base, il suffit de la relancer.
+
+**Requêtes API** (`/vestiaire/requetes`). Pour chaque API : où en est son quota (le
+plafond horaire du site et le quota du plan RapidAPI pour Free API Live Football Data,
+les crédits du mois de The Odds API, la dernière minute pour football-data.org et
+TheSportsDB), puis, sur 24 h, 7 jours ou 30 jours, les requêtes par heure ou par jour de
+Paris, les endpoints les plus appelés et les derniers appels avec le quota que chaque
+réponse a renvoyé. Tout vient d'`ApiUsageLog`, qui compte aussi les appels des crons.
 
 ## Déploiement sur Render
 
@@ -479,7 +539,8 @@ curl "http://localhost:3000/api/refresh-matches?secret=$CRON_SECRET"
    - Build command : `npm install && npm run build`
    - Start command : `npm run start`
    - Variables d'environnement : `DATABASE_URL` (l'URL interne ci-dessus),
-     `ODDS_API_KEY`, `FOOTBALL_DATA_API_KEY`, `RAPIDAPI_KEY`, `CRON_SECRET`, `NODE_ENV=production`.
+     `ODDS_API_KEY`, `FOOTBALL_DATA_API_KEY`, `RAPIDAPI_KEY`, `CRON_SECRET`, `ADMIN_SECRET`
+     (le code du vestiaire), `NODE_ENV=production`.
      Le site met lui-même à jour les matchs et les scores en direct quand on le consulte ; pour
      qu'ils avancent aussi quand personne n'y est, un pinger HTTP (cron-job.org, UptimeRobot…)
      peut appeler `/api/refresh-matches?secret=…` toutes les 1–2 min : il ne fait une requête
