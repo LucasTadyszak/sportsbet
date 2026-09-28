@@ -34,9 +34,9 @@ export default async function PassesPage() {
             {reasonCounts.map(([reason, count]) => (
               <span
                 key={reason}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-elevated py-1 pl-1 pr-3 text-xs text-fg-muted shadow-card"
+                className="inline-flex items-center gap-2 border-l-4 border-slate bg-bg-elevated py-1 pl-1.5 pr-3 font-cond text-sm font-bold uppercase tracking-wide text-fg-muted"
               >
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-bg-row px-1.5 font-mono-tabular font-semibold text-fg">
+                <span className="figures flex h-6 min-w-6 items-center justify-center bg-bg-row px-1.5 text-base font-bold text-fg">
                   {count}
                 </span>
                 {reasonLabel(reason)}
@@ -50,34 +50,34 @@ export default async function PassesPage() {
             Aucun verdict calculé sur les matchs à venir (il faut des cotes récentes et un modèle pour les deux équipes).
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
+          <div className="overflow-x-auto bg-bg-elevated shadow-hard">
             <table className="w-full min-w-[760px] border-collapse text-sm">
-              <thead className="bg-bg-row/60">
-                <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-                  <th className="px-4 py-2 font-normal">Match</th>
-                  <th className="px-3 py-2 font-normal">Marché · penchant</th>
-                  <th className="px-3 py-2 text-right font-normal">Edge</th>
-                  <th className="px-3 py-2 text-right font-normal">Cote</th>
-                  <th className="px-3 py-2 font-normal">Verdict</th>
-                  <th className="px-4 py-2 font-normal">Raison principale</th>
+              <thead className="bg-bg-deep">
+                <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
+                  <th className="px-4 py-2.5 font-bold">Match</th>
+                  <th className="px-3 py-2.5 font-bold">Marché · penchant</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Edge</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Cote</th>
+                  <th className="px-3 py-2.5 font-bold">Verdict</th>
+                  <th className="px-4 py-2.5 font-bold">Raison principale</th>
                 </tr>
               </thead>
               <tbody>
                 {passes.map((p) => (
-                  <tr key={p.edgeId} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/50">
+                  <tr key={p.edgeId} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/60">
                     <td className="px-4 py-2.5">
                       <Link href={`/match/${p.eventId}`} className="flex items-center gap-2 text-fg underline-offset-2 hover:underline">
                         <TeamName name={p.homeTeam} crest={p.homeCrest} size={16} />
                         <span className="text-fg-muted">–</span>
                         <TeamName name={p.awayTeam} crest={p.awayCrest} size={16} />
                       </Link>
-                      <span className="block font-mono-tabular text-xs text-fg-muted">{formatKickoff(p.commenceTime)}</span>
+                      <span className="block figures text-xs text-fg-muted">{formatKickoff(p.commenceTime)}</span>
                     </td>
                     <td className="px-3 py-2.5 text-fg-muted">
                       {marketLabel(p.marketKey, p.point)} · {outcomeLabel(p.marketKey, p.outcomeName, p.point, p.homeTeam, p.awayTeam)}
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono-tabular">{formatPts(p.edge)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono-tabular">{formatOdds(p.bestPrice)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right figures">{formatPts(p.edge)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right figures">{formatOdds(p.bestPrice)}</td>
                     <td className="px-3 py-2.5">
                       <TierBadge tier={p.tier} compact />
                     </td>

@@ -113,15 +113,15 @@ function Summary({ summary }: { summary: BetsSummary }) {
 type Tone = "rise" | "fall" | "muted" | "live";
 
 const CHIP_TONES: Record<Tone, string> = {
-  rise: "bg-rise/10 text-rise",
-  fall: "bg-fall/10 text-fall",
+  rise: "bg-rise text-on-rise",
+  fall: "bg-fall text-on-rise",
   muted: "bg-bg-row text-fg-muted",
-  live: "bg-fall/10 text-fall",
+  live: "bg-bg-row text-fall",
 };
 
 function Chip({ tone, icon, children }: { tone: Tone; icon?: IconName; children: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold tabular ${CHIP_TONES[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 font-cond text-xs font-extrabold uppercase tracking-wider ${CHIP_TONES[tone]}`}>
       {tone === "live" ? (
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fall opacity-60" />
@@ -200,13 +200,15 @@ function LegRow({ leg, status, result }: { leg: SavedLeg; status: LegStatus; res
         <Link href={`/match/${leg.eventId}`} className="w-fit text-xs text-fg-muted underline-offset-2 hover:text-fg hover:underline">
           {leg.homeTeam} – {leg.awayTeam} · {formatKickoff(kickoff)}
         </Link>
-        <span className="text-[15px] font-semibold text-fg">{outcomeLabel(leg.marketKey, leg.outcomeName, leg.point, leg.homeTeam, leg.awayTeam)}</span>
+        <span className="font-cond text-lg font-extrabold uppercase leading-tight tracking-wide text-fg">
+          {outcomeLabel(leg.marketKey, leg.outcomeName, leg.point, leg.homeTeam, leg.awayTeam)}
+        </span>
         <span className="text-xs text-fg-muted">
           {marketLabel(leg.marketKey, leg.point)} · {leg.bookmakerTitle}
         </span>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="font-mono-tabular text-base font-bold text-fg">{formatOdds(leg.price)}</span>
+        <span className="font-display text-2xl leading-none tracking-wide text-fg">{formatOdds(leg.price)}</span>
         <LegState leg={leg} status={status} result={result} />
       </div>
     </li>
@@ -216,8 +218,8 @@ function LegRow({ leg, status, result }: { leg: SavedLeg; status: LegStatus; res
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col">
-      <dt className="text-xs text-fg-muted">{label}</dt>
-      <dd className="font-mono-tabular text-sm font-semibold text-fg">{value}</dd>
+      <dt className="font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">{label}</dt>
+      <dd className="figures text-lg font-bold text-fg">{value}</dd>
     </div>
   );
 }
@@ -234,8 +236,8 @@ function DeleteButton({ id }: { id: string }) {
     <button
       type="button"
       onClick={() => (confirming ? myBets.remove(id) : setConfirming(true))}
-      className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 font-medium transition-colors duration-200 ${
-        confirming ? "bg-fall/10 text-fall" : "text-fg-muted hover:text-fall"
+      className={`inline-flex min-h-9 items-center gap-1.5 px-2 font-cond text-sm font-bold uppercase tracking-wider transition-colors duration-200 ${
+        confirming ? "bg-fall text-on-rise" : "text-fg-muted hover:text-fall"
       }`}
     >
       <Icon name="trash" className="h-3.5 w-3.5" />
@@ -252,13 +254,13 @@ function BetCard({ bet, outcome, fresh }: { bet: SavedBet; outcome: BetOutcome; 
 
   return (
     <article
-      className={`flex flex-col gap-4 rounded-xl border border-border border-l-4 bg-bg-elevated p-4 shadow-card sm:p-5 ${
+      className={`flex flex-col gap-4 border-l-[5px] bg-bg-elevated p-4 shadow-hard sm:p-5 ${
         live ? "border-l-accent" : BORDERS[outcome.status]
       }`}
     >
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h3 className="font-display text-base font-semibold text-fg">{combo ? `Combiné · ${bet.legs.length} sélections` : "Pari simple"}</h3>
+          <h3 className="font-display text-xl uppercase leading-tight tracking-wide text-fg">{combo ? `Combiné · ${bet.legs.length} sélections` : "Pari simple"}</h3>
           <span className="text-xs text-fg-muted">Enregistré {formatKickoff(new Date(bet.savedAt))}</span>
         </div>
         {live ? (
@@ -272,7 +274,7 @@ function BetCard({ bet, outcome, fresh }: { bet: SavedBet; outcome: BetOutcome; 
         )}
       </header>
 
-      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+      <ul className="flex flex-col divide-y divide-border bg-bg-row/60">
         {bet.legs.map((leg, i) => (
           <LegRow key={`${leg.eventId}|${leg.marketKey}|${leg.outcomeName}|${leg.point ?? ""}`} leg={leg} status={outcome.legs[i]} result={fresh[leg.eventId]} />
         ))}
@@ -289,7 +291,7 @@ function BetCard({ bet, outcome, fresh }: { bet: SavedBet; outcome: BetOutcome; 
             <span className="text-xs text-fg-muted">
               {profit > 0 ? "Tu aurais gagné" : profit < 0 ? "Tu aurais perdu" : "Tu aurais récupéré ta mise"}
             </span>
-            <span className={`font-display text-2xl font-bold tabular ${profit > 0 ? "text-rise" : profit < 0 ? "text-fall" : "text-fg-muted"}`}>
+            <span className={`font-display text-3xl leading-none tracking-wide ${profit > 0 ? "text-rise" : profit < 0 ? "text-fall" : "text-fg-muted"}`}>
               {signedMoney(profit)}
             </span>
           </div>
@@ -313,9 +315,9 @@ type Row = { bet: SavedBet; outcome: BetOutcome };
 function BetSection({ id, title, rows, fresh }: { id: string; title: string; rows: Row[]; fresh: MatchResults }) {
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
-      <h2 id={id} className="flex items-center gap-2 font-display text-lg font-extrabold text-fg">
+      <h2 id={id} className="flex items-center gap-3 font-display text-2xl uppercase leading-none tracking-wide text-fg">
         {title}
-        <span className="min-w-6 rounded-full bg-bg-row px-1.5 py-0.5 text-center text-xs font-semibold tabular text-fg-muted">{rows.length}</span>
+        <span className="figures min-w-7 bg-bg-row px-1.5 py-0.5 text-center text-sm font-bold text-fg-muted">{rows.length}</span>
       </h2>
       <div className="flex flex-col gap-4">
         {rows.map(({ bet, outcome }) => (

@@ -22,16 +22,16 @@ export function CommandCard({ id, npm, title, description, apis, args, running, 
   const [state, action, pending] = useActionState<FormState, FormData>(runCommand, undefined);
   const busy = pending || running;
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-xl border border-border bg-bg-elevated p-4 shadow-card">
+    <form action={action} className="flex flex-col gap-3 border-t-4 border-slate bg-bg-elevated p-4 shadow-hard">
       <input type="hidden" name="command" value={id} />
       <div className="flex flex-col gap-1">
-        <h3 className="font-display text-base font-semibold text-fg">{title}</h3>
-        <code className="w-fit rounded bg-bg-row px-1.5 py-0.5 font-mono text-xs text-fg">{npm}</code>
+        <h3 className="font-display text-xl uppercase leading-tight tracking-wide text-fg">{title}</h3>
+        <code className="w-fit bg-bg-row px-1.5 py-0.5 font-mono text-xs text-fg">{npm}</code>
       </div>
       <p className="text-sm leading-relaxed text-fg-muted">{description}</p>
       {args ? (
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`args-${id}`} className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <label htmlFor={`args-${id}`} className="font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">
             {args.label}
           </label>
           <input
@@ -41,7 +41,7 @@ export function CommandCard({ id, npm, title, description, apis, args, running, 
             spellCheck={false}
             autoComplete="off"
             placeholder={args.placeholder}
-            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated px-3 font-mono text-sm text-fg placeholder:text-fg-muted/70 transition-colors duration-200 focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/25 focus-visible:outline-none"
+            className="min-h-10 w-full border-2 border-border bg-bg-row px-3 font-mono text-sm text-fg placeholder:text-fg-muted/70 transition-colors duration-200 focus:border-inverse focus:outline-none focus-visible:outline-none"
           />
         </div>
       ) : null}
@@ -49,10 +49,12 @@ export function CommandCard({ id, npm, title, description, apis, args, running, 
         <button
           type="submit"
           disabled={busy}
-          className="flex min-h-10 items-center gap-2 rounded-lg bg-inverse px-4 text-sm font-semibold text-on-inverse transition-colors duration-200 enabled:hover:bg-inverse/90 disabled:cursor-default disabled:opacity-60"
+          className="flex min-h-10 -skew-x-12 items-center bg-inverse px-4 font-cond text-base font-extrabold uppercase tracking-wider text-on-inverse transition-colors duration-200 enabled:hover:bg-fg disabled:cursor-default disabled:opacity-60"
         >
-          <Icon name={busy ? "loader" : "play"} className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
-          {busy ? "En cours…" : "Lancer"}
+          <span className="inline-flex skew-x-12 items-center gap-2">
+            <Icon name={busy ? "loader" : "play"} className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+            {busy ? "En cours…" : "Lancer"}
+          </span>
         </button>
         <span className="text-xs text-fg-muted">{apis.length > 0 ? apis.join(" · ") : "Aucun appel API"}</span>
       </div>

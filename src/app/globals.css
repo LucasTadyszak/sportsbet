@@ -1,39 +1,39 @@
 @import "tailwindcss";
 
 /*
- * Three looks on one palette (src/lib/themes.ts): graphite #2c2b32, slate #4a576a, steel
- * #a8b6ca — and one orange, #ff7a1a, kept for what matters: the price the model would take
- * (a pick), the user's selection, the stakes to play, a top pick. Everything else (navigation,
- * filters, tabs, active states) stays in the palette's neutrals, so orange always means
- * "look here". <html data-theme> picks the look; any element can carry it too (/themes shows
- * the three side by side). Every value is a literal colour so src/lib/themes.test.ts can
- * check their contrast (WCAG AA for text).
+ * « Stade » — the site's design system, in the manner of a TV sports graphics package:
+ * condensed capitals (Anton for figures and titles, Barlow Condensed for labels, Barlow for
+ * text), sharp corners, slanted tags and tabs (-skew-x-12 around a skew-x-12 label), panels
+ * lifted by a hard offset shadow, club colours as bars.
  *
- *   --bg / --bg-elevated / --bg-row  page, raised card, subtle fill inside a card
- *   --fg / --fg-muted                text; secondary text (≥ 4.5:1 on all three surfaces)
- *   --inverse / --on-inverse         a strong neutral fill (active day, filter, button) and its text
- *   --accent                         orange fills, borders, icons — never small text on a light surface
- *   --accent-strong                  orange text, ≥ 4.5:1 on --bg-elevated and --accent-dim
- *   --accent-dim / --on-accent       orange-tinted surface (a pick); text on an orange fill
- *   --chrome-*                       the header and footer ([data-chrome]): Ardoise dresses them in graphite
+ * Palette: graphite #2c2b32 (page), slate #4a576a (bars and rules), steel #a8b6ca (secondary
+ * text, and the fill of whatever is active: page, day, filter), and one orange #ff7a1a kept
+ * for what matters — the price the model would take (orange outline), a price in the slip
+ * (orange fill), the slip itself, the stakes, a top pick. Every value is a literal colour so
+ * src/lib/designTokens.test.ts can check their contrast (WCAG AA for text).
+ *
+ *   --bg-deep / --bg / --bg-elevated / --bg-row   header and bands / page / panel / block in a panel
+ *   --fg / --fg-muted                              text / secondary text (≥ 4.5:1 on every surface)
+ *   --inverse / --on-inverse                       steel fill of the active item, and its text
+ *   --accent / --on-accent                         orange fills, borders, big figures / text on orange
+ *   --accent-strong                                orange for small text (≥ 4.5:1 on panels and blocks)
  */
-
-/* Graphite — dark. Also the default, so it comes first: the other themes override it. */
-:root,
-[data-theme="graphite"] {
+:root {
   color-scheme: dark;
+  --bg-deep: #232228;
   --bg: #2c2b32;
-  --bg-elevated: #34353f;
-  --bg-row: #3b3f4a;
-  --border: #474d5a;
-  --fg: #f1f4f8;
+  --bg-elevated: #363742;
+  --bg-row: #3f414d;
+  --border: #4d5160;
+  --slate: #4a576a;
+  --fg: #ffffff;
   --fg-muted: #a8b6ca;
   --inverse: #a8b6ca;
   --on-inverse: #2c2b32;
-  --link: #d6deea;
-  --focus: #c7d2e1;
+  --link: #dfe6ef;
+  --focus: #e8edf4;
   --accent: #ff7a1a;
-  --accent-strong: #ff8f45;
+  --accent-strong: #ff9a52;
   --accent-dim: #4d3c35;
   --on-accent: #2c2b32;
   --rise: #4cd17f;
@@ -45,192 +45,36 @@
   --status-good: #4cd17f;
   --status-warning: #f5b82e;
   --status-critical: #ff6b6b;
-  /* Chart series: steel for the reference, orange for the model. */
+  /* Chart series: steel for the reference (the market), orange for the model. */
   --series-1: #a8b6ca;
   --series-2: #ff7a1a;
   /*
-   * Sequential ramp for heatmaps (the score matrix), low → high: on a dark page it climbs from
-   * the card toward white, so near-zero values recede. Labels: --seq-ink-low up to --seq-4,
-   * --seq-ink-high from --seq-5 (both ≥ 4.5:1).
+   * Sequential ramp for heatmaps (the score matrix), low → high: it climbs from the panel toward
+   * white, so near-zero values recede. Labels: --seq-ink-low up to --seq-4, --seq-ink-high from
+   * --seq-5 (both ≥ 4.5:1).
    */
-  --seq-1: #3f4555;
-  --seq-2: #465062;
-  --seq-3: #505c71;
+  --seq-1: #444a59;
+  --seq-2: #4b5467;
+  --seq-3: #54607a;
   --seq-4: #5c6a82;
   --seq-5: #8e9db3;
   --seq-6: #b5c1d3;
   --seq-7: #dfe6ef;
-  --seq-ink-low: #f1f4f8;
+  --seq-ink-low: #ffffff;
   --seq-ink-high: #2c2b32;
-  --brand: #4a576a;
-  --brand-ink: #f1f4f8;
-  /* Club and competition logos are drawn for a light background: on a dark one they sit on a light plate. */
-  --crest-disc: #eef1f5;
+  /* Club and competition logos are drawn for a light background: they sit on a light plate. */
   --logo-plate: #eef1f5;
-  --logo-pad: 0.12;
-  --logo-radius: 9999px;
-  --glow: rgb(74 87 106 / 0.45);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.04);
-  --backdrop: rgb(16 16 20 / 0.6);
-  --chrome-scheme: dark;
-  --chrome-bg: #232228;
-  --chrome-row: #34353f;
-  --chrome-border: #3a3c46;
-  --chrome-fg: #f1f4f8;
-  --chrome-fg-muted: #a8b6ca;
-  --chrome-inverse: #a8b6ca;
-  --chrome-on-inverse: #2c2b32;
-  --chrome-focus: #c7d2e1;
-  --chrome-link: #d6deea;
-  --chrome-accent-strong: #ff8f45;
-  --chrome-brand: #4a576a;
-  --chrome-brand-ink: #f1f4f8;
-}
-
-/* Ardoise — graphite header and footer around a steel page of white cards; slate for what's active. */
-[data-theme="ardoise"] {
-  color-scheme: light;
-  --bg: #dce3ec;
-  --bg-elevated: #ffffff;
-  --bg-row: #edf1f6;
-  --border: #c5cfdc;
-  --fg: #2c2b32;
-  --fg-muted: #4a576a;
-  --inverse: #4a576a;
-  --on-inverse: #ffffff;
-  --link: #34445c;
-  --focus: #4a576a;
-  --accent: #ff7a1a;
-  --accent-strong: #b93d0a;
-  --accent-dim: #ffefe3;
-  --on-accent: #2c2b32;
-  --rise: #137a3a;
-  --on-rise: #ffffff;
-  --fall: #b91c1c;
-  --flame: #e03a0c;
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-critical: #d03b3b;
-  --series-1: #4a576a;
-  --series-2: #ff7a1a;
-  /* Light → dark: near-zero values recede toward the white card. */
-  --seq-1: #e6ebf2;
-  --seq-2: #cdd6e2;
-  --seq-3: #b3c0d1;
-  --seq-4: #97a6bb;
-  --seq-5: #5d6b80;
-  --seq-6: #46536a;
-  --seq-7: #2c2b32;
-  --seq-ink-low: #2c2b32;
-  --seq-ink-high: #ffffff;
-  --brand: #2c2b32;
-  --brand-ink: #ffffff;
-  --crest-disc: #ffffff;
-  --logo-plate: transparent;
-  --logo-pad: 0;
-  --logo-radius: 0px;
-  --glow: rgb(74 87 106 / 0.18);
-  --shadow-card: 0 1px 2px rgb(44 43 50 / 0.06), 0 1px 3px rgb(44 43 50 / 0.05);
-  --backdrop: rgb(28 28 34 / 0.5);
-  --chrome-scheme: dark;
-  --chrome-bg: #2c2b32;
-  --chrome-row: #3b3f4a;
-  --chrome-border: #3f4450;
-  --chrome-fg: #f1f4f8;
-  --chrome-fg-muted: #a8b6ca;
-  --chrome-inverse: #a8b6ca;
-  --chrome-on-inverse: #2c2b32;
-  --chrome-focus: #c7d2e1;
-  --chrome-link: #d6deea;
-  --chrome-accent-strong: #ff8f45;
-  --chrome-brand: #4a576a;
-  --chrome-brand-ink: #f1f4f8;
-}
-
-/* Brume — light and airy: white header, misty page, graphite ink. */
-[data-theme="brume"] {
-  color-scheme: light;
-  --bg: #f3f5f8;
-  --bg-elevated: #ffffff;
-  --bg-row: #f0f3f7;
-  --border: #dde3ea;
-  --fg: #2c2b32;
-  --fg-muted: #4a576a;
-  --inverse: #2c2b32;
-  --on-inverse: #ffffff;
-  --link: #34445c;
-  --focus: #4a576a;
-  --accent: #ff7a1a;
-  --accent-strong: #b93d0a;
-  --accent-dim: #fff1e6;
-  --on-accent: #2c2b32;
-  --rise: #137a3a;
-  --on-rise: #ffffff;
-  --fall: #b91c1c;
-  --flame: #e03a0c;
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-critical: #d03b3b;
-  --series-1: #4a576a;
-  --series-2: #ff7a1a;
-  --seq-1: #e6ebf2;
-  --seq-2: #cdd6e2;
-  --seq-3: #b3c0d1;
-  --seq-4: #97a6bb;
-  --seq-5: #5d6b80;
-  --seq-6: #46536a;
-  --seq-7: #2c2b32;
-  --seq-ink-low: #2c2b32;
-  --seq-ink-high: #ffffff;
-  --brand: #2c2b32;
-  --brand-ink: #ffffff;
-  --crest-disc: #ffffff;
-  --logo-plate: transparent;
-  --logo-pad: 0;
-  --logo-radius: 0px;
-  --glow: rgb(168 182 202 / 0.35);
-  --shadow-card: 0 1px 2px rgb(44 43 50 / 0.05), 0 1px 3px rgb(44 43 50 / 0.04);
-  --backdrop: rgb(28 28 34 / 0.45);
-  --chrome-scheme: light;
-  --chrome-bg: #ffffff;
-  --chrome-row: #f0f3f7;
-  --chrome-border: #dde3ea;
-  --chrome-fg: #2c2b32;
-  --chrome-fg-muted: #4a576a;
-  --chrome-inverse: #2c2b32;
-  --chrome-on-inverse: #ffffff;
-  --chrome-focus: #4a576a;
-  --chrome-link: #34445c;
-  --chrome-accent-strong: #b93d0a;
-  --chrome-brand: #2c2b32;
-  --chrome-brand-ink: #ffffff;
-}
-
-/*
- * The header and footer: inside them the usual tokens take the theme's chrome values, so they
- * are written with the same utilities as the rest of the page.
- */
-[data-chrome] {
-  color-scheme: var(--chrome-scheme);
-  --bg-elevated: var(--chrome-bg);
-  --bg-row: var(--chrome-row);
-  --border: var(--chrome-border);
-  --fg: var(--chrome-fg);
-  --fg-muted: var(--chrome-fg-muted);
-  --inverse: var(--chrome-inverse);
-  --on-inverse: var(--chrome-on-inverse);
-  --focus: var(--chrome-focus);
-  --link: var(--chrome-link);
-  --accent-strong: var(--chrome-accent-strong);
-  --brand: var(--chrome-brand);
-  --brand-ink: var(--chrome-brand-ink);
+  /* The hard shadow under a panel. */
+  --shadow: #18171c;
 }
 
 @theme inline {
+  --color-bg-deep: var(--bg-deep);
   --color-bg: var(--bg);
   --color-bg-elevated: var(--bg-elevated);
   --color-bg-row: var(--bg-row);
   --color-border: var(--border);
+  --color-slate: var(--slate);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-inverse: var(--inverse);
@@ -259,22 +103,38 @@
   --color-seq-7: var(--seq-7);
   --color-seq-ink-low: var(--seq-ink-low);
   --color-seq-ink-high: var(--seq-ink-high);
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
-  --font-mono: var(--font-mono);
+  --color-logo-plate: var(--logo-plate);
+  /* font-display (Anton: titles, figures), font-cond (Barlow Condensed: labels), font-sans (Barlow: text). */
+  --font-display: var(--font-anton), "Arial Narrow", sans-serif;
+  --font-cond: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
-/* A raised surface: card colour, hairline border (set on the element), the theme's shadow. */
-@utility shadow-card {
-  box-shadow: var(--shadow-card);
+/* A panel lifted off the page: the hard offset shadow of a TV graphic. */
+@utility shadow-hard {
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+@utility shadow-hard-sm {
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+/* Figures that line up: odds, percentages, amounts in tables and lists. */
+@utility figures {
+  font-family: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A band's tag cut on the slant at its right end (the competition in a match block). */
+@utility cut-slant {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-body), sans-serif;
-  background-image: radial-gradient(ellipse at 10% -8%, var(--glow), transparent 45%);
-  background-attachment: fixed;
+  font-family: var(--font-barlow), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -313,15 +173,6 @@ body {
       scroll-behavior: auto !important;
     }
   }
-}
-
-.font-display {
-  font-family: var(--font-display), sans-serif;
-}
-
-.font-mono-tabular {
-  font-family: var(--font-mono), monospace;
-  font-variant-numeric: tabular-nums;
 }
 
 .tabular {

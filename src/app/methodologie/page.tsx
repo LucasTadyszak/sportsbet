@@ -27,8 +27,8 @@ const pct = (x: number) => `${+(x * 100).toFixed(1)} %`;
 function Block({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} className="flex scroll-mt-28 flex-col gap-4">
-      <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-fg sm:text-2xl">
-        <span className="h-5 w-1 rounded-full bg-fg-muted" aria-hidden />
+      <h2 className="flex items-center gap-3 font-display text-2xl uppercase leading-none tracking-wide text-fg sm:text-3xl">
+        <span className="h-6 w-2.5 shrink-0 -skew-x-12 bg-slate" aria-hidden />
         {title}
       </h2>
       <div className="flex flex-col gap-4 text-[15px] leading-7 text-fg sm:text-base">{children}</div>
@@ -38,11 +38,11 @@ function Block({ id, title, children }: { id: string; title: string; children: R
 
 function Params({ rows }: { rows: [string, ReactNode][] }) {
   return (
-    <dl className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-bg-elevated text-sm shadow-card">
+    <dl className="divide-y divide-border overflow-hidden border-l-4 border-slate bg-bg-elevated text-sm">
       {rows.map(([label, value]) => (
         <div key={label} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <dt className="text-fg-muted">{label}</dt>
-          <dd className="font-mono-tabular font-medium text-fg sm:text-right">{value}</dd>
+          <dd className="figures text-base font-bold text-fg sm:text-right">{value}</dd>
         </div>
       ))}
     </dl>
@@ -68,8 +68,8 @@ export default function MethodologyPage() {
       <SiteHeader active="method" />
       <main className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <nav aria-label="Sommaire" className="rounded-xl border border-border bg-bg-elevated p-3 shadow-card">
-            <p className="flex items-center gap-2 px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <nav aria-label="Sommaire" className="bg-bg-elevated pb-2 shadow-hard">
+            <p className="mb-2 flex items-center gap-2 bg-bg-deep px-3.5 py-2.5 font-display text-lg uppercase tracking-wide text-fg">
               <Icon name="book-open" className="h-3.5 w-3.5" /> Sommaire
             </p>
             <ol className="flex flex-col">
@@ -77,7 +77,7 @@ export default function MethodologyPage() {
                 <li key={id}>
                   <a
                     href={`#${id}`}
-                    className="flex min-h-9 items-center rounded-md px-2 text-sm text-fg-muted transition-colors duration-200 hover:bg-bg-row hover:text-fg"
+                    className="flex min-h-9 items-center border-l-4 border-transparent px-3 font-cond text-[15px] font-bold uppercase tracking-wide text-fg-muted transition-colors duration-200 hover:border-inverse hover:bg-bg-row hover:text-fg"
                   >
                     {label}
                   </a>
@@ -89,9 +89,9 @@ export default function MethodologyPage() {
 
         <div className="flex min-w-0 max-w-3xl flex-col gap-12">
         <div className="flex flex-col gap-3">
-          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Méthodologie</h1>
+          <h1 className="font-display text-4xl uppercase leading-[0.95] tracking-wide sm:text-6xl">Méthodologie</h1>
           <p className="text-[15px] leading-relaxed text-fg-muted">
-            Version du modèle : <span className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-sm text-fg">{MODEL_VERSION}</span>.
+            Version du modèle : <span className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">{MODEL_VERSION}</span>.
             Toutes les valeurs de cette page sont lues directement dans la configuration du pipeline : ce qui est écrit ici
             est ce qui tourne.
           </p>
@@ -211,7 +211,7 @@ export default function MethodologyPage() {
             Seuls les <strong>bookmakers français</strong> agréés par l&apos;ANJ (Winamax, Betclic, Unibet…) sont affichés et
             proposés comme « meilleure cote ». Pinnacle, les exchanges et les autres books européens ne sont pas accessibles
             depuis la France : ils ne servent qu&apos;à construire le consensus. La variable
-            <code className="mx-1 rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-xs">BETTABLE_BOOKMAKERS</code>
+            <code className="mx-1 bg-bg-row px-1.5 py-0.5 font-mono text-xs">BETTABLE_BOOKMAKERS</code>
             restreint la meilleure cote aux comptes que tu détiens.
           </p>
           <p>
@@ -367,16 +367,16 @@ export default function MethodologyPage() {
         <Block id="cadence" title="7. Cadence">
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
-              <code className="font-mono-tabular text-xs">npm run refresh:odds</code> : cotes (limité par le quota The Odds API),
+              <code className="figures text-xs">npm run refresh:odds</code> : cotes (limité par le quota The Odds API),
               puis recalcul de tous les verdicts et publication des picks.
             </li>
             <li>
-              <code className="font-mono-tabular text-xs">npm run refresh:stats</code> : classements et résultats
+              <code className="figures text-xs">npm run refresh:stats</code> : classements et résultats
               football-data.org, résultats internationaux, notes Elo et modèle de buts rejoués, probabilités recalculées, puis
               verdicts.
             </li>
             <li>
-              <code className="font-mono-tabular text-xs">npm run nightly</code> : résultats récents (clubs et sélections),
+              <code className="figures text-xs">npm run nightly</code> : résultats récents (clubs et sélections),
               gradation, calibration, verdicts.
             </li>
           </ul>

@@ -27,8 +27,8 @@ function signalsOf(edge: Edge): StoredEdgeSignals {
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h3 className="flex items-center gap-2.5 font-display text-sm font-semibold uppercase tracking-widest text-fg">
-      <span className="h-4 w-1 rounded-full bg-fg-muted" aria-hidden />
+    <h3 className="flex items-center gap-2.5 font-display text-xl uppercase leading-none tracking-wide text-fg">
+      <span className="h-5 w-2 shrink-0 -skew-x-12 bg-slate" aria-hidden />
       {children}
     </h3>
   );
@@ -37,8 +37,8 @@ function SectionTitle({ children }: { children: ReactNode }) {
 type Tone = "for" | "against" | "neutral";
 
 const TONE_CHIP: Record<Tone, { label: string; icon: IconName; className: string }> = {
-  for: { label: "Pour", icon: "check", className: "bg-rise/10 text-rise" },
-  against: { label: "Contre", icon: "x", className: "bg-fall/10 text-fall" },
+  for: { label: "Pour", icon: "check", className: "bg-rise text-on-rise" },
+  against: { label: "Contre", icon: "x", className: "bg-fall text-on-rise" },
   neutral: { label: "Neutre", icon: "minus", className: "bg-bg-row text-fg-muted" },
 };
 
@@ -46,15 +46,15 @@ const TONE_CHIP: Record<Tone, { label: string; icon: IconName; className: string
 function SignalCard({ index, title, icon, tone, children }: { index: number; title: string; icon: IconName; tone: Tone; children: ReactNode }) {
   const chip = TONE_CHIP[tone];
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-bg-elevated px-4 py-3.5">
+    <div className="flex flex-col gap-2 border-l-4 border-slate bg-bg-row/60 px-4 py-3.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-bg-row text-fg">
+        <span className="flex items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">
+          <span className="flex h-6 w-6 items-center justify-center bg-bg-deep text-fg">
             <Icon name={icon} className="h-3.5 w-3.5" />
           </span>
           {index} · {title}
         </span>
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.className}`}>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 font-cond text-xs font-extrabold uppercase tracking-wider ${chip.className}`}>
           <Icon name={chip.icon} className="h-3 w-3" />
           {chip.label}
         </span>
@@ -88,7 +88,7 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
         ) : (
           <>
             Consensus {formatPct(s.open, 1)} à l&apos;ouverture → {formatPct(s.consensus, 1)} maintenant ({formatPts(s.delta)}).
-            <span className="block text-xs text-fg-muted">Ajustement appliqué au modèle : {formatPts(s.nudge, 2)} (quadratique, plafonné à ±1,5 pt).</span>
+            <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">Ajustement appliqué au modèle : {formatPts(s.nudge, 2)} (quadratique, plafonné à ±1,5 pt).</span>
           </>
         )}
       </SignalCard>
@@ -126,7 +126,7 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
               : s.best.flag === "juiced"
                 ? ` — rabotée par rapport au consensus (${formatPts(s.best.divergence)}).`
                 : ", alignée sur le consensus."}
-            <span className="block text-xs text-fg-muted">
+            <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">
               Consensus pondéré ({s.market.bookCount} books, Pinnacle compté double){s.market.hasSharp ? "" : " — Pinnacle absent"}.
             </span>
           </>
@@ -141,7 +141,7 @@ function MarketSignals({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitle
           <>Pinnacle vs books grand public : {formatPts(s.sharpDivergence)}.</>
         )}
         {s.predictedClose !== null ? (
-          <span className="block text-xs text-fg-muted">
+          <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">
             Clôture prévue {formatPct(s.predictedClose, 1)} ({formatPts(s.predictedMove)} d&apos;ici le coup d&apos;envoi)
             {s.predictedClv !== null ? ` — CLV attendue à la meilleure cote : ${formatSignedPct(s.predictedClv)}.` : "."}
           </span>
@@ -159,27 +159,27 @@ function BooksTable({ edge, bookTitles }: { edge: Edge; bookTitles: BookTitles }
       {books.length === 0 ? (
         <p className="text-sm text-fg-muted">Aucun bookmaker français ne cote ce marché.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
+        <div className="overflow-x-auto bg-bg-row/40">
           <table className="w-full min-w-[520px] border-collapse text-sm">
-            <thead className="bg-bg-row/60">
-              <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-                <th className="px-4 py-2 font-normal">Bookmaker</th>
-                <th className="px-3 py-2 text-right font-normal">Cote</th>
-                <th className="px-3 py-2 text-right font-normal">Proba sans marge</th>
-                <th className="px-3 py-2 text-right font-normal">Consensus − book</th>
-                <th className="px-4 py-2 font-normal">Signal</th>
+            <thead className="bg-bg-deep">
+              <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
+                <th className="px-4 py-2.5 font-bold">Bookmaker</th>
+                <th className="px-3 py-2.5 text-right font-bold">Cote</th>
+                <th className="px-3 py-2.5 text-right font-bold">Proba sans marge</th>
+                <th className="px-3 py-2.5 text-right font-bold">Consensus − book</th>
+                <th className="px-4 py-2.5 font-bold">Signal</th>
               </tr>
             </thead>
             <tbody>
               {books.map((b) => (
-                <tr key={b.bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={b.bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <td className="px-4 py-2 text-fg">
                     {bookTitles.get(b.bookmakerKey) ?? b.bookmakerKey}
                     {b.bettable ? "" : <span className="ml-1.5 text-xs text-fg-muted">(pas de compte)</span>}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatOdds(b.price)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPct(b.fair, 1)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPts(b.divergence)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatOdds(b.price)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatPct(b.fair, 1)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatPts(b.divergence)}</td>
                   <td className="px-4 py-2 text-xs">
                     {b.flag === "stale" ? (
                       <span className="inline-flex items-center gap-1 font-medium text-rise">
@@ -228,37 +228,37 @@ function MarketAnalysis({
       <SectionTitle>{marketLabel(recommended.marketKey, recommended.point)}</SectionTitle>
 
       <div
-        className={`flex flex-col gap-4 rounded-xl border border-border px-5 py-4 ${
-          staked ? "border-l-4 border-l-accent bg-accent-dim/40" : "bg-bg-row/50"
-        }`}
+        className={`flex flex-col gap-4 border-l-4 px-5 py-4 ${staked ? "border-accent bg-accent-dim/60" : "border-slate bg-bg-row/60"}`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-fg-muted">{staked ? "Le modèle prend" : "Le modèle pencherait pour"}</span>
-            <span className="font-display text-xl font-bold text-fg">{label(recommended)}</span>
+            <span className="font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">
+              {staked ? "Le modèle prend" : "Le modèle pencherait pour"}
+            </span>
+            <span className="font-display text-3xl uppercase leading-none tracking-wide text-fg">{label(recommended)}</span>
           </div>
           <TierBadge tier={recommended.tier} />
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
-            <span className="block text-xs text-fg-muted">Proba modèle / marché</span>
-            <span className="font-mono-tabular text-[15px] font-semibold">
+            <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">Proba modèle / marché</span>
+            <span className="figures text-lg font-bold">
               {formatPct(recommended.modelProb, 1)} / {formatPct(recommended.marketProb, 1)}
             </span>
           </div>
           <div>
-            <span className="block text-xs text-fg-muted">Edge</span>
-            <span className="font-mono-tabular text-[15px] font-semibold">{formatPts(recommended.edge)}</span>
+            <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">Edge</span>
+            <span className="figures text-lg font-bold">{formatPts(recommended.edge)}</span>
           </div>
           <div>
-            <span className="block text-xs text-fg-muted">Meilleure cote · EV</span>
-            <span className="font-mono-tabular text-[15px] font-semibold">
+            <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">Meilleure cote · EV</span>
+            <span className="figures text-lg font-bold">
               {formatOdds(recommended.bestPrice)} · {formatSignedPct(recommended.ev)}
             </span>
           </div>
           <div>
-            <span className="block text-xs text-fg-muted">Mise conseillée</span>
-            <span className="font-mono-tabular text-[15px] font-semibold">
+            <span className="block font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">Mise conseillée</span>
+            <span className="figures text-lg font-bold">
               {staked ? `${formatUnits(recommended.stakeUnits)} (¼ Kelly)` : "aucune"}
             </span>
           </div>
@@ -276,35 +276,35 @@ function MarketAnalysis({
         <ReasonList reasons={recommended.reasons} />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
+      <div className="overflow-x-auto bg-bg-row/40">
         <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead className="bg-bg-row/60">
-            <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-              <th className="px-4 py-2 font-normal">Issue</th>
-              <th className="px-3 py-2 text-right font-normal" title="Elo + modèle de buts, sans information de marché">Modèle brut</th>
-              <th className="px-3 py-2 text-right font-normal" title="Après ancre exchange (5 %) et mouvement de ligne">Ajusté</th>
-              <th className="px-3 py-2 text-right font-normal" title="Après calibration (échelle + décalages) et clamp">Final</th>
-              <th className="px-3 py-2 text-right font-normal">Marché</th>
-              <th className="px-3 py-2 text-right font-normal">Pinnacle</th>
-              <th className="px-3 py-2 text-right font-normal">Edge</th>
-              <th className="px-3 py-2 text-right font-normal">EV</th>
-              <th className="px-4 py-2 font-normal">Verdict</th>
+          <thead className="bg-bg-deep">
+            <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
+              <th className="px-4 py-2.5 font-bold">Issue</th>
+              <th className="px-3 py-2.5 text-right font-bold" title="Elo + modèle de buts, sans information de marché">Modèle brut</th>
+              <th className="px-3 py-2.5 text-right font-bold" title="Après ancre exchange (5 %) et mouvement de ligne">Ajusté</th>
+              <th className="px-3 py-2.5 text-right font-bold" title="Après calibration (échelle + décalages) et clamp">Final</th>
+              <th className="px-3 py-2.5 text-right font-bold">Marché</th>
+              <th className="px-3 py-2.5 text-right font-bold">Pinnacle</th>
+              <th className="px-3 py-2.5 text-right font-bold">Edge</th>
+              <th className="px-3 py-2.5 text-right font-bold">EV</th>
+              <th className="px-4 py-2.5 font-bold">Verdict</th>
             </tr>
           </thead>
           <tbody>
             {edges.map((e) => (
               <tr
                 key={e.id}
-                className={`border-t border-border transition-colors duration-150 hover:bg-bg-row/50 ${e.isRecommended ? "font-medium" : ""}`}
+                className={`border-t border-border transition-colors duration-150 hover:bg-bg-row/60 ${e.isRecommended ? "font-medium" : ""}`}
               >
                 <td className="whitespace-nowrap px-4 py-2 text-fg">{label(e)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular text-fg-muted">{formatPct(e.modelRawProb, 1)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular text-fg-muted">{formatPct(e.modelBaseProb, 1)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPct(e.modelProb, 1)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPct(e.marketProb, 1)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular text-fg-muted">{formatPct(e.sharpProb, 1)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatPts(e.edge)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-right font-mono-tabular">{formatSignedPct(e.ev)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures text-fg-muted">{formatPct(e.modelRawProb, 1)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures text-fg-muted">{formatPct(e.modelBaseProb, 1)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatPct(e.modelProb, 1)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatPct(e.marketProb, 1)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures text-fg-muted">{formatPct(e.sharpProb, 1)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatPts(e.edge)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-right figures">{formatSignedPct(e.ev)}</td>
                 <td className="px-4 py-2">
                   <TierBadge tier={e.tier} compact />
                 </td>
@@ -356,8 +356,8 @@ function ModelBreakdown({ prediction, match }: { prediction: MatchPrediction; ma
     <section className="flex flex-col gap-4">
       <SectionTitle>Le modèle, pièce par pièce</SectionTitle>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg-row/50 px-4 py-3.5 text-sm leading-relaxed">
-          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Colonne vertébrale : Elo {tuning}</span>
+        <div className="flex flex-col gap-1.5 border-l-4 border-slate bg-bg-row/60 px-4 py-3.5 text-sm leading-relaxed">
+          <span className="font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">Colonne vertébrale : Elo {tuning}</span>
           <span>
             {match.homeTeam} {elo(prediction.eloHomeRating)} · {match.awayTeam} {elo(prediction.eloAwayRating)}
           </span>
@@ -371,8 +371,8 @@ function ModelBreakdown({ prediction, match }: { prediction: MatchPrediction; ma
           </span>
           <span>Écart Elo effectif {signedElo(c.eloDiff)} → 1 / X / 2 : {three(prediction.eloHomeWin, prediction.eloDraw, prediction.eloAwayWin)}</span>
         </div>
-        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg-row/50 px-4 py-3.5 text-sm leading-relaxed">
-          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+        <div className="flex flex-col gap-1.5 border-l-4 border-slate bg-bg-row/60 px-4 py-3.5 text-sm leading-relaxed">
+          <span className="font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">
             Modèle de buts{" "}
             {!c.goalsFitted
               ? "(Poisson sur le classement, repli)"

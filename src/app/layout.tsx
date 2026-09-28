@@ -1,26 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Anton, Barlow, Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
 import { BetSlip } from "@/components/BetSlip";
 import { SecretKnock } from "@/components/SecretKnock";
-import { DEFAULT_THEME, THEME_SCRIPT } from "@/lib/themes";
 import "./globals.css";
 
-const display = Bricolage_Grotesque({
-  variable: "--font-display",
+// The « Stade » type system (src/app/globals.css): Anton for titles and figures, Barlow
+// Condensed for labels, Barlow for text; IBM Plex Mono only where code or a terminal shows.
+const anton = Anton({
+  variable: "--font-anton",
   subsets: ["latin"],
-  weight: ["600", "800"],
+  weight: "400",
 });
 
-const body = Instrument_Sans({
-  variable: "--font-body",
+const barlow = Barlow({
+  variable: "--font-barlow",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const barlowCondensed = Barlow_Condensed({
+  variable: "--font-barlow-condensed",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
 const mono = IBM_Plex_Mono({
-  variable: "--font-mono",
+  variable: "--font-plex-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -29,22 +36,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2c2b32",
+  themeColor: "#232228",
 };
 
-// The page is prerendered in the default theme; the inline script swaps in the one saved in the
-// cookie before the first paint (src/lib/themes.ts), hence suppressHydrationWarning on <html>.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="fr"
-      data-theme={DEFAULT_THEME}
-      suppressHydrationWarning
-      className={`${display.variable} ${body.variable} ${mono.variable} h-full`}
-    >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
+    <html lang="fr" className={`${anton.variable} ${barlow.variable} ${barlowCondensed.variable} ${mono.variable} h-full`}>
       <body className="min-h-full flex flex-col">
         {children}
         <BetSlip />

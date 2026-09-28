@@ -19,6 +19,7 @@ import { myBets, newBetId, useMyBets } from "@/lib/myBets";
 import { newSavedBet } from "@/lib/savedBets";
 import { COMBO_STAKE, advisedAmount, parseBankroll, selectionKey, type Selection, type SlipMode } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
+import { Straight, slantTabClass } from "@/components/Slant";
 import { TierBadge } from "@/components/Verdict";
 
 const WHOLE_AMOUNT = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
@@ -45,6 +46,10 @@ function summarize({ selections, mode }: SlipState): SlipSummary {
 
 const share = (bankroll: number, units: number) => formatMoney((bankroll * units) / 100);
 
+const FIELD_LABEL = "font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted";
+const AMOUNT_INPUT =
+  "figures min-h-11 w-full border-2 border-border bg-bg-row pl-3 pr-8 text-lg font-semibold text-fg placeholder:font-medium placeholder:text-fg-muted transition-colors duration-200 focus:border-inverse focus:outline-none focus-visible:outline-none aria-[invalid=true]:border-fall";
+
 /** The bankroll input, saved in this browser as soon as it reads as an amount. */
 export function BankrollField({ id, className = "" }: { id: string; className?: string }) {
   const { bankroll } = useBetSlip();
@@ -55,7 +60,7 @@ export function BankrollField({ id, className = "" }: { id: string; className?: 
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={id} className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+      <label htmlFor={id} className={FIELD_LABEL}>
         Ma bankroll
       </label>
       <div className="relative">
@@ -76,9 +81,9 @@ export function BankrollField({ id, className = "" }: { id: string; className?: 
             const amount = parseBankroll(text);
             if (amount !== null || text.trim() === "") betSlip.setBankroll(amount);
           }}
-          className="min-h-11 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-8 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/25 aria-[invalid=true]:border-fall"
+          className={AMOUNT_INPUT}
         />
-        <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-fg-muted">
+        <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-cond text-base font-bold text-fg-muted">
           €
         </span>
       </div>
@@ -94,14 +99,14 @@ export function BankrollPrompt({ className = "" }: { className?: string }) {
   return (
     <section
       aria-labelledby="bankroll-prompt-title"
-      className={`flex flex-col gap-4 rounded-xl border border-border border-l-4 border-l-inverse bg-bg-elevated p-4 shadow-card sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-5 ${className}`}
+      className={`flex flex-col gap-4 border-l-[5px] border-inverse bg-bg-elevated p-4 shadow-hard sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-5 ${className}`}
     >
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg-row text-fg">
-          <Icon name="wallet" className="h-5 w-5" />
+      <div className="flex items-start gap-3.5">
+        <span className="flex h-11 w-11 shrink-0 -skew-x-12 items-center justify-center bg-bg-row text-fg">
+          <Icon name="wallet" className="h-5 w-5 skew-x-12" />
         </span>
         <div className="flex flex-col gap-1">
-          <h2 id="bankroll-prompt-title" className="font-display text-base font-semibold text-fg">
+          <h2 id="bankroll-prompt-title" className="font-display text-xl uppercase leading-tight tracking-wide text-fg">
             Combien miser sur ta sélection ?
           </h2>
           <p className="max-w-xl text-sm leading-relaxed text-fg-muted">
@@ -123,18 +128,16 @@ const MODES: { value: SlipMode; label: string; help: string }[] = [
 function ModeSwitch({ mode }: { mode: SlipMode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div role="group" aria-label="Type de pari" className="flex gap-1 rounded-lg border border-border bg-bg-row p-1">
+      <div role="group" aria-label="Type de pari" className="flex gap-1.5">
         {MODES.map((m) => (
           <button
             key={m.value}
             type="button"
             aria-pressed={mode === m.value}
             onClick={() => betSlip.setMode(m.value)}
-            className={`flex min-h-9 flex-1 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors duration-200 ${
-              mode === m.value ? "bg-bg-elevated text-fg shadow-card" : "text-fg-muted hover:text-fg"
-            }`}
+            className={`${slantTabClass(mode === m.value)} flex-1 justify-center ${mode === m.value ? "" : "bg-bg-row"}`}
           >
-            {m.label}
+            <Straight>{m.label}</Straight>
           </button>
         ))}
       </div>
@@ -148,8 +151,8 @@ function StakeLine({ selection, stake, bankroll }: { selection: Selection; stake
   const blocked = stakeBlockerLabel(stake, selection.verdict);
   if (blocked || !selection.verdict) {
     return (
-      <div className="flex items-start gap-3 rounded-lg bg-bg-row px-3 py-2.5">
-        <span className="font-display text-lg font-semibold leading-tight text-fg-muted">{formatBankrollShare(0)}</span>
+      <div className="flex items-start gap-3 bg-bg-row px-3 py-2.5">
+        <span className="font-display text-2xl leading-none tracking-wide text-fg-muted">{formatBankrollShare(0)}</span>
         <span className="flex flex-col gap-0.5 text-xs leading-relaxed">
           <span className="font-semibold text-fg">{blocked?.title}</span>
           <span className="text-fg-muted">{blocked?.detail}</span>
@@ -158,14 +161,12 @@ function StakeLine({ selection, stake, bankroll }: { selection: Selection; stake
     );
   }
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg bg-accent-dim/70 px-3 py-2.5">
+    <div className="flex flex-col gap-1.5 border-l-4 border-accent bg-accent-dim px-3 py-2.5">
       <div className="flex items-center justify-between gap-3">
         <TierBadge tier={selection.verdict.tier} compact />
-        <span className="flex items-baseline gap-1.5">
-          <span className="font-display text-lg font-bold text-fg">{formatBankrollShare(stake.units)}</span>
-          {bankroll !== null ? (
-            <span className="font-mono-tabular text-sm font-semibold text-accent-strong">· {share(bankroll, stake.units)}</span>
-          ) : null}
+        <span className="flex items-baseline gap-1.5 font-display text-2xl leading-none tracking-wide">
+          <span className="text-fg">{formatBankrollShare(stake.units)}</span>
+          {bankroll !== null ? <span className="text-accent">· {share(bankroll, stake.units)}</span> : null}
         </span>
       </div>
       <p className="text-xs text-fg-muted">
@@ -201,7 +202,7 @@ function StakeField({
   return (
     <div className="flex items-end justify-between gap-3">
       <div className="flex flex-col gap-1">
-        <label htmlFor={id} className="text-xs font-semibold text-fg-muted">
+        <label htmlFor={id} className={FIELD_LABEL}>
           {label}
         </label>
         <div className="relative w-32">
@@ -221,16 +222,16 @@ function StakeField({
               const amount = parseBankroll(text);
               if (amount !== null || text.trim() === "") onChange(amount);
             }}
-            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-7 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/25 aria-[invalid=true]:border-fall"
+            className={AMOUNT_INPUT}
           />
-          <span aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm font-medium text-fg-muted">
+          <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-cond text-base font-bold text-fg-muted">
             €
           </span>
         </div>
       </div>
-      <div className="flex flex-col items-end gap-0.5 pb-2">
-        <span className="text-xs text-fg-muted">Gain potentiel</span>
-        <span className="font-mono-tabular text-sm font-semibold text-fg">{stake === null ? "—" : formatMoney(stake * price)}</span>
+      <div className="flex flex-col items-end gap-0.5 pb-1">
+        <span className={FIELD_LABEL}>Gain potentiel</span>
+        <span className="font-display text-2xl leading-none tracking-wide text-fg">{stake === null ? "—" : formatMoney(stake * price)}</span>
       </div>
     </div>
   );
@@ -242,7 +243,7 @@ function LegLine({ selection, stake }: { selection: Selection; stake: SingleStak
   if (blocked) {
     return (
       <p className="flex items-start gap-2 text-xs leading-relaxed">
-        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-fall/10 text-fall">
+        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center bg-fall text-on-rise">
           <Icon name="x" className="h-3 w-3" />
         </span>
         <span>
@@ -254,7 +255,7 @@ function LegLine({ selection, stake }: { selection: Selection; stake: SingleStak
   }
   return (
     <p className="flex items-center gap-2 text-xs text-fg-muted">
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rise/10 text-rise">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center bg-rise text-on-rise">
         <Icon name="check" className="h-3 w-3" />
       </span>
       Vaut une mise à elle seule ({formatBankrollShare(stake.units)})
@@ -279,7 +280,7 @@ export function SelectionItem({
 }) {
   const outcome = outcomeLabel(s.marketKey, s.outcomeName, s.point, s.homeTeam, s.awayTeam);
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-border bg-bg-elevated p-3.5 shadow-card">
+    <li className="flex flex-col gap-3 border-l-4 border-slate bg-bg p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <Link
@@ -289,18 +290,18 @@ export function SelectionItem({
           >
             {s.homeTeam} – {s.awayTeam} · {formatKickoff(new Date(s.commenceTime))}
           </Link>
-          <span className="truncate text-[15px] font-semibold text-fg">{outcome}</span>
+          <span className="truncate font-cond text-xl font-extrabold uppercase leading-tight tracking-wide text-fg">{outcome}</span>
           <span className="text-xs text-fg-muted">
             {marketLabel(s.marketKey, s.point)} · {s.bookmakerTitle}
           </span>
         </div>
         <div className="flex shrink-0 items-start gap-1">
-          <span className="font-mono-tabular text-lg font-bold text-fg">{formatOdds(s.price)}</span>
+          <span className="font-display text-3xl leading-none tracking-wide text-fg">{formatOdds(s.price)}</span>
           <button
             type="button"
             onClick={() => betSlip.remove(selectionKey(s))}
             aria-label={`Retirer ${outcome} de ma sélection`}
-            className="-mr-1.5 flex h-8 w-8 items-center justify-center rounded-md text-fg-muted transition-colors duration-200 hover:bg-bg-row hover:text-fall"
+            className="-mr-1.5 flex h-8 w-8 items-center justify-center text-fg-muted transition-colors duration-200 hover:bg-bg-row hover:text-fall"
           >
             <Icon name="x" />
           </button>
@@ -373,11 +374,13 @@ function SaveButton({ slip, summary, onDone }: { slip: SlipState; summary: SlipS
         type="button"
         onClick={save}
         disabled={sameEvent || missing}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-on-accent shadow-card transition-colors duration-200 enabled:hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-45"
+        className="flex min-h-12 w-full -skew-x-6 items-center justify-center bg-inverse px-4 text-on-inverse transition-colors duration-200 enabled:hover:bg-fg disabled:cursor-not-allowed disabled:opacity-45"
       >
-        <Icon name="ticket" className="h-4 w-4" />
-        {label}
-        {!sameEvent && !missing ? <span className="font-mono-tabular font-medium">· {formatMoney(total)}</span> : null}
+        <span className="inline-flex skew-x-6 items-center gap-2 font-display text-xl uppercase leading-none tracking-wide">
+          <Icon name="ticket" className="h-5 w-5" />
+          {label}
+          {!sameEvent && !missing ? <span>· {formatMoney(total)}</span> : null}
+        </span>
       </button>
       <p className="text-xs leading-relaxed text-fg-muted">{hint}</p>
     </div>
@@ -388,7 +391,7 @@ function SaveButton({ slip, summary, onDone }: { slip: SlipState; summary: SlipS
 function SaveNoticeBanner({ notice }: { notice: SaveNotice }) {
   if (notice.kind === "started") {
     return (
-      <p role="alert" className="flex items-start gap-2.5 rounded-xl border border-fall/30 bg-fall/5 px-4 py-3 text-sm leading-relaxed text-fg">
+      <p role="alert" className="flex items-start gap-2.5 border-l-4 border-fall bg-bg-row px-4 py-3 text-sm leading-relaxed text-fg">
         <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 text-fall" />
         Un match de ta sélection a commencé : sa cote n&apos;est plus proposée, elle a été retirée. Vérifie ta sélection avant de
         l&apos;enregistrer.
@@ -397,8 +400,8 @@ function SaveNoticeBanner({ notice }: { notice: SaveNotice }) {
   }
   const many = notice.count > 1;
   return (
-    <div role="status" className="flex items-start gap-3 rounded-xl border border-rise/30 bg-rise/5 px-4 py-3">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rise text-on-rise">
+    <div role="status" className="flex items-start gap-3 border-l-4 border-rise bg-bg-row px-4 py-3">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center bg-rise text-on-rise">
         <Icon name="check" className="h-3.5 w-3.5" />
       </span>
       <div className="flex flex-col gap-1 text-sm">
@@ -436,20 +439,18 @@ function SlipTotal({ summary, bankroll, count }: { summary: SlipSummary; bankrol
             Combiné de {count} cotes
             {combo.probability !== null ? ` · proba modèle ${formatFrPct(combo.probability)}` : ""}
           </span>
-          <span className="font-mono-tabular font-semibold text-fg">cote {formatOdds(combo.price)}</span>
+          <span className="figures text-base font-bold text-fg">cote {formatOdds(combo.price)}</span>
         </div>
       ) : null}
       <div className="flex items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            {combo ? "À miser" : count > 1 ? "Total à miser" : "À miser"}
-          </span>
+          <span className={FIELD_LABEL}>{combo ? "À miser" : count > 1 ? "Total à miser" : "À miser"}</span>
           <span className="text-sm leading-snug text-fg-muted">{caption}</span>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className="font-display text-3xl font-bold leading-none text-fg">{formatBankrollShare(units)}</span>
+          <span className="font-display text-4xl leading-none tracking-wide text-fg">{formatBankrollShare(units)}</span>
           {bankroll !== null ? (
-            <span className="font-mono-tabular text-base font-semibold text-accent-strong">{share(bankroll, units)}</span>
+            <span className="font-display text-2xl leading-none tracking-wide text-accent">{share(bankroll, units)}</span>
           ) : (
             <button
               type="button"
@@ -473,14 +474,14 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
 
   return (
     <>
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Icon name="ticket" className="h-5 w-5 text-accent-strong" />
-          <h2 id="slip-title" className="font-display text-lg font-semibold text-fg">
+      <header className="flex shrink-0 items-center justify-between gap-3 bg-accent px-5 py-3 text-on-accent">
+        <div className="flex items-center gap-2.5">
+          <Icon name="ticket" className="h-5 w-5" />
+          <h2 id="slip-title" className="font-display text-2xl uppercase leading-none tracking-wide">
             Ma sélection
           </h2>
           {count > 0 ? (
-            <span className="rounded-full bg-bg-row px-2 py-0.5 text-xs font-medium text-fg-muted">
+            <span className="bg-on-accent px-2 py-1 font-cond text-xs font-extrabold uppercase leading-none tracking-wider text-accent">
               {count} cote{count > 1 ? "s" : ""}
             </span>
           ) : null}
@@ -489,7 +490,7 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
           type="button"
           onClick={betSlip.close}
           aria-label="Fermer ma sélection"
-          className="-mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-fg-muted transition-colors duration-200 hover:bg-bg-row hover:text-fg"
+          className="-mr-2 flex h-10 w-10 items-center justify-center transition-colors duration-200 hover:bg-on-accent/10 focus-visible:outline-on-accent"
         >
           <Icon name="x" className="h-5 w-5" />
         </button>
@@ -499,11 +500,11 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
         {notice ? <SaveNoticeBanner notice={notice} /> : null}
         <BankrollField id={BANKROLL_INPUT_ID} />
         {count === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-5 py-8 text-center">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-row text-fg-muted">
-              <Icon name="ticket" className="h-5 w-5" />
+          <div className="flex flex-col items-center gap-2 border-2 border-dashed border-border px-5 py-8 text-center">
+            <span className="flex h-11 w-11 -skew-x-12 items-center justify-center bg-bg-row text-fg-muted">
+              <Icon name="ticket" className="h-5 w-5 skew-x-12" />
             </span>
-            <p className="mt-1 font-display text-base font-semibold text-fg">Ta sélection est vide</p>
+            <p className="mt-1 font-display text-xl uppercase tracking-wide text-fg">Ta sélection est vide</p>
             <p className="text-sm leading-relaxed text-fg-muted">
               Clique sur une cote (tableau, fiche d&apos;un match ou picks) pour l&apos;ajouter : tu verras quel pourcentage de ta
               bankroll tu peux y miser.
@@ -537,7 +538,7 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
       </div>
 
       {count > 0 ? (
-        <footer className="flex shrink-0 flex-col gap-3 border-t border-border bg-bg-row/60 px-5 py-4">
+        <footer className="flex shrink-0 flex-col gap-3.5 border-t-2 border-border bg-bg-deep px-5 py-4">
           <SlipTotal summary={summary} bankroll={bankroll} count={count} />
           {summary.combo ? (
             <StakeField
@@ -553,7 +554,7 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
             <button
               type="button"
               onClick={betSlip.clear}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md font-medium text-fg-muted transition-colors duration-200 hover:text-fall"
+              className="inline-flex min-h-9 items-center gap-1.5 font-medium text-fg-muted transition-colors duration-200 hover:text-fall"
             >
               <Icon name="trash" className="h-3.5 w-3.5" /> Vider la sélection
             </button>
@@ -571,7 +572,7 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
   );
 }
 
-/** The floating button that opens the slip: in orange, since it holds the user's selection. */
+/** The floating slab that opens the slip: in orange, since it holds the user's selection. */
 export function SlipLauncher({
   count,
   headline,
@@ -589,16 +590,30 @@ export function SlipLauncher({
       type="button"
       onClick={onClick}
       aria-label={`Ma sélection : ${count} cote${count > 1 ? "s" : ""}, ${headline}`}
-      className={`flex min-h-12 items-center justify-between gap-4 rounded-full bg-accent py-2 pl-4 pr-5 text-on-accent shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:-translate-y-0.5 ${className}`}
+      className={`flex min-h-12 -skew-x-6 items-center justify-between gap-5 bg-accent py-2 pl-4 pr-5 text-on-accent shadow-hard transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-on-accent ${className}`}
     >
-      <span className="flex items-center gap-2 font-semibold">
+      <span className="flex skew-x-6 items-center gap-2.5">
         <Icon name="ticket" className="h-5 w-5" />
-        Ma sélection
-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-on-accent px-1.5 font-mono-tabular text-xs font-bold text-accent">
-          {count}
-        </span>
+        <span className="font-display text-xl uppercase leading-none tracking-wide">Ma sélection</span>
+        <span className="flex h-6 min-w-6 items-center justify-center bg-on-accent px-1.5 font-display text-base leading-none text-accent">{count}</span>
       </span>
-      <span className="text-sm font-semibold">{headline}</span>
+      <span className="skew-x-6 font-cond text-base font-bold uppercase tracking-wide">{headline}</span>
+    </button>
+  );
+}
+
+/** The bankroll in the header, from `sm`: it opens the slip, where it is typed. */
+export function HeaderBankroll() {
+  const { bankroll } = useBetSlip();
+  return (
+    <button
+      type="button"
+      onClick={betSlip.open}
+      aria-label={bankroll === null ? "Ma bankroll : à indiquer dans ma sélection" : `Ma bankroll : ${formatAmount(bankroll)} € — ouvrir ma sélection`}
+      className="hidden shrink-0 items-baseline gap-2 font-cond text-sm font-bold uppercase tracking-wider text-fg-muted transition-colors duration-200 hover:text-fg sm:inline-flex"
+    >
+      Bankroll
+      <span className="font-display text-2xl leading-none tracking-wide text-fg">{bankroll === null ? "—" : `${formatAmount(bankroll)} €`}</span>
     </button>
   );
 }
@@ -631,7 +646,7 @@ export function BetSlip() {
       {count > 0 ? (
         <>
           {/* Keeps the end of every page clear of the floating button. */}
-          <div aria-hidden data-chrome className="h-24 shrink-0 bg-bg-elevated" />
+          <div aria-hidden className="h-24 shrink-0 bg-bg-deep" />
           {!open ? (
             <SlipLauncher
               count={count}
@@ -651,7 +666,7 @@ export function BetSlip() {
           // A click on the backdrop lands on the dialog element itself.
           if (event.target === event.currentTarget) betSlip.close();
         }}
-        className="m-0 mt-auto max-h-[90dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl border-0 bg-bg-elevated p-0 text-fg shadow-2xl transition-[translate,opacity] duration-300 ease-out open:flex starting:translate-y-6 starting:opacity-0 backdrop:bg-(--backdrop) sm:ml-auto sm:mt-0 sm:h-dvh sm:max-h-dvh sm:w-[26rem] sm:rounded-none sm:rounded-l-2xl sm:starting:translate-x-6 sm:starting:translate-y-0"
+        className="m-0 mt-auto max-h-[90dvh] w-full max-w-none flex-col overflow-hidden border-0 bg-bg-elevated p-0 text-fg shadow-2xl transition-[translate,opacity] duration-300 ease-out open:flex starting:translate-y-6 starting:opacity-0 backdrop:bg-[rgb(16_16_20/0.65)] sm:ml-auto sm:mt-0 sm:h-dvh sm:max-h-dvh sm:w-[26rem] sm:border-l-[3px] sm:border-slate sm:starting:translate-x-6 sm:starting:translate-y-0"
       >
         {open ? <SlipContent slip={slip} summary={summary} /> : null}
       </dialog>

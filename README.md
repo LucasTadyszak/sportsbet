@@ -123,20 +123,19 @@ scripts/refresh-edges.ts    # recalcule les verdicts sans appel API (après un c
 src/lib/dates.ts            # jours/formatage ancrés sur Europe/Paris
 src/lib/board.ts            # requêtes Prisma -> BoardEvent/MatchDetail (cotes françaises, probabilités du marché, erreurs de cote, logos)
 src/lib/journal.ts, src/lib/modelHealth.ts, src/lib/labels.ts  # lectures + libellés FR
-src/lib/competitions.ts     # identité de chaque compétition : nom FR, drapeau, dégradé et motif de son bandeau
+src/lib/competitions.ts     # identité de chaque compétition : nom FR, drapeau, dégradé de son bandeau, couleurs de repli des clubs
 src/components/TeamCrest.tsx # logo d'un club à côté de son nom (bouclier neutre s'il n'y en a pas), logo d'une compétition
-src/components/Competition.tsx # logo de la compétition (sinon icône sport + drapeau rond), bandeau et motif d'une compétition
-src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, cadre aux couleurs des clubs, tuiles 1/N/2, score en direct
+src/components/Competition.tsx # logo de la compétition (sinon icône sport + drapeau rond), bandeau d'une compétition coupé en biais
+src/components/MatchCard.tsx # bloc de match : bandeau de la compétition, barres aux couleurs des maillots, tuiles 1/N/2, score en direct
 src/components/LiveRefresh.tsx # rafraîchit le tableau chaque minute tant qu'un match suivi est en cours
 src/components/RemoteLogo.tsx # logo distant, remplacé par le bouclier (club) ou sport + drapeau (compétition) s'il ne charge pas
 src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdict du modèle sur son issue, les mises tapées
 src/lib/betSlip.ts          # état de la sélection, de la bankroll et des mises, dans le localStorage du navigateur
 src/components/OddsButton.tsx # une cote cliquable (tuiles 1/N/2, tableau de cotes, picks), flamme d'erreur de cote comprise
 src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection » (mises, enregistrement)
-src/lib/themes.ts           # les trois thèmes (Graphite, Ardoise, Brume), le cookie qui garde le choix, le script qui l'applique avant l'affichage
-src/app/globals.css         # les couleurs de chaque thème en variables CSS, contrastes vérifiés par src/lib/themes.test.ts
-src/components/ThemeSwitcher.tsx # le bouton « Thème » de l'en-tête et son menu
-src/app/themes/             # les trois thèmes côte à côte, sur des matchs d'exemple (src/lib/themePreview.ts)
+src/app/globals.css         # le design system « Stade » : couleurs en variables CSS, polices, ombres franches, coupe en biais
+src/lib/designTokens.test.ts # contrastes WCAG des couleurs de globals.css, sur chaque fond où elles se lisent
+src/components/Slant.tsx    # les onglets et étiquettes penchés du design system
 src/lib/savedBets.ts        # « Mes paris » : un pari enregistré, son règlement au score à 90 min (simple ou combiné), le bilan
 src/lib/myBets.ts           # les paris enregistrés, dans le localStorage du navigateur
 src/lib/betResults.ts       # où en sont les matchs des paris enregistrés : score à 90 min, score en direct, annulation
@@ -166,10 +165,9 @@ src/lib/apiUsage.ts, src/lib/usagePeriods.ts # comptes par API, par heure ou jou
 ```
 
 Board inspiré de Winamax et Betclic : chaque match est un **bloc**
-habillé aux couleurs de sa compétition (bandeau en dégradé avec son motif —
-chevrons, étoiles ou bandes — et son logo, sinon son drapeau) et de ses deux clubs
-(cadre rayé aux couleurs du maillot de chaque équipe, logo cerclé de ces mêmes
-couleurs), avec les cotes principales 1 / N / 2 en grandes tuiles cliquables et, sous
+habillé aux couleurs de sa compétition (bandeau en dégradé coupé en biais, avec son
+logo, sinon son drapeau) et de ses deux clubs (une barre aux couleurs du maillot de
+chaque équipe, à côté de son logo), avec les cotes principales 1 / N / 2 en grandes tuiles cliquables et, sous
 chacune, la probabilité du marché marge retirée. Les couleurs des clubs viennent de
 football-data.org (`clubColors`, un appel par compétition au rythme du classement) ;
 un club sans couleurs connues prend celles de sa compétition. Les blocs, un par
@@ -195,28 +193,25 @@ rien de plus en base. Les pages
 Methodology) ; `/mes-paris` suit les paris que l'utilisateur a enregistrés (voir
 « Mes paris » plus bas).
 
-### Thèmes
+### Design system « Stade »
 
-Le site a trois thèmes, bâtis sur la même palette — graphite `#2c2b32`, ardoise `#4a576a`, acier
-`#a8b6ca` — et un orange `#ff7a1a` réservé à ce qui compte : la cote que le modèle prendrait
-(cerclée d'orange, badge « Pick »), une cote dans « Ma sélection » (pleine d'orange), le bouton de
-la sélection, les mises conseillées et les « Top pick ». Navigation, filtres, onglets et jours
-actifs restent dans les neutres de la palette, pour que l'orange veuille toujours dire « regarde
-ici ».
+Le site suit un seul design system, « Stade », pensé comme le tableau d'affichage d'un stade.
+Sa palette : graphite `#2c2b32` pour le fond, ardoise `#4a576a` pour les filets et les barres
+de section, acier `#a8b6ca` pour les textes secondaires et ce qui est actif, et un orange
+`#ff7a1a` réservé à ce qui compte.
 
-| Thème | Allure |
+| Élément | Règle |
 | --- | --- |
-| **Graphite** (par défaut) | Sombre : fond graphite, cartes ardoise fumée, textes secondaires en acier ; les logos posés sur une pastille claire |
-| **Ardoise** | Mixte : en-tête et pied de page graphite, fond acier, cartes blanches, filtres actifs en ardoise |
-| **Brume** | Clair : fond brumeux, cartes blanches, encre graphite |
+| **Typographie** | Anton pour les titres, les cotes et les chiffres clés, en capitales ; Barlow Condensed pour les étiquettes, les onglets et les noms d'équipes ; Barlow pour le texte courant ; IBM Plex Mono pour la console. Chargées par `next/font` dans `src/app/layout.tsx` |
+| **Formes** | Angles vifs, ombres franches décalées (`shadow-hard`), onglets et étiquettes penchés de 12° (`src/components/Slant.tsx`), bandeau de compétition coupé en biais (`cut-slant`) |
+| **Orange** | La cote que le modèle prendrait (cerclée d'orange, étiquette « Pick »), une cote dans « Ma sélection » (pleine d'orange), l'en-tête et le bouton de la sélection, les mises conseillées, les « Top pick » |
+| **Acier** | Navigation, jours, filtres et onglets actifs, bouton « Enregistrer » : tout ce qui n'est pas orange, pour que l'orange veuille toujours dire « regarde ici » |
+| **Clubs** | Une barre aux couleurs du maillot de chaque équipe ; les logos, dessinés pour un fond clair, posés sur une pastille claire |
 
-Le bouton « Thème » de l'en-tête change de thème sans recharger la page ; le choix est gardé
-un an dans le cookie `sb-theme`, lu avant le premier affichage par un petit script inline de
-`src/app/layout.tsx` (les pages restent pré-rendues, sans flash du thème par défaut). `/themes`
-montre les trois côte à côte avec les vrais composants, sur des matchs d'exemple, et permet d'en
-appliquer un. Chaque thème n'est qu'un jeu de variables CSS dans `src/app/globals.css` ;
-`src/lib/themes.test.ts` vérifie que tous définissent les mêmes et que les textes y restent
-lisibles (contraste WCAG AA).
+Chaque couleur est une variable CSS du bloc `:root` de `src/app/globals.css`, exposée à Tailwind
+par `@theme inline` ; `src/lib/designTokens.test.ts` vérifie que chaque texte reste lisible sur
+les fonds où il apparaît (contraste WCAG AA : 4,5:1 pour le texte, 3:1 pour les grands chiffres,
+les contours orange et l'anneau de focus).
 
 ### Tous les matchs (Free API Live Football Data)
 

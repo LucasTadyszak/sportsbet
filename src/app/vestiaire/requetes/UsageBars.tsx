@@ -50,13 +50,13 @@ export function UsageBars({ series, buckets, unit, label }: { series: number[]; 
             >
               {n > 0 ? (
                 <span
-                  className="block w-full max-w-6 rounded-t-[4px] bg-series-1 transition-colors duration-150 group-hover:bg-seq-6"
+                  className="block w-full max-w-6 bg-series-1 transition-colors duration-150 group-hover:bg-seq-6"
                   style={{ height: `max(${height}%, 2px)` }}
                 />
               ) : null}
               {i === peak && max > 0 ? (
                 <span
-                  className="pointer-events-none absolute whitespace-nowrap font-mono-tabular text-[11px] leading-none text-fg-muted"
+                  className="figures pointer-events-none absolute whitespace-nowrap text-xs font-bold leading-none text-fg-muted"
                   style={{ bottom: `calc(${height}% + 3px)` }}
                 >
                   {formatCount(n)}
@@ -67,7 +67,7 @@ export function UsageBars({ series, buckets, unit, label }: { series: number[]; 
         })}
       </div>
       <div className="h-px bg-border" aria-hidden />
-      <div className="flex gap-0.5 text-[11px] leading-4 text-fg-muted" aria-hidden>
+      <div className="flex gap-0.5 font-cond text-xs font-bold uppercase leading-4 tracking-wide text-fg-muted" aria-hidden>
         {buckets.map((bucket, i) => (
           <span key={bucket.key} className="flex min-w-0 flex-1 justify-center overflow-visible whitespace-nowrap">
             {tickLabel(bucket, i, buckets.length, unit)}

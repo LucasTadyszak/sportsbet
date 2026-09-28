@@ -1,10 +1,10 @@
 // A competition's identity on the board (src/lib/competitions.ts): its logo when TheSportsDB
 // has one (src/lib/refreshLogos.ts) — or FotMob, for a competition only Free API Live Football
 // Data brings — else its sport and round flag side by side, as bookmakers mark a competition;
-// and the motif its header band wears. Everything here is decorative: the competition is always
+// and the band a match block opens with. Everything here is decorative: the competition is always
 // named in text next to it.
 import type { ReactNode } from "react";
-import type { CompetitionTheme, FlagCode, Motif } from "@/lib/competitions";
+import type { CompetitionTheme, FlagCode } from "@/lib/competitions";
 import { Icon } from "@/components/Icon";
 import { LogoDisc } from "@/components/RemoteLogo";
 
@@ -134,61 +134,34 @@ function SportAndFlag({ theme, size }: { theme: CompetitionTheme; size: number }
   );
 }
 
-function motifShapes(motif: Motif, accents: string[]): ReactNode {
-  const color = (i: number) => accents[i % accents.length];
-  if (motif === "stars") {
-    const stars = [
-      { x: 150, y: 10, r: 9 },
-      { x: 128, y: 28, r: 6 },
-      { x: 108, y: 12, r: 4.5 },
-      { x: 90, y: 30, r: 3.5 },
-      { x: 76, y: 14, r: 2.5 },
-    ];
-    return stars.map(({ x, y, r }, i) => (
-      <path
-        key={i}
-        d={`M${x} ${y - r}L${x + r * 0.28} ${y - r * 0.28}L${x + r} ${y}L${x + r * 0.28} ${y + r * 0.28}L${x} ${y + r}L${x - r * 0.28} ${y + r * 0.28}L${x - r} ${y}L${x - r * 0.28} ${y - r * 0.28}Z`}
-        fill={color(i)}
-      />
-    ));
-  }
-  if (motif === "stripes") {
-    return [0, 1, 2, 3, 4].map((i) => {
-      const x = 84 + i * 18;
-      return <path key={i} d={`M${x} 0h11l-16 40h-11z`} fill={color(i)} />;
-    });
-  }
-  return [0, 1, 2, 3].map((i) => {
-    const x = 92 + i * 17;
-    return <path key={i} d={`M${x} -6l15 26-15 26`} fill="none" stroke={color(i)} strokeWidth="6" />;
-  });
-}
-
-/** The competition's motif, drawn at the right end of a header band and fading out to the left. */
-export function CompetitionMotif({ theme, className = "" }: { theme: CompetitionTheme; className?: string }) {
+/**
+ * A match block's header band: on the deep band, the competition as a tag cut on the slant, in
+ * its own gradient (white text reads on every one, see competitions.test.ts); `right` goes to
+ * the other end (the day, "En direct").
+ */
+export function CompetitionBand({
+  theme,
+  logo = null,
+  right,
+  className = "",
+}: {
+  theme: CompetitionTheme;
+  logo?: string | null;
+  right?: ReactNode;
+  className?: string;
+}) {
   return (
-    <svg
-      aria-hidden
-      viewBox="0 0 160 40"
-      preserveAspectRatio="xMaxYMid slice"
-      className={`pointer-events-none absolute inset-y-0 right-0 h-full w-44 ${className}`}
-      style={{ maskImage: "linear-gradient(to left, #000 35%, transparent)", WebkitMaskImage: "linear-gradient(to left, #000 35%, transparent)" }}
-    >
-      {motifShapes(theme.motif, theme.accents)}
-    </svg>
-  );
-}
-
-/** A match block's header band: the competition's gradient and motif, its icon and name. */
-export function CompetitionBand({ theme, logo = null, className = "" }: { theme: CompetitionTheme; logo?: string | null; className?: string }) {
-  return (
-    <div
-      className={`relative flex h-9 items-center gap-2 overflow-hidden px-3.5 text-white ${className}`}
-      style={{ backgroundImage: `linear-gradient(100deg, ${theme.from}, ${theme.to})` }}
-    >
-      <CompetitionMotif theme={theme} />
-      <CompetitionIcon theme={theme} logo={logo} size={16} />
-      <span className="relative truncate text-xs font-semibold tracking-wide">{theme.name}</span>
+    <div className={`flex h-9 items-stretch justify-between gap-3 bg-bg-deep ${className}`}>
+      <span
+        className="cut-slant flex min-w-0 items-center gap-2 pl-3.5 pr-8 text-white"
+        style={{ backgroundImage: `linear-gradient(100deg, ${theme.from}, ${theme.to})` }}
+      >
+        <CompetitionIcon theme={theme} logo={logo} size={16} />
+        <span className="truncate font-cond text-sm font-extrabold uppercase tracking-wider">{theme.name}</span>
+      </span>
+      {right ? (
+        <span className="flex shrink-0 items-center pr-4 font-cond text-[13px] font-bold uppercase tracking-widest text-fg-muted">{right}</span>
+      ) : null}
     </div>
   );
 }
