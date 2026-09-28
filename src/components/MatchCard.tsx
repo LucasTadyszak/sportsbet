@@ -209,9 +209,10 @@ const TEAMS_ROW = "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-cente
 /**
  * A match as a scoreboard: the competition's band, both clubs with their kit colours as bars,
  * the kick-off (or the live score) in big figures, and the 1/N/2 prices as blocks that go into
- * the bet slip. The team link is stretched over the whole block, so only the blocks take their
- * own clicks. A match The Odds API doesn't price (src/lib/liveCompetitions.ts) has no blocks and
- * no match page: just its teams, and its kick-off or score.
+ * the bet slip. The team link is stretched over its own row only (not the whole card): letting
+ * it balloon out over the price blocks via z-index used to leave them untappable on iOS Safari.
+ * A match The Odds API doesn't price (src/lib/liveCompetitions.ts) has no blocks and no match
+ * page: just its teams, and its kick-off or score.
  */
 export function MatchCard({ event }: { event: BoardEvent }) {
   const theme = competitionTheme(event.sportKey, event.sportTitle);
@@ -245,7 +246,7 @@ export function MatchCard({ event }: { event: BoardEvent }) {
           <>
             <Link
               href={`/match/${event.id}`}
-              className={`${TEAMS_ROW} after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus`}
+              className={`${TEAMS_ROW} relative after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus`}
             >
               {teams}
             </Link>

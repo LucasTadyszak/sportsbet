@@ -44,7 +44,8 @@ function PickCard({ v }: { v: VerdictListItem }) {
           [v]
         )
       : null;
-  // The match link is stretched over the card, so the price can be a button of its own.
+  // The match link is stretched over its own row only (not the whole card): letting it balloon
+  // out over the price via z-index used to leave that button untappable on iOS Safari.
   return (
     <div
       className={`group relative flex flex-col gap-4 border-l-[5px] bg-bg-elevated p-5 shadow-hard transition-transform duration-200 hover:-translate-y-0.5 ${
@@ -61,7 +62,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
           </span>
           <Link
             href={`/match/${v.eventId}`}
-            className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-cond text-2xl font-extrabold uppercase leading-tight tracking-wide text-fg after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus"
+            className="relative flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-cond text-2xl font-extrabold uppercase leading-tight tracking-wide text-fg after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus"
           >
             <TeamName name={v.homeTeam} crest={v.homeCrest} size={24} />
             <span className="shrink-0 font-display text-lg font-normal text-fg-muted">vs</span>
