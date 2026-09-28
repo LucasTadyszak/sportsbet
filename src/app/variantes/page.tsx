@@ -68,7 +68,7 @@ export default async function Variantes({ searchParams }: { searchParams: Promis
           <section key={v.look} id={v.look} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <h2 className="font-display text-2xl font-extrabold text-fg">
-                <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-fg text-base text-white">{v.letter}</span>
+                <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-inverse text-base text-on-inverse">{v.letter}</span>
                 {v.name}
               </h2>
               <p className="max-w-2xl text-sm text-fg-muted">{v.pitch}</p>

@@ -7,7 +7,7 @@ export function MatchTabs({ tabs }: { tabs: { id: string; label: string; content
 
   const tabClass = (isActive: boolean) =>
     `-mb-px min-h-11 border-b-2 px-1 text-sm font-semibold transition-colors duration-200 ${
-      isActive ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-border hover:text-fg"
+      isActive ? "border-fg text-fg" : "border-transparent text-fg-muted hover:border-border hover:text-fg"
     }`;
 
   return (

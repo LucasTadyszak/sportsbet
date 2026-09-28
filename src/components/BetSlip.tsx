@@ -76,7 +76,7 @@ export function BankrollField({ id, className = "" }: { id: string; className?: 
             const amount = parseBankroll(text);
             if (amount !== null || text.trim() === "") betSlip.setBankroll(amount);
           }}
-          className="min-h-11 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-8 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/25 aria-[invalid=true]:border-fall"
+          className="min-h-11 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-8 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/25 aria-[invalid=true]:border-fall"
         />
         <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-fg-muted">
           €
@@ -94,10 +94,10 @@ export function BankrollPrompt({ className = "" }: { className?: string }) {
   return (
     <section
       aria-labelledby="bankroll-prompt-title"
-      className={`flex flex-col gap-4 rounded-xl border border-border border-l-4 border-l-accent bg-bg-elevated p-4 shadow-card sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-5 ${className}`}
+      className={`flex flex-col gap-4 rounded-xl border border-border border-l-4 border-l-inverse bg-bg-elevated p-4 shadow-card sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-5 ${className}`}
     >
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-dim text-accent-strong">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg-row text-fg">
           <Icon name="wallet" className="h-5 w-5" />
         </span>
         <div className="flex flex-col gap-1">
@@ -221,7 +221,7 @@ function StakeField({
               const amount = parseBankroll(text);
               if (amount !== null || text.trim() === "") onChange(amount);
             }}
-            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-7 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/25 aria-[invalid=true]:border-fall"
+            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated pl-3 pr-7 font-mono-tabular text-base text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/25 aria-[invalid=true]:border-fall"
           />
           <span aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm font-medium text-fg-muted">
             €
@@ -262,7 +262,8 @@ function LegLine({ selection, stake }: { selection: Selection; stake: SingleStak
   );
 }
 
-function SelectionItem({
+/** One selection in the slip: its offer, then (in simples) the stake the model advises and the one typed. */
+export function SelectionItem({
   selection: s,
   stake,
   mode,
@@ -372,11 +373,11 @@ function SaveButton({ slip, summary, onDone }: { slip: SlipState; summary: SlipS
         type="button"
         onClick={save}
         disabled={sameEvent || missing}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-fg px-4 text-[15px] font-semibold text-white shadow-card transition-colors duration-200 enabled:hover:bg-fg/90 disabled:cursor-not-allowed disabled:opacity-45"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-on-accent shadow-card transition-colors duration-200 enabled:hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-45"
       >
-        <Icon name="ticket" className="h-4 w-4 text-accent" />
+        <Icon name="ticket" className="h-4 w-4" />
         {label}
-        {!sameEvent && !missing ? <span className="font-mono-tabular font-medium text-white/80">· {formatMoney(total)}</span> : null}
+        {!sameEvent && !missing ? <span className="font-mono-tabular font-medium">· {formatMoney(total)}</span> : null}
       </button>
       <p className="text-xs leading-relaxed text-fg-muted">{hint}</p>
     </div>
@@ -397,7 +398,7 @@ function SaveNoticeBanner({ notice }: { notice: SaveNotice }) {
   const many = notice.count > 1;
   return (
     <div role="status" className="flex items-start gap-3 rounded-xl border border-rise/30 bg-rise/5 px-4 py-3">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rise text-white">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rise text-on-rise">
         <Icon name="check" className="h-3.5 w-3.5" />
       </span>
       <div className="flex flex-col gap-1 text-sm">
@@ -405,7 +406,7 @@ function SaveNoticeBanner({ notice }: { notice: SaveNotice }) {
         <span className="leading-relaxed text-fg-muted">
           Une fois les matchs joués, Mes paris te dira {many ? "s'ils auraient été gagnants" : "s'il aurait été gagnant"}.
         </span>
-        <Link href="/mes-paris" onClick={betSlip.close} className="inline-flex w-fit items-center gap-1 font-medium text-accent-strong hover:underline">
+        <Link href="/mes-paris" onClick={betSlip.close} className="inline-flex w-fit items-center gap-1 font-medium text-link hover:underline">
           Voir mes paris <Icon name="chevron-right" className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -453,7 +454,7 @@ function SlipTotal({ summary, bankroll, count }: { summary: SlipSummary; bankrol
             <button
               type="button"
               onClick={() => document.getElementById(BANKROLL_INPUT_ID)?.focus()}
-              className="text-xs font-medium text-accent-strong underline underline-offset-2"
+              className="text-xs font-medium text-link underline underline-offset-2"
             >
               Ajoute ta bankroll pour le montant
             </button>
@@ -507,11 +508,11 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
               Clique sur une cote (tableau, fiche d&apos;un match ou picks) pour l&apos;ajouter : tu verras quel pourcentage de ta
               bankroll tu peux y miser.
             </p>
-            <Link href="/picks" onClick={betSlip.close} className="mt-1 text-sm font-medium text-accent-strong hover:underline">
+            <Link href="/picks" onClick={betSlip.close} className="mt-1 text-sm font-medium text-link hover:underline">
               Voir les picks du modèle
             </Link>
             {savedBets && savedBets.length > 0 ? (
-              <Link href="/mes-paris" onClick={betSlip.close} className="text-sm font-medium text-accent-strong hover:underline">
+              <Link href="/mes-paris" onClick={betSlip.close} className="text-sm font-medium text-link hover:underline">
                 Mes paris enregistrés ({savedBets.length})
               </Link>
             ) : null}
@@ -556,7 +557,7 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
             >
               <Icon name="trash" className="h-3.5 w-3.5" /> Vider la sélection
             </button>
-            <Link href="/methodologie#mise" onClick={betSlip.close} className="font-medium text-accent-strong hover:underline">
+            <Link href="/methodologie#mise" onClick={betSlip.close} className="font-medium text-link hover:underline">
               Comment c&apos;est calculé
             </Link>
           </div>
@@ -567,6 +568,38 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
         </footer>
       ) : null}
     </>
+  );
+}
+
+/** The floating button that opens the slip: in orange, since it holds the user's selection. */
+export function SlipLauncher({
+  count,
+  headline,
+  onClick,
+  className = "",
+}: {
+  count: number;
+  /** What the slip says to stake, e.g. "2,5 % · 12,50 €". */
+  headline: string;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Ma sélection : ${count} cote${count > 1 ? "s" : ""}, ${headline}`}
+      className={`flex min-h-12 items-center justify-between gap-4 rounded-full bg-accent py-2 pl-4 pr-5 text-on-accent shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:-translate-y-0.5 ${className}`}
+    >
+      <span className="flex items-center gap-2 font-semibold">
+        <Icon name="ticket" className="h-5 w-5" />
+        Ma sélection
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-on-accent px-1.5 font-mono-tabular text-xs font-bold text-accent">
+          {count}
+        </span>
+      </span>
+      <span className="text-sm font-semibold">{headline}</span>
+    </button>
   );
 }
 
@@ -598,23 +631,14 @@ export function BetSlip() {
       {count > 0 ? (
         <>
           {/* Keeps the end of every page clear of the floating button. */}
-          <div aria-hidden className="h-24 shrink-0 bg-bg-elevated" />
+          <div aria-hidden data-chrome className="h-24 shrink-0 bg-bg-elevated" />
           {!open ? (
-            <button
-              type="button"
+            <SlipLauncher
+              count={count}
+              headline={headline}
               onClick={betSlip.open}
-              aria-label={`Ma sélection : ${count} cote${count > 1 ? "s" : ""}, ${headline}`}
-              className="fixed inset-x-4 bottom-4 z-40 flex min-h-12 items-center justify-between gap-4 rounded-full bg-fg py-2 pl-4 pr-5 text-white shadow-[0_10px_30px_rgba(15,23,42,0.28)] transition-transform duration-200 hover:-translate-y-0.5 sm:inset-x-auto sm:bottom-6 sm:right-6"
-            >
-              <span className="flex items-center gap-2 font-semibold">
-                <Icon name="ticket" className="h-5 w-5 text-accent" />
-                Ma sélection
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 font-mono-tabular text-xs font-bold text-fg">
-                  {count}
-                </span>
-              </span>
-              <span className="text-sm font-medium text-white/85">{headline}</span>
-            </button>
+              className="fixed inset-x-4 bottom-4 z-40 sm:inset-x-auto sm:bottom-6 sm:right-6"
+            />
           ) : null}
         </>
       ) : null}
@@ -627,7 +651,7 @@ export function BetSlip() {
           // A click on the backdrop lands on the dialog element itself.
           if (event.target === event.currentTarget) betSlip.close();
         }}
-        className="m-0 mt-auto max-h-[90dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl border-0 bg-bg-elevated p-0 text-fg shadow-2xl transition-[translate,opacity] duration-300 ease-out open:flex starting:translate-y-6 starting:opacity-0 backdrop:bg-[rgb(15_23_42/0.45)] sm:ml-auto sm:mt-0 sm:h-dvh sm:max-h-dvh sm:w-[26rem] sm:rounded-none sm:rounded-l-2xl sm:starting:translate-x-6 sm:starting:translate-y-0"
+        className="m-0 mt-auto max-h-[90dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl border-0 bg-bg-elevated p-0 text-fg shadow-2xl transition-[translate,opacity] duration-300 ease-out open:flex starting:translate-y-6 starting:opacity-0 backdrop:bg-(--backdrop) sm:ml-auto sm:mt-0 sm:h-dvh sm:max-h-dvh sm:w-[26rem] sm:rounded-none sm:rounded-l-2xl sm:starting:translate-x-6 sm:starting:translate-y-0"
       >
         {open ? <SlipContent slip={slip} summary={summary} /> : null}
       </dialog>

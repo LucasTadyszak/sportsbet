@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { boardPhase, getBoard, groupByCompetition, groupOddsErrors, stakedVerdict, type BoardEvent, type StatusFilter } from "@/lib/board";
 import { byRank, competitionTheme, type CompetitionTheme } from "@/lib/competitions";
-import { addDays, formatDayLabel, formatKickoff, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
+import { addDays, formatDayLabel, formatKickoff, formatShortDay, formatTime, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
 import { upperFirst } from "@/lib/labels";
 import { syncLiveMatches } from "@/lib/liveSync";
 import { BankrollPrompt } from "@/components/BetSlip";
@@ -63,7 +63,7 @@ function CountPill({ count, active = false }: { count: number; active?: boolean 
   return (
     <span
       className={`min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular ${
-        active ? "bg-accent text-fg" : "bg-bg-row text-fg-muted"
+        active ? "bg-inverse text-on-inverse" : "bg-bg-row text-fg-muted"
       }`}
     >
       {count}
@@ -87,7 +87,7 @@ function SearchForm({ id, current }: { id: string; current: BoardQuery }) {
         name="q"
         defaultValue={current.q}
         placeholder="Rechercher une équipe…"
-        className="min-h-11 w-full rounded-xl border border-border bg-bg-elevated pl-10 pr-3 text-sm text-fg shadow-card placeholder:text-fg-muted transition-colors duration-200 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/25"
+        className="min-h-11 w-full rounded-xl border border-border bg-bg-elevated pl-10 pr-3 text-sm text-fg shadow-card placeholder:text-fg-muted transition-colors duration-200 focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/25"
       />
     </form>
   );
@@ -97,7 +97,7 @@ function SearchForm({ id, current }: { id: string; current: BoardQuery }) {
 function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry[]; total: number; current: BoardQuery }) {
   const item = (active: boolean) =>
     `flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors duration-200 ${
-      active ? "bg-accent-dim font-semibold text-fg" : "text-fg hover:bg-bg-row"
+      active ? "bg-bg-row font-semibold text-fg" : "text-fg hover:bg-bg-row"
     }`;
   return (
     <nav aria-labelledby="competitions-title" className="rounded-2xl border border-border bg-bg-elevated p-2 shadow-card">
@@ -139,7 +139,7 @@ function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry
 function CompetitionChips({ entries, total, current }: { entries: CompetitionEntry[]; total: number; current: BoardQuery }) {
   const chip = (active: boolean) =>
     `flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium transition-colors duration-200 ${
-      active ? "border-fg bg-fg text-white" : "border-border bg-bg-elevated text-fg shadow-card hover:border-accent"
+      active ? "border-inverse bg-inverse text-on-inverse" : "border-border bg-bg-elevated text-fg shadow-card hover:border-fg-muted"
     }`;
   return (
     <nav aria-label="Compétitions" className="no-scrollbar -mx-4 overflow-x-auto px-4 lg:hidden">
@@ -174,11 +174,17 @@ function Legend() {
       </h2>
       <ul className="mt-3 flex flex-col gap-3 text-xs leading-relaxed text-fg-muted">
         <li className="flex items-start gap-2.5">
-          <span className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent px-1.5 py-px text-[10px] font-bold uppercase text-fg">
+          <span className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent px-1.5 py-px text-[10px] font-bold uppercase text-on-accent">
             <Icon name="star" className="h-2.5 w-2.5" />
             Pick
           </span>
-          La cote que le modèle prendrait.
+          La cote que le modèle prendrait, cerclée d&apos;orange.
+        </li>
+        <li className="flex items-start gap-2.5">
+          <span aria-hidden className="mt-0.5 inline-flex h-4 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-on-accent">
+            <Icon name="check" className="h-3 w-3" />
+          </span>
+          Une cote pleine d&apos;orange est dans ta sélection.
         </li>
         <li className="flex items-start gap-2.5">
           <Icon name="flame" className="mt-0.5 h-3.5 w-3.5 text-flame" />
@@ -186,7 +192,7 @@ function Legend() {
         </li>
         <li className="flex items-start gap-2.5">
           <span aria-hidden className="mt-1.5 flex h-1 w-8 shrink-0 overflow-hidden rounded-full bg-bg-row">
-            <span className="w-2/3 bg-accent" />
+            <span className="w-2/3 bg-fg-muted" />
           </span>
           Sous chaque cote, la probabilité du marché, marge des bookmakers retirée.
         </li>
@@ -199,7 +205,7 @@ function Legend() {
 function DayStrip({ current, todayKey }: { current: BoardQuery; todayKey: string }) {
   const days = [-1, 0, 1, 2, 3].map((offset) => addDays(current.date, offset));
   const arrow =
-    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-bg-elevated text-fg-muted shadow-card transition-colors duration-200 hover:border-accent hover:text-fg";
+    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-bg-elevated text-fg-muted shadow-card transition-colors duration-200 hover:border-fg-muted hover:text-fg";
   return (
     <div className="flex items-center gap-2">
       <Link href={boardHref(current, { date: addDays(current.date, -1) })} className={arrow} aria-label="Jour précédent">
@@ -215,7 +221,7 @@ function DayStrip({ current, todayKey }: { current: BoardQuery; todayKey: string
                   href={boardHref(current, { date: day })}
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors duration-200 ${
-                    active ? "bg-fg text-white shadow-card" : "text-fg-muted hover:bg-bg-elevated hover:text-fg"
+                    active ? "bg-inverse text-on-inverse shadow-card" : "text-fg-muted hover:bg-bg-elevated hover:text-fg"
                   }`}
                 >
                   {upperFirst(formatDayLabel(day))}
@@ -231,7 +237,7 @@ function DayStrip({ current, todayKey }: { current: BoardQuery; todayKey: string
       {!days.includes(todayKey) ? (
         <Link
           href={boardHref(current, { date: todayKey })}
-          className="hidden shrink-0 text-sm font-medium text-accent-strong hover:underline sm:inline"
+          className="hidden shrink-0 text-sm font-medium text-link hover:underline sm:inline"
         >
           Aujourd&apos;hui
         </Link>
@@ -269,7 +275,7 @@ function StatusTabs({
               href={boardHref(current, { status: tab.value })}
               aria-current={active ? "page" : undefined}
               className={`-mb-px flex min-h-11 items-center border-b-2 text-sm font-semibold transition-colors duration-200 focus-visible:-outline-offset-2 ${
-                active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"
+                active ? "border-fg text-fg" : "border-transparent text-fg-muted hover:text-fg"
               }`}
             >
               {tab.label}
@@ -279,8 +285,8 @@ function StatusTabs({
       </nav>
       <span className="hidden items-center gap-2 pb-3 text-xs text-fg-muted sm:flex">
         <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-status-good" />
         </span>
         {syncLabel(matchesSyncedAt, lastCapturedAt)}
       </span>
@@ -372,9 +378,16 @@ export default async function Home({
       <SiteHeader
         active="board"
         right={
-          <span className="flex items-center gap-2 text-xs text-fg-muted sm:hidden">
-            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
-            {lastCapturedAt ? `MAJ ${formatKickoff(lastCapturedAt)}` : "pas encore de synchro"}
+          <span
+            className="flex min-w-0 items-center gap-2 text-xs text-fg-muted sm:hidden"
+            title={lastCapturedAt ? `Cotes mises à jour ${formatKickoff(lastCapturedAt)}` : undefined}
+          >
+            <span className="h-2 w-2 shrink-0 rounded-full bg-status-good" aria-hidden />
+            <span className="truncate">
+              {lastCapturedAt
+                ? `MAJ ${parisDateKey(lastCapturedAt) === todayKey ? formatTime(lastCapturedAt) : formatShortDay(lastCapturedAt)}`
+                : "pas encore de synchro"}
+            </span>
           </span>
         }
       />
@@ -439,7 +452,7 @@ export default async function Home({
               }`}
               icon="search"
             >
-              <Link href={boardHref(current, { comp: undefined })} className="font-medium text-accent-strong underline underline-offset-2">
+              <Link href={boardHref(current, { comp: undefined })} className="font-medium text-link underline underline-offset-2">
                 Voir toutes les compétitions
               </Link>
               .
@@ -447,7 +460,7 @@ export default async function Home({
           ) : current.q ? (
             <EmptyState title="Aucun match ne correspond à ces filtres" icon="search">
               Essaie{" "}
-              <Link href="/" className="font-medium text-accent-strong underline underline-offset-2">
+              <Link href="/" className="font-medium text-link underline underline-offset-2">
                 de réinitialiser les filtres
               </Link>
               .
@@ -469,9 +482,9 @@ export default async function Home({
             <EmptyState title="Aucun match en base pour l'instant">
               Renseigne <code className="text-fg">RAPIDAPI_KEY</code> dans <code className="text-fg">.env</code> : les matchs des
               compétitions suivies arrivent au chargement de cette page, ou tous d&apos;un coup avec{" "}
-              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">npm run refresh:matches</code>.
+              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-fg">npm run refresh:matches</code>.
               Les cotes viennent de{" "}
-              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">npm run refresh:odds</code>{" "}
+              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-fg">npm run refresh:odds</code>{" "}
               (nécessite <code className="text-fg">ODDS_API_KEY</code>).
             </EmptyState>
           )}

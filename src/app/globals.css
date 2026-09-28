@@ -1,48 +1,229 @@
 @import "tailwindcss";
 
 /*
- * "Énergique" light theme: orange (#F97316) + dark ink on a cool slate
- * dashboard base. The page sits on slate-50 and every card is white, so
- * content reads as raised above the page (never the other way round).
- * --accent is the vivid brand orange, used for fills/borders/icons — on white
- * it only reaches ~2.8:1 contrast, so it is never used for small text.
- * --accent-strong is the same hue deepened for text/links/highlights, which
- * clears WCAG AA (~5:1) on white and on --accent-dim.
+ * Three looks on one palette (src/lib/themes.ts): graphite #2c2b32, slate #4a576a, steel
+ * #a8b6ca — and one orange, #ff7a1a, kept for what matters: the price the model would take
+ * (a pick), the user's selection, the stakes to play, a top pick. Everything else (navigation,
+ * filters, tabs, active states) stays in the palette's neutrals, so orange always means
+ * "look here". <html data-theme> picks the look; any element can carry it too (/themes shows
+ * the three side by side). Every value is a literal colour so src/lib/themes.test.ts can
+ * check their contrast (WCAG AA for text).
+ *
+ *   --bg / --bg-elevated / --bg-row  page, raised card, subtle fill inside a card
+ *   --fg / --fg-muted                text; secondary text (≥ 4.5:1 on all three surfaces)
+ *   --inverse / --on-inverse         a strong neutral fill (active day, filter, button) and its text
+ *   --accent                         orange fills, borders, icons — never small text on a light surface
+ *   --accent-strong                  orange text, ≥ 4.5:1 on --bg-elevated and --accent-dim
+ *   --accent-dim / --on-accent       orange-tinted surface (a pick); text on an orange fill
+ *   --chrome-*                       the header and footer ([data-chrome]): Ardoise dresses them in graphite
  */
-:root {
+
+/* Graphite — dark. Also the default, so it comes first: the other themes override it. */
+:root,
+[data-theme="graphite"] {
+  color-scheme: dark;
+  --bg: #2c2b32;
+  --bg-elevated: #34353f;
+  --bg-row: #3b3f4a;
+  --border: #474d5a;
+  --fg: #f1f4f8;
+  --fg-muted: #a8b6ca;
+  --inverse: #a8b6ca;
+  --on-inverse: #2c2b32;
+  --link: #d6deea;
+  --focus: #c7d2e1;
+  --accent: #ff7a1a;
+  --accent-strong: #ff8f45;
+  --accent-dim: #4d3c35;
+  --on-accent: #2c2b32;
+  --rise: #4cd17f;
+  --on-rise: #2c2b32;
+  --fall: #ff8585;
+  /* Odds-error flame: an icon only (never text), ≥ 3:1 on every surface it sits on. */
+  --flame: #ff6a4d;
+  /* Status (model health bands) — always paired with an icon + label, never colour alone. */
+  --status-good: #4cd17f;
+  --status-warning: #f5b82e;
+  --status-critical: #ff6b6b;
+  /* Chart series: steel for the reference, orange for the model. */
+  --series-1: #a8b6ca;
+  --series-2: #ff7a1a;
+  /*
+   * Sequential ramp for heatmaps (the score matrix), low → high: on a dark page it climbs from
+   * the card toward white, so near-zero values recede. Labels: --seq-ink-low up to --seq-4,
+   * --seq-ink-high from --seq-5 (both ≥ 4.5:1).
+   */
+  --seq-1: #3f4555;
+  --seq-2: #465062;
+  --seq-3: #505c71;
+  --seq-4: #5c6a82;
+  --seq-5: #8e9db3;
+  --seq-6: #b5c1d3;
+  --seq-7: #dfe6ef;
+  --seq-ink-low: #f1f4f8;
+  --seq-ink-high: #2c2b32;
+  --brand: #4a576a;
+  --brand-ink: #f1f4f8;
+  /* Club and competition logos are drawn for a light background: on a dark one they sit on a light plate. */
+  --crest-disc: #eef1f5;
+  --logo-plate: #eef1f5;
+  --logo-pad: 0.12;
+  --logo-radius: 9999px;
+  --glow: rgb(74 87 106 / 0.45);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --backdrop: rgb(16 16 20 / 0.6);
+  --chrome-scheme: dark;
+  --chrome-bg: #232228;
+  --chrome-row: #34353f;
+  --chrome-border: #3a3c46;
+  --chrome-fg: #f1f4f8;
+  --chrome-fg-muted: #a8b6ca;
+  --chrome-inverse: #a8b6ca;
+  --chrome-on-inverse: #2c2b32;
+  --chrome-focus: #c7d2e1;
+  --chrome-link: #d6deea;
+  --chrome-accent-strong: #ff8f45;
+  --chrome-brand: #4a576a;
+  --chrome-brand-ink: #f1f4f8;
+}
+
+/* Ardoise — graphite header and footer around a steel page of white cards; slate for what's active. */
+[data-theme="ardoise"] {
   color-scheme: light;
-  --bg: #f8fafc;
+  --bg: #dce3ec;
   --bg-elevated: #ffffff;
-  --bg-row: #f1f5f9;
-  --border: #e2e8f0;
-  --fg: #0f172a;
-  --fg-muted: #475569; /* ~7:1 on white and on --bg */
-  --accent: #f97316;
-  --accent-strong: #c2410c;
-  --accent-dim: #ffedd5;
-  --fall: #dc2626;
-  --rise: #15803d; /* won / positive CLV text — ~5:1 on white */
-  /* Odds-error flame: an icon only (never text), ≥3.8:1 on white, --bg-row and --accent-dim. */
+  --bg-row: #edf1f6;
+  --border: #c5cfdc;
+  --fg: #2c2b32;
+  --fg-muted: #4a576a;
+  --inverse: #4a576a;
+  --on-inverse: #ffffff;
+  --link: #34445c;
+  --focus: #4a576a;
+  --accent: #ff7a1a;
+  --accent-strong: #b93d0a;
+  --accent-dim: #ffefe3;
+  --on-accent: #2c2b32;
+  --rise: #137a3a;
+  --on-rise: #ffffff;
+  --fall: #b91c1c;
   --flame: #e03a0c;
-  /* Status (model health bands) — always paired with an icon + label, never color alone. */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
-  /* Chart series, fixed order (validated for CVD separation on white). */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  /*
-   * Sequential ramp for heatmaps (the score matrix): series-1's blue, one hue, light → dark,
-   * lightness validated monotone. Labels on it: ink up to --seq-4, white from --seq-5
-   * (both >= 4.5:1). The lightest step is meant to recede toward white (near-zero values).
-   */
-  --seq-1: #cde2fb;
-  --seq-2: #9ec5f4;
-  --seq-3: #6da7ec;
-  --seq-4: #3987e5;
-  --seq-5: #256abf;
-  --seq-6: #184f95;
-  --seq-7: #0d366b;
+  --series-1: #4a576a;
+  --series-2: #ff7a1a;
+  /* Light → dark: near-zero values recede toward the white card. */
+  --seq-1: #e6ebf2;
+  --seq-2: #cdd6e2;
+  --seq-3: #b3c0d1;
+  --seq-4: #97a6bb;
+  --seq-5: #5d6b80;
+  --seq-6: #46536a;
+  --seq-7: #2c2b32;
+  --seq-ink-low: #2c2b32;
+  --seq-ink-high: #ffffff;
+  --brand: #2c2b32;
+  --brand-ink: #ffffff;
+  --crest-disc: #ffffff;
+  --logo-plate: transparent;
+  --logo-pad: 0;
+  --logo-radius: 0px;
+  --glow: rgb(74 87 106 / 0.18);
+  --shadow-card: 0 1px 2px rgb(44 43 50 / 0.06), 0 1px 3px rgb(44 43 50 / 0.05);
+  --backdrop: rgb(28 28 34 / 0.5);
+  --chrome-scheme: dark;
+  --chrome-bg: #2c2b32;
+  --chrome-row: #3b3f4a;
+  --chrome-border: #3f4450;
+  --chrome-fg: #f1f4f8;
+  --chrome-fg-muted: #a8b6ca;
+  --chrome-inverse: #a8b6ca;
+  --chrome-on-inverse: #2c2b32;
+  --chrome-focus: #c7d2e1;
+  --chrome-link: #d6deea;
+  --chrome-accent-strong: #ff8f45;
+  --chrome-brand: #4a576a;
+  --chrome-brand-ink: #f1f4f8;
+}
+
+/* Brume — light and airy: white header, misty page, graphite ink. */
+[data-theme="brume"] {
+  color-scheme: light;
+  --bg: #f3f5f8;
+  --bg-elevated: #ffffff;
+  --bg-row: #f0f3f7;
+  --border: #dde3ea;
+  --fg: #2c2b32;
+  --fg-muted: #4a576a;
+  --inverse: #2c2b32;
+  --on-inverse: #ffffff;
+  --link: #34445c;
+  --focus: #4a576a;
+  --accent: #ff7a1a;
+  --accent-strong: #b93d0a;
+  --accent-dim: #fff1e6;
+  --on-accent: #2c2b32;
+  --rise: #137a3a;
+  --on-rise: #ffffff;
+  --fall: #b91c1c;
+  --flame: #e03a0c;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --series-1: #4a576a;
+  --series-2: #ff7a1a;
+  --seq-1: #e6ebf2;
+  --seq-2: #cdd6e2;
+  --seq-3: #b3c0d1;
+  --seq-4: #97a6bb;
+  --seq-5: #5d6b80;
+  --seq-6: #46536a;
+  --seq-7: #2c2b32;
+  --seq-ink-low: #2c2b32;
+  --seq-ink-high: #ffffff;
+  --brand: #2c2b32;
+  --brand-ink: #ffffff;
+  --crest-disc: #ffffff;
+  --logo-plate: transparent;
+  --logo-pad: 0;
+  --logo-radius: 0px;
+  --glow: rgb(168 182 202 / 0.35);
+  --shadow-card: 0 1px 2px rgb(44 43 50 / 0.05), 0 1px 3px rgb(44 43 50 / 0.04);
+  --backdrop: rgb(28 28 34 / 0.45);
+  --chrome-scheme: light;
+  --chrome-bg: #ffffff;
+  --chrome-row: #f0f3f7;
+  --chrome-border: #dde3ea;
+  --chrome-fg: #2c2b32;
+  --chrome-fg-muted: #4a576a;
+  --chrome-inverse: #2c2b32;
+  --chrome-on-inverse: #ffffff;
+  --chrome-focus: #4a576a;
+  --chrome-link: #34445c;
+  --chrome-accent-strong: #b93d0a;
+  --chrome-brand: #2c2b32;
+  --chrome-brand-ink: #ffffff;
+}
+
+/*
+ * The header and footer: inside them the usual tokens take the theme's chrome values, so they
+ * are written with the same utilities as the rest of the page.
+ */
+[data-chrome] {
+  color-scheme: var(--chrome-scheme);
+  --bg-elevated: var(--chrome-bg);
+  --bg-row: var(--chrome-row);
+  --border: var(--chrome-border);
+  --fg: var(--chrome-fg);
+  --fg-muted: var(--chrome-fg-muted);
+  --inverse: var(--chrome-inverse);
+  --on-inverse: var(--chrome-on-inverse);
+  --focus: var(--chrome-focus);
+  --link: var(--chrome-link);
+  --accent-strong: var(--chrome-accent-strong);
+  --brand: var(--chrome-brand);
+  --brand-ink: var(--chrome-brand-ink);
 }
 
 @theme inline {
@@ -52,11 +233,17 @@
   --color-border: var(--border);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
+  --color-inverse: var(--inverse);
+  --color-on-inverse: var(--on-inverse);
+  --color-link: var(--link);
+  --color-focus: var(--focus);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-dim: var(--accent-dim);
+  --color-on-accent: var(--on-accent);
   --color-fall: var(--fall);
   --color-rise: var(--rise);
+  --color-on-rise: var(--on-rise);
   --color-flame: var(--flame);
   --color-status-good: var(--status-good);
   --color-status-warning: var(--status-warning);
@@ -70,23 +257,23 @@
   --color-seq-5: var(--seq-5);
   --color-seq-6: var(--seq-6);
   --color-seq-7: var(--seq-7);
+  --color-seq-ink-low: var(--seq-ink-low);
+  --color-seq-ink-high: var(--seq-ink-high);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 }
 
-/* A raised surface: white card, hairline border (set on the element), whisper of shadow. */
+/* A raised surface: card colour, hairline border (set on the element), the theme's shadow. */
 @utility shadow-card {
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 1px 3px rgba(15, 23, 42, 0.03);
+  box-shadow: var(--shadow-card);
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body), sans-serif;
-  background-image: radial-gradient(circle at 12% -10%, rgba(249, 115, 22, 0.08), transparent 40%);
+  background-image: radial-gradient(ellipse at 10% -8%, var(--glow), transparent 45%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
@@ -112,7 +299,7 @@ body {
 
   /* One consistent, always-visible keyboard focus ring. */
   :focus-visible {
-    outline: 2px solid var(--accent-strong);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 

@@ -18,15 +18,15 @@ const GOALS_AXIS = Array.from({ length: SHOWN_GOALS + 1 }, (_, goals) => goals);
 const FAVORITES = 3;
 
 // Sequential scale on the probability itself rather than relative to the likeliest score,
-// so an open match reads paler than a lopsided one. Below 1% a score recedes into the surface.
+// so an open match reads fainter than a lopsided one. Below 1% a score recedes into the surface.
 const STEPS: { from: number; className: string }[] = [
-  { from: 0.14, className: "bg-seq-7 text-white" },
-  { from: 0.11, className: "bg-seq-6 text-white" },
-  { from: 0.09, className: "bg-seq-5 text-white" },
-  { from: 0.07, className: "bg-seq-4 text-fg" },
-  { from: 0.05, className: "bg-seq-3 text-fg" },
-  { from: 0.03, className: "bg-seq-2 text-fg" },
-  { from: 0.01, className: "bg-seq-1 text-fg" },
+  { from: 0.14, className: "bg-seq-7 text-seq-ink-high" },
+  { from: 0.11, className: "bg-seq-6 text-seq-ink-high" },
+  { from: 0.09, className: "bg-seq-5 text-seq-ink-high" },
+  { from: 0.07, className: "bg-seq-4 text-seq-ink-low" },
+  { from: 0.05, className: "bg-seq-3 text-seq-ink-low" },
+  { from: 0.03, className: "bg-seq-2 text-seq-ink-low" },
+  { from: 0.01, className: "bg-seq-1 text-seq-ink-low" },
   { from: 0, className: "bg-bg-row text-fg-muted" },
 ];
 
@@ -57,7 +57,7 @@ function CheckBadge({ className = "" }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-rise text-white ${className}`}
+      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-rise text-on-rise ${className}`}
     >
       <Icon name="check" className="h-3 w-3" />
     </span>

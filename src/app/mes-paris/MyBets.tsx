@@ -345,11 +345,11 @@ export function MyBets() {
     return (
       <EmptyState title="Aucun pari enregistré" icon="ticket">
         Clique sur des cotes du{" "}
-        <Link href="/" className="font-medium text-accent-strong underline underline-offset-2">
+        <Link href="/" className="font-medium text-link underline underline-offset-2">
           tableau
         </Link>{" "}
         ou des{" "}
-        <Link href="/picks" className="font-medium text-accent-strong underline underline-offset-2">
+        <Link href="/picks" className="font-medium text-link underline underline-offset-2">
           picks
         </Link>{" "}
         pour remplir ta sélection, indique ta mise puis « Enregistrer » : ton pari arrive ici, et dès la fin de ses matchs tu vois
@@ -375,7 +375,7 @@ export function MyBets() {
         <p role="alert" className="-mt-4 flex flex-wrap items-center gap-2 text-sm text-fg-muted">
           <Icon name="alert-triangle" className="h-4 w-4 text-fall" />
           Impossible de récupérer les résultats pour l&apos;instant.
-          <button type="button" onClick={retry} className="font-medium text-accent-strong underline underline-offset-2">
+          <button type="button" onClick={retry} className="font-medium text-link underline underline-offset-2">
             Réessayer
           </button>
         </p>

@@ -8,7 +8,7 @@ export function TierBadge({ tier, compact = false }: { tier: string; compact?: b
   const label = userLabel(tier);
   const style =
     label === "Top pick"
-      ? "border-accent bg-accent text-fg"
+      ? "border-accent bg-accent text-on-accent"
       : label === "Petite mise"
         ? "border-accent/60 bg-accent-dim text-accent-strong"
         : "border-border bg-bg-row text-fg-muted";

@@ -181,8 +181,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const resume = (
     <div className="flex flex-col gap-6">
       {kickedOff ? null : (
-        <p className="flex items-start gap-2 rounded-lg bg-accent-dim/50 px-3.5 py-2.5 text-sm text-fg">
-          <Icon name="wallet" className="mt-0.5 h-4 w-4 text-accent-strong" />
+        <p className="flex items-start gap-2 rounded-lg bg-bg-row px-3.5 py-2.5 text-sm text-fg">
+          <Icon name="wallet" className="mt-0.5 h-4 w-4 text-fg-muted" />
           <span>
             Clique sur une cote pour l&apos;ajouter à ta sélection : on t&apos;indique quel pourcentage de ta bankroll tu peux y
             miser.
@@ -246,7 +246,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "1", name: match.homeTeam, outcome: match.homeTeam, data: home, color: "text-accent-strong" },
+                { label: "1", name: match.homeTeam, outcome: match.homeTeam, data: home, color: "text-fg" },
                 { label: "X", name: "Nul", outcome: "Draw", data: draw, color: "text-fg-muted" },
                 { label: "2", name: match.awayTeam, outcome: match.awayTeam, data: away, color: "text-fg" },
               ].map((slot) => (
@@ -268,9 +268,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             </div>
             <ProbabilityBar
               segments={[
-                { pct: (home?.probability ?? 0) * 100, color: "bg-accent" },
-                { pct: (draw?.probability ?? 0) * 100, color: "bg-fg-muted" },
-                { pct: (away?.probability ?? 0) * 100, color: "bg-fg" },
+                { pct: (home?.probability ?? 0) * 100, color: "bg-fg" },
+                { pct: (draw?.probability ?? 0) * 100, color: "bg-seq-3" },
+                { pct: (away?.probability ?? 0) * 100, color: "bg-fg-muted" },
               ]}
             />
           </div>
@@ -289,7 +289,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "1", name: match.homeTeam, outcome: match.homeTeam, probability: match.prediction.homeWinProbability, price: home?.price ?? null, color: "text-accent-strong" },
+                { label: "1", name: match.homeTeam, outcome: match.homeTeam, probability: match.prediction.homeWinProbability, price: home?.price ?? null, color: "text-fg" },
                 { label: "X", name: "Nul", outcome: "Draw", probability: match.prediction.drawProbability, price: draw?.price ?? null, color: "text-fg-muted" },
                 { label: "2", name: match.awayTeam, outcome: match.awayTeam, probability: match.prediction.awayWinProbability, price: away?.price ?? null, color: "text-fg" },
               ].map((slot) => {
@@ -303,7 +303,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   >
                     <span className="font-mono-tabular text-xs uppercase text-fg-muted">{slot.label}</span>
                     <span className="truncate text-xs text-fg-muted">{slot.name}</span>
-                    <span className={`font-display text-xl font-bold ${slot.color}`}>
+                    <span className={`font-display text-xl font-bold ${isPick ? "text-accent-strong" : slot.color}`}>
                       {Math.round(slot.probability * 100)}%
                     </span>
                     <span className="font-mono-tabular text-xs text-fg-muted">
@@ -315,9 +315,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             </div>
             <ProbabilityBar
               segments={[
-                { pct: match.prediction.homeWinProbability * 100, color: "bg-accent" },
-                { pct: match.prediction.drawProbability * 100, color: "bg-fg-muted" },
-                { pct: match.prediction.awayWinProbability * 100, color: "bg-fg" },
+                { pct: match.prediction.homeWinProbability * 100, color: "bg-fg" },
+                { pct: match.prediction.drawProbability * 100, color: "bg-seq-3" },
+                { pct: match.prediction.awayWinProbability * 100, color: "bg-fg-muted" },
               ]}
             />
             <p className="text-xs text-fg-muted">
@@ -348,10 +348,10 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
                       <OddsErrorFlame errors={oddsErrorsFor(match.oddsErrors, "totals", outcome.name, point)} />
-                      <span className="font-mono-tabular text-sm font-semibold text-accent-strong">
+                      <span className="font-mono-tabular text-sm font-semibold text-fg">
                         {Math.round(outcome.probability * 100)}%
                       </span>
-                      <span className="rounded bg-accent-dim px-2 py-0.5 font-mono-tabular text-xs font-semibold text-accent-strong">
+                      <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono-tabular text-xs font-semibold text-fg ring-1 ring-border">
                         {outcome.price ? outcome.price.toFixed(2) : "—"}
                       </span>
                     </span>

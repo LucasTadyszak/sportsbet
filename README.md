@@ -133,6 +133,10 @@ src/lib/selection.ts        # « Ma sélection » : une cote cliquée + le verdi
 src/lib/betSlip.ts          # état de la sélection, de la bankroll et des mises, dans le localStorage du navigateur
 src/components/OddsButton.tsx # une cote cliquable (tuiles 1/N/2, tableau de cotes, picks), flamme d'erreur de cote comprise
 src/components/BetSlip.tsx  # champ bankroll, encart d'invitation, bouton flottant + panneau « Ma sélection » (mises, enregistrement)
+src/lib/themes.ts           # les trois thèmes (Graphite, Ardoise, Brume), le cookie qui garde le choix, le script qui l'applique avant l'affichage
+src/app/globals.css         # les couleurs de chaque thème en variables CSS, contrastes vérifiés par src/lib/themes.test.ts
+src/components/ThemeSwitcher.tsx # le bouton « Thème » de l'en-tête et son menu
+src/app/themes/             # les trois thèmes côte à côte, sur des matchs d'exemple (src/lib/themePreview.ts)
 src/lib/savedBets.ts        # « Mes paris » : un pari enregistré, son règlement au score à 90 min (simple ou combiné), le bilan
 src/lib/myBets.ts           # les paris enregistrés, dans le localStorage du navigateur
 src/lib/betResults.ts       # où en sont les matchs des paris enregistrés : score à 90 min, score en direct, annulation
@@ -161,7 +165,7 @@ src/lib/apiProviders.ts     # chaque API appelée (clé `provider` d'ApiUsageLog
 src/lib/apiUsage.ts, src/lib/usagePeriods.ts # comptes par API, par heure ou jour de Paris, par endpoint, quotas
 ```
 
-Board inspiré de Winamax et Betclic, en thème clair : chaque match est un **bloc**
+Board inspiré de Winamax et Betclic : chaque match est un **bloc**
 habillé aux couleurs de sa compétition (bandeau en dégradé avec son motif —
 chevrons, étoiles ou bandes — et son logo, sinon son drapeau) et de ses deux clubs
 (cadre rayé aux couleurs du maillot de chaque équipe, logo cerclé de ces mêmes
@@ -190,6 +194,29 @@ rien de plus en base. Les pages
 écrans de Lakeshore Edge (slate, No-Bet Center, Track Record, Model Health,
 Methodology) ; `/mes-paris` suit les paris que l'utilisateur a enregistrés (voir
 « Mes paris » plus bas).
+
+### Thèmes
+
+Le site a trois thèmes, bâtis sur la même palette — graphite `#2c2b32`, ardoise `#4a576a`, acier
+`#a8b6ca` — et un orange `#ff7a1a` réservé à ce qui compte : la cote que le modèle prendrait
+(cerclée d'orange, badge « Pick »), une cote dans « Ma sélection » (pleine d'orange), le bouton de
+la sélection, les mises conseillées et les « Top pick ». Navigation, filtres, onglets et jours
+actifs restent dans les neutres de la palette, pour que l'orange veuille toujours dire « regarde
+ici ».
+
+| Thème | Allure |
+| --- | --- |
+| **Graphite** (par défaut) | Sombre : fond graphite, cartes ardoise fumée, textes secondaires en acier ; les logos posés sur une pastille claire |
+| **Ardoise** | Mixte : en-tête et pied de page graphite, fond acier, cartes blanches, filtres actifs en ardoise |
+| **Brume** | Clair : fond brumeux, cartes blanches, encre graphite |
+
+Le bouton « Thème » de l'en-tête change de thème sans recharger la page ; le choix est gardé
+un an dans le cookie `sb-theme`, lu avant le premier affichage par un petit script inline de
+`src/app/layout.tsx` (les pages restent pré-rendues, sans flash du thème par défaut). `/themes`
+montre les trois côte à côte avec les vrais composants, sur des matchs d'exemple, et permet d'en
+appliquer un. Chaque thème n'est qu'un jeu de variables CSS dans `src/app/globals.css` ;
+`src/lib/themes.test.ts` vérifie que tous définissent les mêmes et que les textes y restent
+lisibles (contraste WCAG AA).
 
 ### Tous les matchs (Free API Live Football Data)
 

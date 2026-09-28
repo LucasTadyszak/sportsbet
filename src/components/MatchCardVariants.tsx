@@ -11,11 +11,11 @@ import { TeamCrest } from "@/components/TeamCrest";
 export type CardLook = "duel" | "maillots" | "affiche" | "billet" | "liste";
 
 const STRETCHED =
-  "after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong";
+  "after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus";
 
-/** A colour washed out toward white: pct of the colour, the rest white. */
+/** A colour washed out toward the card: pct of the colour, the rest the card's (white on a light theme). */
 function tint(color: string, pct: number): string {
-  return `color-mix(in srgb, ${color} ${pct}%, white)`;
+  return `color-mix(in srgb, ${color} ${pct}%, var(--bg-elevated))`;
 }
 
 function looksOf(event: BoardEvent) {
@@ -48,9 +48,7 @@ export function DuelCard({ event }: { event: BoardEvent }) {
       <span aria-hidden className="h-1" style={{ backgroundImage: `linear-gradient(90deg, ${theme.from}, ${theme.to})` }} />
       <div className="flex items-center gap-2 px-4 pt-3">
         <CompetitionIcon theme={theme} logo={event.sportLogo} size={16} />
-        <span className="truncate text-xs font-bold uppercase tracking-wider" style={{ color: theme.from }}>
-          {theme.name}
-        </span>
+        <span className="truncate text-xs font-bold uppercase tracking-wider text-fg-muted">{theme.name}</span>
       </div>
       <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4 sm:pt-3">
         <Link
@@ -129,14 +127,14 @@ export function JerseyCard({ event }: { event: BoardEvent }) {
           >
             <span className="flex min-w-0 flex-col items-center gap-1.5 text-center">
               <Jersey kit={homeKit} crest={event.homeCrest} size={84} />
-              <span className="line-clamp-2 rounded-md bg-white/85 px-1.5 text-sm font-semibold leading-tight text-fg">{event.homeTeam}</span>
+              <span className="line-clamp-2 rounded-md bg-bg-elevated/85 px-1.5 text-sm font-semibold leading-tight text-fg">{event.homeTeam}</span>
             </span>
             <span className="flex min-w-20 flex-col items-center gap-1 rounded-2xl bg-bg-elevated px-3 py-2.5 shadow-card">
               <KickoffTime commenceTime={event.commenceTime} />
             </span>
             <span className="flex min-w-0 flex-col items-center gap-1.5 text-center">
               <Jersey kit={awayKit} crest={event.awayCrest} size={84} />
-              <span className="line-clamp-2 rounded-md bg-white/85 px-1.5 text-sm font-semibold leading-tight text-fg">{event.awayTeam}</span>
+              <span className="line-clamp-2 rounded-md bg-bg-elevated/85 px-1.5 text-sm font-semibold leading-tight text-fg">{event.awayTeam}</span>
             </span>
           </Link>
         </div>
@@ -303,7 +301,7 @@ export function CompactCard({ event }: { event: BoardEvent }) {
             <KickoffTime commenceTime={event.commenceTime} />
           </span>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.from }}>
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-fg-muted">
               <CompetitionIcon theme={theme} logo={event.sportLogo} size={14} />
               {theme.name}
             </span>

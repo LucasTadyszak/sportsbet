@@ -132,7 +132,7 @@ export default async function VestiairePage() {
 
       <section aria-labelledby="runs-title" className="flex flex-col gap-3">
         <h2 id="runs-title" className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
-          <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+          <span className="h-5 w-1 rounded-full bg-fg-muted" aria-hidden />
           Exécutions
         </h2>
         {runs.length === 0 ? (

@@ -109,7 +109,7 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
                 {picks.map((p) => (
                   <tr key={p.id} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/50">
                     <td className="px-4 py-2.5">
-                      <Link href={`/match/${p.eventId}`} className="flex items-center gap-2 text-fg hover:text-accent-strong">
+                      <Link href={`/match/${p.eventId}`} className="flex items-center gap-2 text-fg underline-offset-2 hover:underline">
                         <TeamName name={p.event.homeTeam} crest={p.homeCrest} size={16} />
                         <span className="text-fg-muted">–</span>
                         <TeamName name={p.event.awayTeam} crest={p.awayCrest} size={16} />

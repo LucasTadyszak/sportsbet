@@ -28,7 +28,7 @@ function signalsOf(edge: Edge): StoredEdgeSignals {
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h3 className="flex items-center gap-2.5 font-display text-sm font-semibold uppercase tracking-widest text-fg">
-      <span className="h-4 w-1 rounded-full bg-accent" aria-hidden />
+      <span className="h-4 w-1 rounded-full bg-fg-muted" aria-hidden />
       {children}
     </h3>
   );

@@ -28,7 +28,7 @@ function Block({ id, title, children }: { id: string; title: string; children: R
   return (
     <section id={id} className="flex scroll-mt-28 flex-col gap-4">
       <h2 className="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-fg sm:text-2xl">
-        <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+        <span className="h-5 w-1 rounded-full bg-fg-muted" aria-hidden />
         {title}
       </h2>
       <div className="flex flex-col gap-4 text-[15px] leading-7 text-fg sm:text-base">{children}</div>
@@ -100,7 +100,7 @@ export default function MethodologyPage() {
         <Block id="principe" title="Le principe">
           <p>
             La méthode reprend celle de{" "}
-            <a href="https://www.lakeshore-edge.com/methodology" className="text-accent-strong underline underline-offset-2" rel="noreferrer" target="_blank">
+            <a href="https://www.lakeshore-edge.com/methodology" className="text-link underline underline-offset-2" rel="noreferrer" target="_blank">
               Lakeshore Edge
             </a>
             , adaptée au football : une notation Elo par ligue enrichie de la forme récente et de facteurs structurels, des
@@ -171,7 +171,7 @@ export default function MethodologyPage() {
             de données public{" "}
             <a
               href="https://github.com/martj42/international_results"
-              className="text-accent-strong underline underline-offset-2"
+              className="text-link underline underline-offset-2"
               rel="noreferrer"
               target="_blank"
             >
@@ -353,11 +353,11 @@ export default function MethodologyPage() {
           </ul>
           <p>
             Tout est visible sur{" "}
-            <Link href="/modele" className="text-accent-strong underline underline-offset-2">
+            <Link href="/modele" className="text-link underline underline-offset-2">
               la santé du modèle
             </Link>{" "}
             et{" "}
-            <Link href="/historique" className="text-accent-strong underline underline-offset-2">
+            <Link href="/historique" className="text-link underline underline-offset-2">
               l&apos;historique
             </Link>
             .

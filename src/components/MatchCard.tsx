@@ -119,11 +119,11 @@ function kitRing(colors: string[]): string {
   return `conic-gradient(from -45deg, ${colors.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(", ")})`;
 }
 
-/** A club's crest on a white disc, ringed with its kit colours. */
+/** A club's crest on a light disc (white, off-white on a dark theme), ringed with its kit colours. */
 export function KitCrest({ crest, kit, size = 50 }: { crest: string | null; kit: string[]; size?: number }) {
   return (
     <span className="rounded-full p-[3px] shadow-card ring-1 ring-fg/10" style={{ backgroundImage: kitRing(kit) }}>
-      <span className="flex items-center justify-center rounded-full bg-bg-elevated" style={{ width: size, height: size }}>
+      <span className="flex items-center justify-center rounded-full bg-(--crest-disc)" style={{ width: size, height: size }}>
         <TeamCrest src={crest} size={Math.round(size * 0.64)} />
       </span>
     </span>
@@ -149,7 +149,7 @@ function MarketShare({ probability, favorite }: { probability: number | null; fa
         {formatPct(probability)}
       </span>
       <span aria-hidden className="h-1 flex-1 overflow-hidden rounded-full bg-bg-row">
-        <span className={`block h-full rounded-full ${favorite ? "bg-accent" : "bg-fg/25"}`} style={{ width: `${probability * 100}%` }} />
+        <span className={`block h-full rounded-full ${favorite ? "bg-fg-muted" : "bg-fg-muted/35"}`} style={{ width: `${probability * 100}%` }} />
       </span>
     </span>
   );
@@ -283,7 +283,7 @@ export function MatchCard({ event }: { event: BoardEvent }) {
           <>
             <Link
               href={`/match/${event.id}`}
-              className={`${TEAMS_ROW} after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong`}
+              className={`${TEAMS_ROW} after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus`}
             >
               {teams}
             </Link>

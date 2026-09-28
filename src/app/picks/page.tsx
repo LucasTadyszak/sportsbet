@@ -61,7 +61,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
           </span>
           <Link
             href={`/match/${v.eventId}`}
-            className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg after:absolute after:inset-0 after:rounded-xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
+            className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg after:absolute after:inset-0 after:rounded-xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus"
           >
             <TeamName name={v.homeTeam} crest={v.homeCrest} />
             <span className="shrink-0 font-normal text-fg-muted">vs</span>
@@ -105,7 +105,7 @@ function PickCard({ v }: { v: VerdictListItem }) {
             ? `Journalisé @ ${formatOdds(v.journaled.price)} (${v.journaled.bookmakerTitle})`
             : `Journalisé à ${STAKING.publishWindowHours} h du coup d'envoi`}
         </span>
-        <span className="inline-flex items-center gap-0.5 font-medium text-accent-strong">
+        <span className="inline-flex items-center gap-0.5 font-medium text-link">
           Analyse <Icon name="chevron-right" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
         </span>
       </div>
@@ -127,7 +127,7 @@ export default async function PicksPage() {
           Les marchés où le modèle, une fois calibré, s&apos;écarte assez du consensus de marché (sans marge, Pinnacle compté
           double) pour miser, avec un prix +EV chez un bookmaker jouable. Chaque pick est journalisé tel quel puis gradé
           contre le résultat et la cote de clôture sur{" "}
-          <Link href="/historique" className="font-medium text-accent-strong underline underline-offset-2">
+          <Link href="/historique" className="font-medium text-link underline underline-offset-2">
             l&apos;historique
           </Link>
           .
@@ -148,7 +148,7 @@ export default async function PicksPage() {
           <EmptyState title="Aucun pick pour l'instant" icon="target">
             Aucun marché à venir ne passe tous les filtres (edge, prix, signaux, données). C&apos;est normal : sur un marché
             efficient, passer est la décision la plus fréquente —{" "}
-            <Link href="/passes" className="font-medium text-accent-strong underline underline-offset-2">
+            <Link href="/passes" className="font-medium text-link underline underline-offset-2">
               voir pourquoi chaque match est passé
             </Link>
             .

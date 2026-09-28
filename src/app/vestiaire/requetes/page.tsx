@@ -36,7 +36,7 @@ function Section({ title, description, children }: { title: string; description?
     <section className="flex flex-col gap-3">
       <div>
         <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
-          <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+          <span className="h-5 w-1 rounded-full bg-fg-muted" aria-hidden />
           {title}
         </h2>
         {description ? <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-fg-muted">{description}</p> : null}

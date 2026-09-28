@@ -41,7 +41,7 @@ export function CommandCard({ id, npm, title, description, apis, args, running, 
             spellCheck={false}
             autoComplete="off"
             placeholder={args.placeholder}
-            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated px-3 font-mono text-sm text-fg placeholder:text-fg-muted/70 transition-colors duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 focus-visible:outline-none"
+            className="min-h-10 w-full rounded-lg border border-border bg-bg-elevated px-3 font-mono text-sm text-fg placeholder:text-fg-muted/70 transition-colors duration-200 focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/25 focus-visible:outline-none"
           />
         </div>
       ) : null}
@@ -49,7 +49,7 @@ export function CommandCard({ id, npm, title, description, apis, args, running, 
         <button
           type="submit"
           disabled={busy}
-          className="flex min-h-10 items-center gap-2 rounded-lg bg-fg px-4 text-sm font-semibold text-white transition-colors duration-200 enabled:hover:bg-fg/90 disabled:cursor-default disabled:opacity-60"
+          className="flex min-h-10 items-center gap-2 rounded-lg bg-inverse px-4 text-sm font-semibold text-on-inverse transition-colors duration-200 enabled:hover:bg-inverse/90 disabled:cursor-default disabled:opacity-60"
         >
           <Icon name={busy ? "loader" : "play"} className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
           {busy ? "En cours…" : "Lancer"}

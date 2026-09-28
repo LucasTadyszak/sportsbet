@@ -16,11 +16,12 @@ type Series = { id: string; label: string; color: string; bins: ReliabilityBin[]
 /**
  * Reliability diagram: for each probability bin, what was predicted on average vs how
  * often it happened. A calibrated forecast sits on the diagonal; below it = overconfident.
+ * The model in orange, the market it is judged against in steel.
  */
 export function ReliabilityChart({ model, market }: { model: ReliabilityBin[]; market: ReliabilityBin[] }) {
   const series: Series[] = [
-    { id: "model", label: "Modèle (avant calibration)", color: "var(--series-1)", bins: model },
-    { id: "market", label: "Marché à la clôture", color: "var(--series-2)", bins: market },
+    { id: "model", label: "Modèle (avant calibration)", color: "var(--series-2)", bins: model },
+    { id: "market", label: "Marché à la clôture", color: "var(--series-1)", bins: market },
   ];
 
   return (
