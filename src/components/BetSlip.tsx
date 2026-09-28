@@ -547,18 +547,13 @@ function SlipContent({ slip, summary }: { slip: SlipState; summary: SlipSummary 
             />
           ) : null}
           <SaveButton slip={slip} summary={summary} onDone={setNotice} />
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <button
-              type="button"
-              onClick={betSlip.clear}
-              className="inline-flex min-h-9 items-center gap-1.5 font-medium text-fg-muted transition-colors duration-200 hover:text-fall"
-            >
-              <Icon name="trash" className="h-3.5 w-3.5" /> Vider la sélection
-            </button>
-            <Link href="/methodologie#mise" onClick={betSlip.close} className="font-medium text-link hover:underline">
-              Comment c&apos;est calculé
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={betSlip.clear}
+            className="inline-flex min-h-9 w-fit items-center gap-1.5 text-sm font-medium text-fg-muted transition-colors duration-200 hover:text-fall"
+          >
+            <Icon name="trash" className="h-3.5 w-3.5" /> Vider la sélection
+          </button>
           <p className="text-[11px] leading-relaxed text-fg-muted">
             ¼ Kelly sur la probabilité du modèle à la cote choisie, plafonné selon le verdict. Indicatif, pas un conseil de pari :
             jouer comporte des risques (09 74 75 13 13).

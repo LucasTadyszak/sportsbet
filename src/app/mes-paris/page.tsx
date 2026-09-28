@@ -1,4 +1,4 @@
-import { PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { MyBets } from "./MyBets";
 
 export const metadata = { title: "Mes paris — SportsBet" };
