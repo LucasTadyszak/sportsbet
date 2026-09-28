@@ -1,62 +1,93 @@
 @import "tailwindcss";
 
 /*
- * "Énergique" light theme: orange (#F97316) + dark ink on a cool slate
- * dashboard base. The page sits on slate-50 and every card is white, so
- * content reads as raised above the page (never the other way round).
- * --accent is the vivid brand orange, used for fills/borders/icons — on white
- * it only reaches ~2.8:1 contrast, so it is never used for small text.
- * --accent-strong is the same hue deepened for text/links/highlights, which
- * clears WCAG AA (~5:1) on white and on --accent-dim.
+ * « Stade » — the site's design system, in the manner of a TV sports graphics package:
+ * condensed capitals (Anton for figures and titles, Barlow Condensed for labels, Barlow for
+ * text), sharp corners, slanted tags and tabs (-skew-x-12 around a skew-x-12 label), panels
+ * lifted by a hard offset shadow, club colours as bars.
+ *
+ * Palette: graphite #2c2b32 (page), slate #4a576a (bars and rules), steel #a8b6ca (secondary
+ * text, and the fill of whatever is active: page, day, filter), and one orange #ff7a1a kept
+ * for what matters — the price the model would take (orange outline), a price in the slip
+ * (orange fill), the slip itself, the stakes, a top pick. Every value is a literal colour so
+ * src/lib/designTokens.test.ts can check their contrast (WCAG AA for text).
+ *
+ *   --bg-deep / --bg / --bg-elevated / --bg-row   header and bands / page / panel / block in a panel
+ *   --fg / --fg-muted                              text / secondary text (≥ 4.5:1 on every surface)
+ *   --inverse / --on-inverse                       steel fill of the active item, and its text
+ *   --accent / --on-accent                         orange fills, borders, big figures / text on orange
+ *   --accent-strong                                orange for small text (≥ 4.5:1 on panels and blocks)
  */
 :root {
-  color-scheme: light;
-  --bg: #f8fafc;
-  --bg-elevated: #ffffff;
-  --bg-row: #f1f5f9;
-  --border: #e2e8f0;
-  --fg: #0f172a;
-  --fg-muted: #475569; /* ~7:1 on white and on --bg */
-  --accent: #f97316;
-  --accent-strong: #c2410c;
-  --accent-dim: #ffedd5;
-  --fall: #dc2626;
-  --rise: #15803d; /* won / positive CLV text — ~5:1 on white */
-  /* Odds-error flame: an icon only (never text), ≥3.8:1 on white, --bg-row and --accent-dim. */
-  --flame: #e03a0c;
-  /* Status (model health bands) — always paired with an icon + label, never color alone. */
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-critical: #d03b3b;
-  /* Chart series, fixed order (validated for CVD separation on white). */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
+  color-scheme: dark;
+  --bg-deep: #232228;
+  --bg: #2c2b32;
+  --bg-elevated: #363742;
+  --bg-row: #3f414d;
+  --border: #4d5160;
+  --slate: #4a576a;
+  --fg: #ffffff;
+  --fg-muted: #a8b6ca;
+  --inverse: #a8b6ca;
+  --on-inverse: #2c2b32;
+  --link: #dfe6ef;
+  --focus: #e8edf4;
+  --accent: #ff7a1a;
+  --accent-strong: #ff9a52;
+  --accent-dim: #4d3c35;
+  --on-accent: #2c2b32;
+  --rise: #4cd17f;
+  --on-rise: #2c2b32;
+  --fall: #ff8585;
+  /* Odds-error flame: an icon only (never text), ≥ 3:1 on every surface it sits on. */
+  --flame: #ff6a4d;
+  /* Status (model health bands) — always paired with an icon + label, never colour alone. */
+  --status-good: #4cd17f;
+  --status-warning: #f5b82e;
+  --status-critical: #ff6b6b;
+  /* Chart series: steel for the reference (the market), orange for the model. */
+  --series-1: #a8b6ca;
+  --series-2: #ff7a1a;
   /*
-   * Sequential ramp for heatmaps (the score matrix): series-1's blue, one hue, light → dark,
-   * lightness validated monotone. Labels on it: ink up to --seq-4, white from --seq-5
-   * (both >= 4.5:1). The lightest step is meant to recede toward white (near-zero values).
+   * Sequential ramp for heatmaps (the score matrix), low → high: it climbs from the panel toward
+   * white, so near-zero values recede. Labels: --seq-ink-low up to --seq-4, --seq-ink-high from
+   * --seq-5 (both ≥ 4.5:1).
    */
-  --seq-1: #cde2fb;
-  --seq-2: #9ec5f4;
-  --seq-3: #6da7ec;
-  --seq-4: #3987e5;
-  --seq-5: #256abf;
-  --seq-6: #184f95;
-  --seq-7: #0d366b;
+  --seq-1: #444a59;
+  --seq-2: #4b5467;
+  --seq-3: #54607a;
+  --seq-4: #5c6a82;
+  --seq-5: #8e9db3;
+  --seq-6: #b5c1d3;
+  --seq-7: #dfe6ef;
+  --seq-ink-low: #ffffff;
+  --seq-ink-high: #2c2b32;
+  /* Club and competition logos are drawn for a light background: they sit on a light plate. */
+  --logo-plate: #eef1f5;
+  /* The hard shadow under a panel. */
+  --shadow: #18171c;
 }
 
 @theme inline {
+  --color-bg-deep: var(--bg-deep);
   --color-bg: var(--bg);
   --color-bg-elevated: var(--bg-elevated);
   --color-bg-row: var(--bg-row);
   --color-border: var(--border);
+  --color-slate: var(--slate);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
+  --color-inverse: var(--inverse);
+  --color-on-inverse: var(--on-inverse);
+  --color-link: var(--link);
+  --color-focus: var(--focus);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-dim: var(--accent-dim);
+  --color-on-accent: var(--on-accent);
   --color-fall: var(--fall);
   --color-rise: var(--rise);
+  --color-on-rise: var(--on-rise);
   --color-flame: var(--flame);
   --color-status-good: var(--status-good);
   --color-status-warning: var(--status-warning);
@@ -70,24 +101,40 @@
   --color-seq-5: var(--seq-5);
   --color-seq-6: var(--seq-6);
   --color-seq-7: var(--seq-7);
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
-  --font-mono: var(--font-mono);
+  --color-seq-ink-low: var(--seq-ink-low);
+  --color-seq-ink-high: var(--seq-ink-high);
+  --color-logo-plate: var(--logo-plate);
+  /* font-display (Anton: titles, figures), font-cond (Barlow Condensed: labels), font-sans (Barlow: text). */
+  --font-display: var(--font-anton), "Arial Narrow", sans-serif;
+  --font-cond: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
-/* A raised surface: white card, hairline border (set on the element), whisper of shadow. */
-@utility shadow-card {
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 1px 3px rgba(15, 23, 42, 0.03);
+/* A panel lifted off the page: the hard offset shadow of a TV graphic. */
+@utility shadow-hard {
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+@utility shadow-hard-sm {
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+/* Figures that line up: odds, percentages, amounts in tables and lists. */
+@utility figures {
+  font-family: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A band's tag cut on the slant at its right end (the competition in a match block). */
+@utility cut-slant {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-body), sans-serif;
-  background-image: radial-gradient(circle at 12% -10%, rgba(249, 115, 22, 0.08), transparent 40%);
-  background-attachment: fixed;
+  font-family: var(--font-barlow), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -112,7 +159,7 @@ body {
 
   /* One consistent, always-visible keyboard focus ring. */
   :focus-visible {
-    outline: 2px solid var(--accent-strong);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
@@ -126,15 +173,6 @@ body {
       scroll-behavior: auto !important;
     }
   }
-}
-
-.font-display {
-  font-family: var(--font-display), sans-serif;
-}
-
-.font-mono-tabular {
-  font-family: var(--font-mono), monospace;
-  font-variant-numeric: tabular-nums;
 }
 
 .tabular {

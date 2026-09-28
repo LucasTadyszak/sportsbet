@@ -18,15 +18,15 @@ const GOALS_AXIS = Array.from({ length: SHOWN_GOALS + 1 }, (_, goals) => goals);
 const FAVORITES = 3;
 
 // Sequential scale on the probability itself rather than relative to the likeliest score,
-// so an open match reads paler than a lopsided one. Below 1% a score recedes into the surface.
+// so an open match reads fainter than a lopsided one. Below 1% a score recedes into the surface.
 const STEPS: { from: number; className: string }[] = [
-  { from: 0.14, className: "bg-seq-7 text-white" },
-  { from: 0.11, className: "bg-seq-6 text-white" },
-  { from: 0.09, className: "bg-seq-5 text-white" },
-  { from: 0.07, className: "bg-seq-4 text-fg" },
-  { from: 0.05, className: "bg-seq-3 text-fg" },
-  { from: 0.03, className: "bg-seq-2 text-fg" },
-  { from: 0.01, className: "bg-seq-1 text-fg" },
+  { from: 0.14, className: "bg-seq-7 text-seq-ink-high" },
+  { from: 0.11, className: "bg-seq-6 text-seq-ink-high" },
+  { from: 0.09, className: "bg-seq-5 text-seq-ink-high" },
+  { from: 0.07, className: "bg-seq-4 text-seq-ink-low" },
+  { from: 0.05, className: "bg-seq-3 text-seq-ink-low" },
+  { from: 0.03, className: "bg-seq-2 text-seq-ink-low" },
+  { from: 0.01, className: "bg-seq-1 text-seq-ink-low" },
   { from: 0, className: "bg-bg-row text-fg-muted" },
 ];
 
@@ -57,14 +57,14 @@ function CheckBadge({ className = "" }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-rise text-white ${className}`}
+      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center bg-rise text-on-rise ${className}`}
     >
       <Icon name="check" className="h-3 w-3" />
     </span>
   );
 }
 
-const SECTION_TITLE = "font-display text-sm font-semibold uppercase tracking-widest text-fg-muted";
+const SECTION_TITLE = "flex items-center gap-2.5 font-display text-xl uppercase leading-none tracking-wide text-fg";
 
 export function ScoreMatrix({ match }: { match: MatchDetail }) {
   const prediction = match.predictionDetail;
@@ -103,7 +103,10 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-4">
         <div>
-          <h3 className={SECTION_TITLE}>Probabilité du score</h3>
+          <h3 className={SECTION_TITLE}>
+            <span aria-hidden className="h-5 w-2 shrink-0 -skew-x-12 bg-slate" />
+            Probabilité du score
+          </h3>
           <p className="mt-1 text-xs leading-relaxed text-fg-muted">
             {goalsFitted
               ? `Modèle de buts Dixon-Coles, ajusté sur ${national ? "tous les matchs internationaux récents" : "les résultats de la compétition"} (les plus récents pèsent davantage)`
@@ -130,7 +133,7 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
                   <th
                     scope="row"
                     id={`score-h${home}`}
-                    className="pr-1 text-right font-mono-tabular text-xs font-semibold text-fg-muted"
+                    className="figures pr-1 text-right text-sm font-bold text-fg-muted"
                   >
                     <span className="sr-only">{match.homeTeam} </span>
                     {home}
@@ -143,7 +146,7 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
                       <td key={away} headers={`score-h${home} score-a${away}`} className="p-0">
                         <div
                           title={`${match.homeTeam} ${home} – ${away} ${match.awayTeam} : ${label}`}
-                          className={`relative flex h-9 items-center justify-center rounded-md font-mono-tabular text-[11px] font-semibold sm:h-10 sm:text-[13px] ${stepClass(probability)} ${
+                          className={`figures relative flex h-9 items-center justify-center text-[13px] font-bold sm:h-10 sm:text-[15px] ${stepClass(probability)} ${
                             finalCell
                               ? "z-10 ring-2 ring-fg ring-offset-1 ring-offset-bg-elevated"
                               : "transition-shadow duration-150 hover:ring-2 hover:ring-fg/40"
@@ -172,7 +175,7 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
                     key={away}
                     scope="col"
                     id={`score-a${away}`}
-                    className="pt-1 font-mono-tabular text-xs font-semibold text-fg-muted"
+                    className="figures pt-1 text-sm font-bold text-fg-muted"
                   >
                     <span className="sr-only">{match.awayTeam} </span>
                     {away}
@@ -201,26 +204,27 @@ export function ScoreMatrix({ match }: { match: MatchDetail }) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h3 className={SECTION_TITLE}>Scores favoris du modèle</h3>
+        <h3 className={SECTION_TITLE}>
+          <span aria-hidden className="h-5 w-2 shrink-0 -skew-x-12 bg-slate" />
+          Scores favoris du modèle
+        </h3>
         <ol className="grid grid-cols-3 gap-2 sm:gap-3">
           {ranked.slice(0, FAVORITES).map((score, index) => {
             const hit = isFinal(score.home, score.away);
             return (
               <li
                 key={`${score.home}-${score.away}`}
-                className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3.5 text-center ${
-                  hit ? "border-rise bg-rise/5" : "border-border bg-bg-row/50"
-                }`}
+                className={`flex flex-col items-center gap-1 border-2 bg-bg-row px-2 py-3.5 text-center ${hit ? "border-rise" : "border-transparent"}`}
               >
-                <span className="text-balance text-xs text-fg-muted">
+                <span className="text-balance font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">
                   <Ordinal rank={index + 1} /> score favori
                 </span>
-                <span className="font-display text-2xl font-bold text-fg sm:text-3xl">
+                <span className="font-display text-3xl leading-none tracking-wide text-fg sm:text-4xl">
                   {score.home} – {score.away}
                 </span>
-                <span className="font-mono-tabular text-sm font-semibold text-fg">{formatPct(score.probability, 1)}</span>
+                <span className="figures text-base font-bold text-fg">{formatPct(score.probability, 1)}</span>
                 {hit ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rise">
+                  <span className="inline-flex items-center gap-1 font-cond text-xs font-bold uppercase tracking-wider text-rise">
                     <Icon name="check" className="h-3 w-3" /> Score final
                   </span>
                 ) : null}

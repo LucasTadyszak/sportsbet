@@ -24,7 +24,7 @@ function StatusPill({ band, text }: { band: CalibrationBand; text?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-fg">
       <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${style.color}`} />
-      <span aria-hidden className="font-mono-tabular">{style.icon}</span>
+      <span aria-hidden className="figures">{style.icon}</span>
       {text ?? style.label}
     </span>
   );
@@ -34,8 +34,8 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
-          <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+        <h2 className="flex items-center gap-2.5 font-display text-2xl uppercase leading-none tracking-wide text-fg">
+          <span className="h-5 w-2 shrink-0 -skew-x-12 bg-slate" aria-hidden />
           {title}
         </h2>
         {description ? <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-fg-muted">{description}</p> : null}
@@ -47,12 +47,12 @@ function Section({ title, description, children }: { title: string; description?
 
 function Table({ head, children, minWidth = 640 }: { head: string[]; children: ReactNode; minWidth?: number }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
+    <div className="overflow-x-auto bg-bg-elevated shadow-hard">
       <table className="w-full border-collapse text-sm" style={{ minWidth }}>
-        <thead className="bg-bg-row/60">
-          <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
+        <thead className="bg-bg-deep">
+          <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
             {head.map((h, i) => (
-              <th key={h} className={`px-3 py-2 font-normal ${i === 0 ? "pl-4" : "text-right"}`}>
+              <th key={h} className={`px-3 py-2.5 font-bold ${i === 0 ? "pl-4" : "text-right"}`}>
                 {h}
               </th>
             ))}
@@ -65,7 +65,7 @@ function Table({ head, children, minWidth = 640 }: { head: string[]; children: R
 }
 
 const Cell = ({ children, first = false, muted = false }: { children: ReactNode; first?: boolean; muted?: boolean }) => (
-  <td className={`px-3 py-2 ${first ? "pl-4 text-fg" : "whitespace-nowrap text-right font-mono-tabular"} ${muted ? "text-fg-muted" : ""}`}>{children}</td>
+  <td className={`px-3 py-2 ${first ? "pl-4 text-fg" : "whitespace-nowrap text-right figures"} ${muted ? "text-fg-muted" : ""}`}>{children}</td>
 );
 
 function coverageBand(share: number): CalibrationBand {
@@ -77,7 +77,7 @@ function CoverageCell({ count, row }: { count: number; row: CoverageRow }) {
   return (
     <td className="px-3 py-2 text-right">
       <span className="inline-flex items-center justify-end gap-2">
-        <span className="font-mono-tabular">{formatPct(share)}</span>
+        <span className="figures">{formatPct(share)}</span>
         <StatusPill band={coverageBand(share)} text="" />
       </span>
     </td>
@@ -86,7 +86,7 @@ function CoverageCell({ count, row }: { count: number; row: CoverageRow }) {
 
 function ScoreRow({ label, scores, best }: { label: string; scores: ForecastScores | null; best: boolean }) {
   return (
-    <tr className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+    <tr className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
       <Cell first>
         {label}
         {best ? <span className="ml-2 text-xs text-fg-muted">(meilleur Brier)</span> : null}
@@ -152,7 +152,7 @@ export default async function ModelHealthPage() {
             <p className="text-sm text-fg-muted">Pas encore de match gradé.</p>
           ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="flex flex-col gap-2 rounded-xl border border-border bg-bg-elevated p-4 shadow-card">
+              <div className="flex flex-col gap-2 bg-bg-elevated p-4 shadow-hard">
                 <ReliabilityChart model={health.reliability.model} market={health.reliability.market} />
                 <p className="text-xs text-fg-muted">
                   Tant que peu de matchs sont gradés, chaque point ne repose que sur quelques issues (colonne « Issues ») et la
@@ -166,7 +166,7 @@ export default async function ModelHealthPage() {
                     const m = health.reliability.model.find((b) => b.lo === lo);
                     const k = health.reliability.market.find((b) => b.lo === lo);
                     return (
-                      <tr key={lo} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                      <tr key={lo} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                         <Cell first>
                           {Math.round(lo * 100)}–{Math.round(lo * 100) + 10} %
                         </Cell>
@@ -192,7 +192,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Championnat · marché", "Picks", "Proba annoncée", "Réussite", "Écart", "État", "Décalage appliqué", "ROI", "CLV"]} minWidth={900}>
               {health.bySportMarket.map((row) => (
-                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <Cell first>
                     {row.sportTitle} · {marketLabel(row.marketKey)}
                   </Cell>
@@ -222,7 +222,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Verdict", "Picks", "Proba annoncée", "Réussite", "Écart", "Brier", "ROI", "CLV", "Bat la clôture"]} minWidth={860}>
               {health.byTier.map((row) => (
-                <tr key={row.tier} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={row.tier} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <Cell first>{TIER_INFO[row.tier]?.name ?? row.tier}</Cell>
                   <Cell muted>{row.n}</Cell>
                   <Cell>{formatPct(row.avgPredicted, 1)}</Cell>
@@ -247,7 +247,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Championnat · marché", "Matchs", "Échelle appliquée", "Pente brute"]} minWidth={520}>
               {health.edgeScales.map((row) => (
-                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={`${row.sportKey}|${row.marketKey}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <Cell first>
                     {row.sportTitle} · {marketLabel(row.marketKey)}
                   </Cell>
@@ -262,14 +262,14 @@ export default async function ModelHealthPage() {
 
         <Section
           title="Couverture des données (7 prochains jours)"
-          description="Ce à quoi le modèle a accès en ce moment, par championnat. Vert : au moins 90 % des matchs ; orange : partiel ; rouge : la donnée manque et le modèle tourne en mode dégradé."
+          description="Ce à quoi le modèle a accès en ce moment, par championnat. Vert : au moins 90 % des matchs ; jaune : partiel ; rouge : la donnée manque et le modèle tourne en mode dégradé."
         >
           {health.coverage.length === 0 ? (
             <p className="text-sm text-fg-muted">Aucun match à venir en base.</p>
           ) : (
             <Table head={["Championnat", "Matchs", "Modèle", "Données complètes", "Pinnacle", "Exchange", "Totaux"]} minWidth={760}>
               {health.coverage.map((row) => (
-                <tr key={row.sportKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={row.sportKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <Cell first>{row.sportTitle}</Cell>
                   <Cell muted>{row.events}</Cell>
                   <CoverageCell count={row.withModel} row={row} />
@@ -292,7 +292,7 @@ export default async function ModelHealthPage() {
           ) : (
             <Table head={["Compétition", "Matchs", "K", "Avantage terrain", "Nul (base / largeur)", "Buts/équipe", "Avantage buts", "Rho", "Réglage"]} minWidth={860}>
               {health.leagues.map((l) => (
-                <tr key={l.competitionCode} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={l.competitionCode} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <Cell first>{competitionLabel(l.competitionCode, true)}</Cell>
                   <Cell muted>{l.matchesUsed}</Cell>
                   <Cell>{l.kFactor}</Cell>

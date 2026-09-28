@@ -11,6 +11,7 @@ import {
   outcomeLabel,
 } from "@/lib/labels";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Straight, slantTabClass } from "@/components/Slant";
 import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, StatTile, TierBadge } from "@/components/Verdict";
 
@@ -62,17 +63,15 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
           <StatTile label="En attente" value={String(summary.pending)} hint={summary.voids ? `${summary.voids} annulé(s)` : undefined} />
         </div>
 
-        <nav aria-label="Filtrer les picks" className="flex w-full gap-1 rounded-lg border border-border bg-bg-row p-1 sm:w-fit">
+        <nav aria-label="Filtrer les picks" className="flex w-full flex-wrap gap-1.5 pl-1 sm:w-fit">
           {FILTERS.map((f) => (
             <Link
               key={f.value}
               href={f.value === "all" ? "/historique" : { pathname: "/historique", query: { filtre: f.value } }}
               aria-current={filter === f.value ? "page" : undefined}
-              className={`flex min-h-9 flex-1 items-center justify-center rounded-md px-3.5 text-sm font-medium transition-colors duration-200 sm:flex-none ${
-                filter === f.value ? "bg-bg-elevated text-fg shadow-card" : "text-fg-muted hover:text-fg"
-              }`}
+              className={`${slantTabClass(filter === f.value, "sm")} ${filter === f.value ? "" : "bg-bg-elevated"}`}
             >
-              {f.label}
+              <Straight>{f.label}</Straight>
             </Link>
           ))}
         </nav>
@@ -83,31 +82,31 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
             d&apos;envoi. Le job nocturne (<code className="text-fg">npm run nightly</code>) les grade ensuite.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
+          <div className="overflow-x-auto bg-bg-elevated shadow-hard">
             <table className="w-full min-w-[900px] border-collapse text-sm">
-              <thead className="bg-bg-row/60">
-                <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-                  <th className="px-4 py-2 font-normal">Match</th>
-                  <th className="px-3 py-2 font-normal">Pari</th>
-                  <th className="px-3 py-2 font-normal">Verdict</th>
-                  <th className="px-3 py-2 text-right font-normal">Cote</th>
-                  <th className="px-3 py-2 text-right font-normal">Proba</th>
-                  <th className="px-3 py-2 text-right font-normal">Mise</th>
-                  <th className="px-3 py-2 text-right font-normal">CLV</th>
-                  <th className="px-3 py-2 font-normal">Résultat</th>
-                  <th className="px-4 py-2 text-right font-normal">P/L</th>
+              <thead className="bg-bg-deep">
+                <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
+                  <th className="px-4 py-2.5 font-bold">Match</th>
+                  <th className="px-3 py-2.5 font-bold">Pari</th>
+                  <th className="px-3 py-2.5 font-bold">Verdict</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Cote</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Proba</th>
+                  <th className="px-3 py-2.5 text-right font-bold">Mise</th>
+                  <th className="px-3 py-2.5 text-right font-bold">CLV</th>
+                  <th className="px-3 py-2.5 font-bold">Résultat</th>
+                  <th className="px-4 py-2.5 text-right font-bold">P/L</th>
                 </tr>
               </thead>
               <tbody>
                 {picks.map((p) => (
-                  <tr key={p.id} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/50">
+                  <tr key={p.id} className="border-t border-border align-top transition-colors duration-150 hover:bg-bg-row/60">
                     <td className="px-4 py-2.5">
-                      <Link href={`/match/${p.eventId}`} className="flex items-center gap-2 text-fg hover:text-accent-strong">
+                      <Link href={`/match/${p.eventId}`} className="flex items-center gap-2 text-fg underline-offset-2 hover:underline">
                         <TeamName name={p.event.homeTeam} crest={p.homeCrest} size={16} />
                         <span className="text-fg-muted">–</span>
                         <TeamName name={p.event.awayTeam} crest={p.awayCrest} size={16} />
                       </Link>
-                      <span className="flex items-center gap-1 font-mono-tabular text-xs text-fg-muted">
+                      <span className="flex items-center gap-1 figures text-xs text-fg-muted">
                         <CompetitionName title={p.event.sport.title} logo={p.sportLogo} size={12} />
                         <span aria-hidden>·</span>
                         <span className="shrink-0">{formatKickoff(p.commenceTime)}</span>
@@ -122,11 +121,11 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
                     <td className="px-3 py-2.5">
                       <TierBadge tier={p.tier} compact />
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono-tabular">{formatOdds(p.price)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono-tabular">{formatPct(p.modelProb, 1)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-right font-mono-tabular">{formatUnits(p.stakeUnits)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right figures">{formatOdds(p.price)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right figures">{formatPct(p.modelProb, 1)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right figures">{formatUnits(p.stakeUnits)}</td>
                     <td
-                      className={`px-3 py-2.5 whitespace-nowrap text-right font-mono-tabular ${
+                      className={`px-3 py-2.5 whitespace-nowrap text-right figures ${
                         p.clv === null ? "text-fg-muted" : p.clv >= 0 ? "text-rise" : "text-fall"
                       }`}
                       title={p.closingSource ? `Clôture ${p.closingSource === "pinnacle" ? "Pinnacle" : "consensus"} : ${formatPct(p.closingFairProb, 1)}` : undefined}
@@ -136,13 +135,13 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
                     <td className={`px-3 py-2.5 ${statusTone(p.status)}`}>
                       {STATUS_LABELS[p.status] ?? p.status}
                       {p.homeGoals !== null && p.awayGoals !== null ? (
-                        <span className="block font-mono-tabular text-xs text-fg-muted">
+                        <span className="block figures text-xs text-fg-muted">
                           {p.homeGoals}–{p.awayGoals}
                         </span>
                       ) : null}
                     </td>
                     <td
-                      className={`px-4 py-2.5 whitespace-nowrap text-right font-mono-tabular ${
+                      className={`px-4 py-2.5 whitespace-nowrap text-right figures ${
                         p.profitUnits === null ? "text-fg-muted" : p.profitUnits >= 0 ? "text-rise" : "text-fall"
                       }`}
                     >

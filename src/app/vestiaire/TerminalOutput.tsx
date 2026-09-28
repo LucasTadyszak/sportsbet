@@ -21,9 +21,9 @@ export function TerminalOutput({ text, follow, empty }: { text: string; follow: 
         const el = event.currentTarget;
         atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
       }}
-      className="max-h-96 overflow-auto rounded-lg bg-fg px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words text-white/90 focus-visible:outline-accent"
+      className="max-h-96 overflow-auto border-l-4 border-slate bg-bg-deep px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words text-[#e8ecf2] focus-visible:outline-focus"
     >
-      {text || <span className="text-white/50">{empty}</span>}
+      {text || <span className="text-[#a8b6ca]">{empty}</span>}
     </pre>
   );
 }

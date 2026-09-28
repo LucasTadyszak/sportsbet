@@ -59,13 +59,13 @@ function RunItem({ run, open, now }: { run: CommandRun; open: boolean; now: Date
   const npm = isCommandId(run.command) ? COMMANDS[run.command].npm : run.command;
   return (
     <li>
-      <details open={open} className="group rounded-xl border border-border bg-bg-elevated shadow-card">
-        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl px-4 py-3 transition-colors duration-150 hover:bg-bg-row/50 [&::-webkit-details-marker]:hidden">
+      <details open={open} className="group bg-bg-elevated shadow-hard">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3 transition-colors duration-150 hover:bg-bg-row/60 [&::-webkit-details-marker]:hidden">
           <RunStatusPill status={status} />
           <code className="min-w-0 flex-1 truncate font-mono text-sm text-fg">{[npm, run.args].filter(Boolean).join(" ")}</code>
           <span className="flex items-center gap-3 text-xs text-fg-muted">
             <span>{formatKickoff(run.startedAt)}</span>
-            <span className="font-mono-tabular">{formatDuration(endOf(run, status, now).getTime() - run.startedAt.getTime())}</span>
+            <span className="figures">{formatDuration(endOf(run, status, now).getTime() - run.startedAt.getTime())}</span>
             <Icon name="chevron-down" className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
           </span>
         </summary>
@@ -131,8 +131,8 @@ export default async function VestiairePage() {
       </section>
 
       <section aria-labelledby="runs-title" className="flex flex-col gap-3">
-        <h2 id="runs-title" className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
-          <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+        <h2 id="runs-title" className="flex items-center gap-2.5 font-display text-2xl uppercase leading-none tracking-wide text-fg">
+          <span className="h-5 w-2 shrink-0 -skew-x-12 bg-slate" aria-hidden />
           Exécutions
         </h2>
         {runs.length === 0 ? (

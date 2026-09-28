@@ -18,9 +18,9 @@ import { ODDS_ERROR, isStakedTier } from "@/lib/methodology/config";
 import { selectionFor } from "@/lib/selection";
 import { CompetitionBand } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
-import { KitCrest, KitStripes, ResultTiles, kitOrTheme } from "@/components/MatchCard";
+import { ResultTiles, TeamSide, kitOrTheme } from "@/components/MatchCard";
 import { OddsButton } from "@/components/OddsButton";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SectionTitle, SiteHeader } from "@/components/SiteHeader";
 import { TierBadge } from "@/components/Verdict";
 import { Analysis } from "./Analysis";
 import { ScoreMatrix } from "./ScoreMatrix";
@@ -59,6 +59,8 @@ function OddsErrorLegend() {
   );
 }
 
+const TABLE_HEAD = "bg-bg-deep font-cond text-xs font-bold uppercase tracking-widest text-fg-muted";
+
 function OddsTable({
   match,
   lines,
@@ -86,28 +88,28 @@ function OddsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated">
-      <table className="w-full min-w-[420px] border-collapse text-sm">
-        <thead className="bg-bg-row/60">
-          <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-            <th className="px-5 py-2 font-normal">Bookmaker</th>
+    <div className="overflow-x-auto bg-bg-row/40">
+      <table className="w-full min-w-72 border-collapse text-sm">
+        <thead className={TABLE_HEAD}>
+          <tr className="text-left">
+            <th className="px-3 py-2.5 font-bold sm:px-5">Bookmaker</th>
             {outcomes.map((outcome) => (
-              <th key={outcome} className="px-3 py-2 text-right font-normal">
-                {outcome}
+              <th key={outcome} className="px-2 py-2.5 text-right font-bold sm:px-3">
+                {outcome === "Draw" ? "Nul" : outcome === "Over" ? "Plus" : outcome === "Under" ? "Moins" : outcome}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {bookmakers.map(([bookmakerKey, bookmakerTitle]) => (
-            <tr key={bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
-              <td className="px-5 py-2.5 text-fg-muted">{bookmakerTitle}</td>
+            <tr key={bookmakerKey} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
+              <td className="px-3 py-2 font-cond text-[15px] font-bold uppercase tracking-wide text-fg-muted sm:px-5">{bookmakerTitle}</td>
               {outcomes.map((outcome) => {
                 const line = lines.find((l) => l.bookmakerKey === bookmakerKey && l.outcomeName === outcome);
                 const isPick = pick?.bookmakerKey === bookmakerKey && pick.outcomeName === outcome;
                 const cellErrors = errors.filter((e) => e.bookmakerKey === bookmakerKey && e.outcomeName === outcome);
                 return (
-                  <td key={outcome} className="px-2 py-1.5 text-right">
+                  <td key={outcome} className="px-1 py-1.5 text-right sm:px-2">
                     {line ? (
                       <OddsButton
                         variant="cell"
@@ -119,7 +121,7 @@ function OddsTable({
                         disabled={kickedOff}
                       />
                     ) : (
-                      <span className="px-2 font-mono-tabular text-fg-muted">—</span>
+                      <span className="figures px-2 text-fg-muted">—</span>
                     )}
                   </td>
                 );
@@ -134,10 +136,39 @@ function OddsTable({
 
 function ProbabilityBar({ segments }: { segments: { pct: number; color: string }[] }) {
   return (
-    <div className="flex h-2 overflow-hidden rounded-full bg-bg-row">
+    <div className="flex h-2.5 gap-0.5 overflow-hidden bg-bg-row">
       {segments.map((s, i) => (
         <div key={i} style={{ width: `${s.pct}%` }} className={s.color} />
       ))}
+    </div>
+  );
+}
+
+/** One outcome's probability, as a figure over its code and name; orange when it's the model's pick. */
+function ProbabilitySlot({
+  label,
+  name,
+  value,
+  price,
+  isPick = false,
+  errors = [],
+}: {
+  label: string;
+  name: string;
+  value: string;
+  price: number | null;
+  isPick?: boolean;
+  errors?: OddsError[];
+}) {
+  return (
+    <div className={`flex flex-col items-center gap-1 border-2 bg-bg-row px-3 py-4 text-center ${isPick ? "border-accent" : "border-transparent"}`}>
+      <span className="font-cond text-sm font-extrabold uppercase tracking-widest text-fg-muted">{label}</span>
+      <span className="w-full truncate font-cond text-sm font-bold uppercase tracking-wide text-fg-muted">{name}</span>
+      <span className={`font-display text-4xl leading-none tracking-wide ${isPick ? "text-accent" : "text-fg"}`}>{value}</span>
+      <span className="figures inline-flex items-center gap-1 text-sm font-semibold text-fg-muted">
+        <OddsErrorFlame errors={errors} className="h-3 w-3" />
+        {price ? `cote ${price.toFixed(2)}` : ""}
+      </span>
     </div>
   );
 }
@@ -179,10 +210,10 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const kickedOff = hasKickedOff(match.commenceTime);
 
   const resume = (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-7">
       {kickedOff ? null : (
-        <p className="flex items-start gap-2 rounded-lg bg-accent-dim/50 px-3.5 py-2.5 text-sm text-fg">
-          <Icon name="wallet" className="mt-0.5 h-4 w-4 text-accent-strong" />
+        <p className="flex items-start gap-2.5 border-l-4 border-slate bg-bg-row px-3.5 py-2.5 text-sm text-fg">
+          <Icon name="wallet" className="mt-0.5 h-4 w-4 text-fg-muted" />
           <span>
             Clique sur une cote pour l&apos;ajouter à ta sélection : on t&apos;indique quel pourcentage de ta bankroll tu peux y
             miser.
@@ -191,10 +222,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       )}
       <p className="text-xs text-fg-muted">Cotes des bookmakers français agréés par l&apos;ANJ, les seuls où parier depuis la France.</p>
 
-      <section>
-        <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
-          Résultat (1X2)
-        </h3>
+      <section className="flex flex-col gap-3">
+        <SectionTitle as="h3">Résultat (1N2)</SectionTitle>
         <OddsTable
           match={match}
           kickedOff={kickedOff}
@@ -208,10 +237,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       {Array.from(totalsByPoint.entries())
         .sort((a, b) => a[0] - b[0])
         .map(([point, lines]) => (
-          <section key={point}>
-            <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
-              Total de buts — {point}
-            </h3>
+          <section key={point} className="flex flex-col gap-3">
+            <SectionTitle as="h3">Total de buts — {point}</SectionTitle>
             <OddsTable
               match={match}
               kickedOff={kickedOff}
@@ -228,96 +255,76 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   );
 
   const probabilites = (
-    <div className="flex flex-col gap-8">
-      <p className="text-xs text-fg-muted">
+    <div className="flex flex-col gap-9">
+      <p className="text-xs leading-relaxed text-fg-muted">
         Probabilités « de-vig » : la marge de chaque bookmaker est retirée (méthode de Shin), puis le résultat est moyenné sur
         tous les bookmakers suivis — Pinnacle compté double, comme pour les verdicts. Les cotes affichées sont les meilleures
         des bookmakers français ; une flamme signale une erreur de cote par rapport à ces probabilités. Donnée indicative
         calculée à partir des cotes stockées — pas un pronostic garanti.
       </p>
 
-      <section>
-        <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
-          Résultat — implicite (cotes)
-        </h3>
+      <section className="flex flex-col gap-3">
+        <SectionTitle as="h3">Résultat — implicite (cotes)</SectionTitle>
         {!hasResults ? (
           <p className="text-sm text-fg-muted">Pas encore assez de cotes pour estimer ce marché.</p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "1", name: match.homeTeam, outcome: match.homeTeam, data: home, color: "text-accent-strong" },
-                { label: "X", name: "Nul", outcome: "Draw", data: draw, color: "text-fg-muted" },
-                { label: "2", name: match.awayTeam, outcome: match.awayTeam, data: away, color: "text-fg" },
+                { label: "1", name: match.homeTeam, outcome: match.homeTeam, data: home },
+                { label: "N", name: "Nul", outcome: "Draw", data: draw },
+                { label: "2", name: match.awayTeam, outcome: match.awayTeam, data: away },
               ].map((slot) => (
-                <div
+                <ProbabilitySlot
                   key={slot.label}
-                  className="flex flex-col items-center gap-1 rounded-xl border border-border bg-bg-row/50 px-3 py-4 text-center"
-                >
-                  <span className="font-mono-tabular text-xs uppercase text-fg-muted">{slot.label}</span>
-                  <span className="truncate text-xs text-fg-muted">{slot.name}</span>
-                  <span className={`font-display text-xl font-bold ${slot.color}`}>
-                    {slot.data ? `${Math.round(slot.data.probability * 100)}%` : "—"}
-                  </span>
-                  <span className="inline-flex items-center gap-1 font-mono-tabular text-xs text-fg-muted">
-                    <OddsErrorFlame errors={oddsErrorsFor(match.oddsErrors, "h2h", slot.outcome)} className="h-3 w-3" />
-                    {slot.data?.price ? `cote ${slot.data.price.toFixed(2)}` : ""}
-                  </span>
-                </div>
+                  label={slot.label}
+                  name={slot.name}
+                  value={slot.data ? `${Math.round(slot.data.probability * 100)}%` : "—"}
+                  price={slot.data?.price ?? null}
+                  errors={oddsErrorsFor(match.oddsErrors, "h2h", slot.outcome)}
+                />
               ))}
             </div>
             <ProbabilityBar
               segments={[
-                { pct: (home?.probability ?? 0) * 100, color: "bg-accent" },
-                { pct: (draw?.probability ?? 0) * 100, color: "bg-fg-muted" },
-                { pct: (away?.probability ?? 0) * 100, color: "bg-fg" },
+                { pct: (home?.probability ?? 0) * 100, color: "bg-fg" },
+                { pct: (draw?.probability ?? 0) * 100, color: "bg-slate" },
+                { pct: (away?.probability ?? 0) * 100, color: "bg-fg-muted" },
               ]}
             />
           </div>
         )}
       </section>
 
-      <section>
-        <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
-          Résultat — modèle brut (Elo + modèle de buts)
-        </h3>
+      <section className="flex flex-col gap-3">
+        <SectionTitle as="h3">Résultat — modèle brut (Elo + modèle de buts)</SectionTitle>
         {!match.prediction ? (
           <p className="text-sm text-fg-muted">
             Pas de modèle pour ce match : compétition non couverte, ou équipe non reconnue.
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "1", name: match.homeTeam, outcome: match.homeTeam, probability: match.prediction.homeWinProbability, price: home?.price ?? null, color: "text-accent-strong" },
-                { label: "X", name: "Nul", outcome: "Draw", probability: match.prediction.drawProbability, price: draw?.price ?? null, color: "text-fg-muted" },
-                { label: "2", name: match.awayTeam, outcome: match.awayTeam, probability: match.prediction.awayWinProbability, price: away?.price ?? null, color: "text-fg" },
-              ].map((slot) => {
-                const isPick = h2hPick?.outcomeName === slot.outcome;
-                return (
-                  <div
-                    key={slot.label}
-                    className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-4 text-center ${
-                      isPick ? "border-accent bg-accent-dim" : "border-border bg-bg-row/50"
-                    }`}
-                  >
-                    <span className="font-mono-tabular text-xs uppercase text-fg-muted">{slot.label}</span>
-                    <span className="truncate text-xs text-fg-muted">{slot.name}</span>
-                    <span className={`font-display text-xl font-bold ${slot.color}`}>
-                      {Math.round(slot.probability * 100)}%
-                    </span>
-                    <span className="font-mono-tabular text-xs text-fg-muted">
-                      {slot.price ? `cote ${slot.price.toFixed(2)}` : ""}
-                    </span>
-                  </div>
-                );
-              })}
+                { label: "1", name: match.homeTeam, outcome: match.homeTeam, probability: match.prediction.homeWinProbability, price: home?.price ?? null },
+                { label: "N", name: "Nul", outcome: "Draw", probability: match.prediction.drawProbability, price: draw?.price ?? null },
+                { label: "2", name: match.awayTeam, outcome: match.awayTeam, probability: match.prediction.awayWinProbability, price: away?.price ?? null },
+              ].map((slot) => (
+                <ProbabilitySlot
+                  key={slot.label}
+                  label={slot.label}
+                  name={slot.name}
+                  value={`${Math.round(slot.probability * 100)}%`}
+                  price={slot.price}
+                  isPick={h2hPick?.outcomeName === slot.outcome}
+                />
+              ))}
             </div>
             <ProbabilityBar
               segments={[
-                { pct: match.prediction.homeWinProbability * 100, color: "bg-accent" },
-                { pct: match.prediction.drawProbability * 100, color: "bg-fg-muted" },
-                { pct: match.prediction.awayWinProbability * 100, color: "bg-fg" },
+                { pct: match.prediction.homeWinProbability * 100, color: "bg-fg" },
+                { pct: match.prediction.drawProbability * 100, color: "bg-slate" },
+                { pct: match.prediction.awayWinProbability * 100, color: "bg-fg-muted" },
               ]}
             />
             <p className="text-xs text-fg-muted">
@@ -328,10 +335,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         )}
       </section>
 
-      <section>
-        <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-widest text-fg-muted">
-          Total de buts dans le match
-        </h3>
+      <section className="flex flex-col gap-3">
+        <SectionTitle as="h3">Total de buts dans le match</SectionTitle>
         {totalsProbs.length === 0 ? (
           <p className="text-sm text-fg-muted">Pas encore de cotes « total de buts » pour ce match.</p>
         ) : (
@@ -339,19 +344,14 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             {totalsProbs.map(({ point, outcomes }) => (
               <div key={point} className="flex flex-col gap-2 sm:flex-row">
                 {outcomes.map((outcome) => (
-                  <div
-                    key={outcome.name}
-                    className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-border bg-bg-row/50 px-4 py-2.5"
-                  >
-                    <span className="text-sm text-fg">
+                  <div key={outcome.name} className="flex flex-1 items-center justify-between gap-3 bg-bg-row px-4 py-2.5">
+                    <span className="font-cond text-base font-bold uppercase tracking-wide text-fg">
                       {outcome.name === "Over" ? `Plus de ${point} buts` : `Moins de ${point} buts`}
                     </span>
-                    <span className="flex items-center gap-2 shrink-0">
+                    <span className="flex shrink-0 items-center gap-3">
                       <OddsErrorFlame errors={oddsErrorsFor(match.oddsErrors, "totals", outcome.name, point)} />
-                      <span className="font-mono-tabular text-sm font-semibold text-accent-strong">
-                        {Math.round(outcome.probability * 100)}%
-                      </span>
-                      <span className="rounded bg-accent-dim px-2 py-0.5 font-mono-tabular text-xs font-semibold text-accent-strong">
+                      <span className="font-display text-2xl leading-none tracking-wide text-fg">{Math.round(outcome.probability * 100)}%</span>
+                      <span className="figures bg-bg-elevated px-2 py-0.5 text-sm font-bold text-fg-muted">
                         {outcome.price ? outcome.price.toFixed(2) : "—"}
                       </span>
                     </span>
@@ -375,53 +375,39 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-4 sm:px-6">
         <Link
           href="/"
-          className="inline-flex min-h-10 items-center gap-1 rounded-md pr-2 text-sm font-medium text-fg-muted transition-colors duration-200 hover:text-fg"
+          className="inline-flex min-h-10 items-center gap-1 pr-2 font-cond text-sm font-bold uppercase tracking-wider text-fg-muted transition-colors duration-200 hover:text-fg"
         >
           <Icon name="chevron-left" /> Retour au tableau
         </Link>
       </div>
 
       <div className="mx-auto w-full max-w-4xl px-4 pb-12 sm:px-6">
-        <div className="overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-card">
-          <div className="relative isolate bg-bg-row">
-            <KitStripes colors={homeKit} side="home" />
-            <KitStripes colors={awayKit} side="away" />
-            <CompetitionBand theme={theme} logo={match.sportLogo} className="h-10 sm:px-5" />
-            <div className="mx-1.5 mb-1.5 rounded-b-lg bg-bg-elevated px-4 py-7 text-center sm:px-8">
-              <h1 className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 font-display text-xl font-bold text-fg sm:text-2xl">
-                <span className="flex flex-col items-center gap-3 text-center">
-                  <KitCrest crest={match.homeCrest} kit={homeKit} size={64} />
-                  {match.homeTeam}
-                </span>
-                <span className="flex h-[70px] items-center text-sm font-medium text-fg-muted">vs</span>
-                <span className="flex flex-col items-center gap-3 text-center">
-                  <KitCrest crest={match.awayCrest} kit={awayKit} size={64} />
-                  {match.awayTeam}
-                </span>
-              </h1>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-fg-muted">
-                <Icon name="clock" className="h-3.5 w-3.5" />
-                <time>{upperFirst(formatKickoff(match.commenceTime))}</time>
-              </p>
-              <ResultTiles event={match} className="mx-auto mt-5 max-w-md text-left" />
-              {h2hPick || totalsPick ? (
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {[h2hPick, totalsPick].map((edge) =>
-                    edge ? (
-                      <span key={edge.marketKey} className="inline-flex items-center gap-2">
-                        <TierBadge tier={edge.tier} />
-                        <span className="text-sm text-fg">
-                          {outcomeLabel(edge.marketKey, edge.outcomeName, edge.point, match.homeTeam, match.awayTeam)}
-                        </span>
+        <div className="bg-bg-elevated shadow-hard">
+          <CompetitionBand theme={theme} logo={match.sportLogo} className="h-10" right={upperFirst(formatKickoff(match.commenceTime))} />
+          <div className="px-4 py-7 sm:px-8">
+            <h1 className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
+              <TeamSide name={match.homeTeam} crest={match.homeCrest} kit={homeKit} side="home" size="lg" />
+              <span className="font-display text-3xl uppercase leading-none tracking-wide text-fg-muted sm:text-4xl">vs</span>
+              <TeamSide name={match.awayTeam} crest={match.awayCrest} kit={awayKit} side="away" size="lg" />
+            </h1>
+            <ResultTiles event={match} className="mx-auto mt-8 max-w-xl" />
+            {h2hPick || totalsPick ? (
+              <div className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2">
+                {[h2hPick, totalsPick].map((edge) =>
+                  edge ? (
+                    <span key={edge.marketKey} className="inline-flex items-center gap-2.5">
+                      <TierBadge tier={edge.tier} />
+                      <span className="font-cond text-base font-bold uppercase tracking-wide text-fg">
+                        {outcomeLabel(edge.marketKey, edge.outcomeName, edge.point, match.homeTeam, match.awayTeam)}
                       </span>
-                    ) : null
-                  )}
-                </div>
-              ) : null}
-            </div>
+                    </span>
+                  ) : null
+                )}
+              </div>
+            ) : null}
           </div>
 
-          <div className="border-t border-border">
+          <div className="border-t-2 border-border">
             <MatchTabs
               tabs={[
                 { id: "resume", label: "Résumé", content: resume },

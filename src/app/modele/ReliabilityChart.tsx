@@ -16,11 +16,12 @@ type Series = { id: string; label: string; color: string; bins: ReliabilityBin[]
 /**
  * Reliability diagram: for each probability bin, what was predicted on average vs how
  * often it happened. A calibrated forecast sits on the diagonal; below it = overconfident.
+ * The model in orange, the market it is judged against in steel.
  */
 export function ReliabilityChart({ model, market }: { model: ReliabilityBin[]; market: ReliabilityBin[] }) {
   const series: Series[] = [
-    { id: "model", label: "Modèle (avant calibration)", color: "var(--series-1)", bins: model },
-    { id: "market", label: "Marché à la clôture", color: "var(--series-2)", bins: market },
+    { id: "model", label: "Modèle (avant calibration)", color: "var(--series-2)", bins: model },
+    { id: "market", label: "Marché à la clôture", color: "var(--series-1)", bins: market },
   ];
 
   return (
@@ -47,18 +48,18 @@ export function ReliabilityChart({ model, market }: { model: ReliabilityBin[]; m
           <g key={t}>
             <line x1={x(0)} x2={x(1)} y1={y(t)} y2={y(t)} stroke="var(--border)" strokeWidth="1" />
             <line x1={x(t)} x2={x(t)} y1={y(0)} y2={y(1)} stroke="var(--border)" strokeWidth="1" />
-            <text x={PAD.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" className="fill-fg-muted font-mono-tabular text-[10px]">
+            <text x={PAD.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" className="fill-fg-muted figures text-[11px] font-semibold">
               {Math.round(t * 100)}%
             </text>
-            <text x={x(t)} y={y(0) + 16} textAnchor="middle" className="fill-fg-muted font-mono-tabular text-[10px]">
+            <text x={x(t)} y={y(0) + 16} textAnchor="middle" className="fill-fg-muted figures text-[11px] font-semibold">
               {Math.round(t * 100)}%
             </text>
           </g>
         ))}
-        <text x={x(0.5)} y={H - 6} textAnchor="middle" className="fill-fg-muted text-[11px]">
+        <text x={x(0.5)} y={H - 6} textAnchor="middle" className="fill-fg-muted font-cond text-[12px] font-bold uppercase tracking-wider">
           Probabilité prédite
         </text>
-        <text x={12} y={y(0.5)} textAnchor="middle" transform={`rotate(-90 12 ${y(0.5)})`} className="fill-fg-muted text-[11px]">
+        <text x={12} y={y(0.5)} textAnchor="middle" transform={`rotate(-90 12 ${y(0.5)})`} className="fill-fg-muted font-cond text-[12px] font-bold uppercase tracking-wider">
           Fréquence observée
         </text>
         <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)} stroke="var(--fg-muted)" strokeWidth="1" />

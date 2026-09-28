@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { boardPhase, getBoard, groupByCompetition, groupOddsErrors, stakedVerdict, type BoardEvent, type StatusFilter } from "@/lib/board";
 import { byRank, competitionTheme, type CompetitionTheme } from "@/lib/competitions";
-import { addDays, formatDayLabel, formatKickoff, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
+import { addDays, formatDayLabel, formatKickoff, formatLongDay, formatShortDay, formatTime, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
 import { upperFirst } from "@/lib/labels";
 import { syncLiveMatches } from "@/lib/liveSync";
 import { BankrollPrompt } from "@/components/BetSlip";
@@ -10,6 +10,7 @@ import { Icon } from "@/components/Icon";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { MatchCard } from "@/components/MatchCard";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Straight, slantTabClass } from "@/components/Slant";
 import { EmptyState } from "@/components/Verdict";
 
 export const dynamic = "force-dynamic";
@@ -59,13 +60,10 @@ function competitionEntries(events: BoardEvent[], selected: string | undefined):
   return Array.from(entries.values()).sort((a, b) => byRank(a.theme, b.theme));
 }
 
-function CountPill({ count, active = false }: { count: number; active?: boolean }) {
+/** A count, as a small square tag: steel when it's the filter on. */
+function CountTag({ count, active = false }: { count: number; active?: boolean }) {
   return (
-    <span
-      className={`min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-semibold tabular ${
-        active ? "bg-accent text-fg" : "bg-bg-row text-fg-muted"
-      }`}
-    >
+    <span className={`figures min-w-7 px-1.5 py-0.5 text-center text-sm font-bold ${active ? "bg-inverse text-on-inverse" : "bg-bg-row text-fg-muted"}`}>
       {count}
     </span>
   );
@@ -87,7 +85,7 @@ function SearchForm({ id, current }: { id: string; current: BoardQuery }) {
         name="q"
         defaultValue={current.q}
         placeholder="Rechercher une équipe…"
-        className="min-h-11 w-full rounded-xl border border-border bg-bg-elevated pl-10 pr-3 text-sm text-fg shadow-card placeholder:text-fg-muted transition-colors duration-200 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-accent/25"
+        className="min-h-11 w-full border-2 border-border bg-bg-elevated pl-10 pr-3 text-[15px] text-fg placeholder:text-fg-muted transition-colors duration-200 focus:border-inverse focus:outline-none focus-visible:outline-none"
       />
     </form>
   );
@@ -96,22 +94,22 @@ function SearchForm({ id, current }: { id: string; current: BoardQuery }) {
 /** The sidebar's competition list, Winamax's "Top compétitions": each one filters the board. */
 function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry[]; total: number; current: BoardQuery }) {
   const item = (active: boolean) =>
-    `flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors duration-200 ${
-      active ? "bg-accent-dim font-semibold text-fg" : "text-fg hover:bg-bg-row"
+    `flex min-h-11 items-center gap-2.5 border-l-4 px-3.5 font-cond text-[15px] font-bold uppercase tracking-wide transition-colors duration-200 ${
+      active ? "border-inverse bg-bg-row text-fg" : "border-transparent text-fg-muted hover:bg-bg-row hover:text-fg"
     }`;
   return (
-    <nav aria-labelledby="competitions-title" className="rounded-2xl border border-border bg-bg-elevated p-2 shadow-card">
-      <h2 id="competitions-title" className="px-3 pb-2 pt-2.5 font-display text-sm font-extrabold uppercase tracking-wider text-fg">
+    <nav aria-labelledby="competitions-title" className="bg-bg-elevated shadow-hard">
+      <h2 id="competitions-title" className="bg-bg-deep px-4 py-2.5 font-display text-lg uppercase tracking-wide text-fg">
         Compétitions
       </h2>
-      <ul className="flex flex-col gap-0.5">
+      <ul className="flex flex-col py-1.5">
         <li>
           <Link href={boardHref(current, { comp: undefined })} aria-current={!current.comp ? "page" : undefined} className={item(!current.comp)}>
             <span className="flex h-[18px] w-[31px] items-center justify-center">
-              <Icon name="trophy" className="h-4 w-4 text-fg-muted" />
+              <Icon name="trophy" className="h-4 w-4" />
             </span>
             <span className="flex-1 truncate">Toutes</span>
-            <CountPill count={total} active={!current.comp} />
+            <CountTag count={total} active={!current.comp} />
           </Link>
         </li>
         {entries.map(({ theme, logo, count }) => {
@@ -125,7 +123,7 @@ function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry
               >
                 <CompetitionIcon theme={theme} logo={logo} />
                 <span className="flex-1 truncate">{theme.name}</span>
-                <CountPill count={count} active={active} />
+                <CountTag count={count} active={active} />
               </Link>
             </li>
           );
@@ -135,18 +133,17 @@ function CompetitionNav({ entries, total, current }: { entries: CompetitionEntry
   );
 }
 
-/** The same filter on small screens: a row of chips that scrolls sideways. */
+/** The same filter on small screens: a row of slanted chips that scrolls sideways. */
 function CompetitionChips({ entries, total, current }: { entries: CompetitionEntry[]; total: number; current: BoardQuery }) {
-  const chip = (active: boolean) =>
-    `flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium transition-colors duration-200 ${
-      active ? "border-fg bg-fg text-white" : "border-border bg-bg-elevated text-fg shadow-card hover:border-accent"
-    }`;
+  const chip = (active: boolean) => `${slantTabClass(active, "sm")} ${active ? "" : "bg-bg-elevated"}`;
   return (
-    <nav aria-label="Compétitions" className="no-scrollbar -mx-4 overflow-x-auto px-4 lg:hidden">
+    <nav aria-label="Compétitions" className="no-scrollbar -mx-4 overflow-x-auto px-5 lg:hidden">
       <ul className="flex min-w-max gap-2 py-0.5">
         <li>
           <Link href={boardHref(current, { comp: undefined })} aria-current={!current.comp ? "page" : undefined} className={chip(!current.comp)}>
-            Tout <span className="tabular opacity-70">{total}</span>
+            <Straight>
+              Tout <span className="figures opacity-75">{total}</span>
+            </Straight>
           </Link>
         </li>
         {entries.map(({ theme, logo, count }) => {
@@ -154,8 +151,10 @@ function CompetitionChips({ entries, total, current }: { entries: CompetitionEnt
           return (
             <li key={theme.sportKey}>
               <Link href={boardHref(current, { comp: theme.sportKey })} aria-current={active ? "page" : undefined} className={chip(active)}>
-                <CompetitionIcon theme={theme} logo={logo} size={16} />
-                {theme.name} <span className="tabular opacity-70">{count}</span>
+                <Straight className="gap-2">
+                  <CompetitionIcon theme={theme} logo={logo} size={16} />
+                  {theme.name} <span className="figures opacity-75">{count}</span>
+                </Straight>
               </Link>
             </li>
           );
@@ -167,75 +166,97 @@ function CompetitionChips({ entries, total, current }: { entries: CompetitionEnt
 
 /** What the marks on a match block mean. */
 function Legend() {
+  const sample = "flex h-8 w-16 shrink-0 items-center justify-center border-2 font-display text-lg leading-none tracking-wide";
   return (
-    <section aria-labelledby="legend-title" className="rounded-2xl border border-border bg-bg-elevated p-4 shadow-card">
-      <h2 id="legend-title" className="font-display text-sm font-extrabold uppercase tracking-wider text-fg">
+    <section aria-labelledby="legend-title" className="bg-bg-elevated shadow-hard">
+      <h2 id="legend-title" className="bg-bg-deep px-4 py-2.5 font-display text-lg uppercase tracking-wide text-fg">
         Lire un bloc
       </h2>
-      <ul className="mt-3 flex flex-col gap-3 text-xs leading-relaxed text-fg-muted">
-        <li className="flex items-start gap-2.5">
-          <span className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent px-1.5 py-px text-[10px] font-bold uppercase text-fg">
-            <Icon name="star" className="h-2.5 w-2.5" />
-            Pick
+      <ul className="flex flex-col gap-3.5 p-4 text-xs leading-relaxed text-fg-muted">
+        <li className="flex items-center gap-3">
+          <span aria-hidden className={`${sample} border-accent bg-bg-row text-accent`}>
+            2.50
           </span>
-          La cote que le modèle prendrait.
+          La cote que le modèle prendrait : cadre orange et badge Pick.
         </li>
-        <li className="flex items-start gap-2.5">
-          <Icon name="flame" className="mt-0.5 h-3.5 w-3.5 text-flame" />
+        <li className="flex items-center gap-3">
+          <span aria-hidden className={`${sample} border-accent bg-accent text-on-accent`}>
+            1.97
+          </span>
+          Pleine d&apos;orange : la cote est dans ta sélection.
+        </li>
+        <li className="flex items-center gap-3">
+          <span aria-hidden className={`${sample} gap-1 border-transparent bg-bg-row font-cond text-[13px] font-bold uppercase text-fg-muted`}>
+            1 · 50 %
+          </span>
+          Dans chaque cote, la probabilité du marché, marge des bookmakers retirée.
+        </li>
+        <li className="flex items-center gap-3">
+          <span aria-hidden className="flex w-16 shrink-0 justify-center">
+            <Icon name="flame" className="h-4 w-4 text-flame" />
+          </span>
           Erreur de cote : un bookmaker français au-dessus de la cote juste du marché.
-        </li>
-        <li className="flex items-start gap-2.5">
-          <span aria-hidden className="mt-1.5 flex h-1 w-8 shrink-0 overflow-hidden rounded-full bg-bg-row">
-            <span className="w-2/3 bg-accent" />
-          </span>
-          Sous chaque cote, la probabilité du marché, marge des bookmakers retirée.
         </li>
       </ul>
     </section>
   );
 }
 
-/** Day pills around the day viewed, bookmaker-style, with a step back and forward at each end. */
-function DayStrip({ current, todayKey }: { current: BoardQuery; todayKey: string }) {
+/**
+ * The day viewed in big condensed capitals ("lundi 28 septembre"), and the days around it as
+ * slanted tabs, bookmaker-style, with a step back and forward at each end.
+ */
+function DayHero({ current, todayKey }: { current: BoardQuery; todayKey: string }) {
   const days = [-1, 0, 1, 2, 3].map((offset) => addDays(current.date, offset));
+  const words = formatLongDay(current.date).split(" ");
+  const month = words.pop();
+  const relative = formatDayLabel(current.date);
   const arrow =
-    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-bg-elevated text-fg-muted shadow-card transition-colors duration-200 hover:border-accent hover:text-fg";
+    "flex h-9 w-10 shrink-0 -skew-x-12 items-center justify-center bg-bg-elevated text-fg-muted transition-colors duration-200 hover:bg-bg-row hover:text-fg";
   return (
-    <div className="flex items-center gap-2">
-      <Link href={boardHref(current, { date: addDays(current.date, -1) })} className={arrow} aria-label="Jour précédent">
-        <Icon name="chevron-left" />
-      </Link>
-      <nav aria-label="Jour" className="no-scrollbar min-w-0 flex-1 overflow-x-auto">
-        <ul className="flex min-w-max gap-1.5 p-0.5">
-          {days.map((day) => {
-            const active = day === current.date;
-            return (
-              <li key={day}>
-                <Link
-                  href={boardHref(current, { date: day })}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex min-h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors duration-200 ${
-                    active ? "bg-fg text-white shadow-card" : "text-fg-muted hover:bg-bg-elevated hover:text-fg"
-                  }`}
-                >
-                  {upperFirst(formatDayLabel(day))}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-      <Link href={boardHref(current, { date: addDays(current.date, 1) })} className={arrow} aria-label="Jour suivant">
-        <Icon name="chevron-right" />
-      </Link>
-      {!days.includes(todayKey) ? (
-        <Link
-          href={boardHref(current, { date: todayKey })}
-          className="hidden shrink-0 text-sm font-medium text-accent-strong hover:underline sm:inline"
-        >
-          Aujourd&apos;hui
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        {/^(Aujourd'hui|Demain|Hier)$/.test(relative) ? (
+          <span className="font-cond text-sm font-bold uppercase tracking-widest text-fg-muted">{relative}</span>
+        ) : null}
+        <h1 className="font-display text-4xl uppercase leading-[0.9] tracking-wide text-fg sm:text-6xl">
+          {words.join(" ")} <span className="text-inverse">{month}</span>
+        </h1>
+      </div>
+      <div className="flex items-center gap-2">
+        <Link href={boardHref(current, { date: addDays(current.date, -1) })} className={arrow} aria-label="Jour précédent">
+          <Icon name="chevron-left" className="h-4 w-4 skew-x-12" />
         </Link>
-      ) : null}
+        <nav aria-label="Jour" className="no-scrollbar min-w-0 flex-1 overflow-x-auto px-1">
+          <ul className="flex min-w-max gap-1.5">
+            {days.map((day) => {
+              const active = day === current.date;
+              return (
+                <li key={day}>
+                  <Link
+                    href={boardHref(current, { date: day })}
+                    aria-current={active ? "page" : undefined}
+                    className={`${slantTabClass(active, "sm")} ${active ? "" : "bg-bg-elevated"}`}
+                  >
+                    <Straight>{upperFirst(formatDayLabel(day))}</Straight>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <Link href={boardHref(current, { date: addDays(current.date, 1) })} className={arrow} aria-label="Jour suivant">
+          <Icon name="chevron-right" className="h-4 w-4 skew-x-12" />
+        </Link>
+        {!days.includes(todayKey) ? (
+          <Link
+            href={boardHref(current, { date: todayKey })}
+            className="hidden shrink-0 font-cond text-sm font-bold uppercase tracking-wider text-link hover:underline sm:inline"
+          >
+            Aujourd&apos;hui
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -259,8 +280,8 @@ function StatusTabs({
   matchesSyncedAt: Date | null;
 }) {
   return (
-    <div className="flex items-end justify-between gap-4 border-b border-border">
-      <nav aria-label="Statut des matchs" className="flex gap-5">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border pb-3">
+      <nav aria-label="Statut des matchs" className="flex gap-1.5 pl-1">
         {STATUS_TABS.map((tab) => {
           const active = current.status === tab.value;
           return (
@@ -268,19 +289,17 @@ function StatusTabs({
               key={tab.value}
               href={boardHref(current, { status: tab.value })}
               aria-current={active ? "page" : undefined}
-              className={`-mb-px flex min-h-11 items-center border-b-2 text-sm font-semibold transition-colors duration-200 focus-visible:-outline-offset-2 ${
-                active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"
-              }`}
+              className={`${slantTabClass(active, "sm")} focus-visible:-outline-offset-2`}
             >
-              {tab.label}
+              <Straight>{tab.label}</Straight>
             </Link>
           );
         })}
       </nav>
-      <span className="hidden items-center gap-2 pb-3 text-xs text-fg-muted sm:flex">
+      <span className="hidden items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted sm:flex">
         <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-status-good" />
         </span>
         {syncLabel(matchesSyncedAt, lastCapturedAt)}
       </span>
@@ -294,19 +313,19 @@ function MatchGroups({ events }: { events: BoardEvent[] }) {
     .map(([sportKey, competitionEvents]) => ({ theme: competitionTheme(sportKey, competitionEvents[0].sportTitle), competitionEvents }))
     .sort((a, b) => byRank(a.theme, b.theme));
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-9">
       {groups.map(({ theme, competitionEvents }) => {
         const { sportKey } = theme;
         return (
           <details key={sportKey} open className="group/section">
-            <summary className="mb-3 flex list-none items-center gap-3 rounded-lg py-1 [&::-webkit-details-marker]:hidden">
+            <summary className="mb-4 flex list-none items-center gap-3 py-1 [&::-webkit-details-marker]:hidden">
               <CompetitionIcon theme={theme} logo={competitionEvents[0].sportLogo} size={20} />
-              <span className="font-display text-lg font-extrabold text-fg">{theme.name}</span>
-              <CountPill count={competitionEvents.length} />
-              <span aria-hidden className="h-px flex-1 bg-border" />
-              <Icon name="chevron-down" className="h-4 w-4 text-fg-muted transition-transform duration-200 group-open/section:rotate-180" />
+              <span className="font-display text-2xl uppercase leading-none tracking-wide text-fg">{theme.name}</span>
+              <CountTag count={competitionEvents.length} />
+              <span aria-hidden className="h-0.5 flex-1 bg-border" />
+              <Icon name="chevron-down" className="h-5 w-5 text-fg-muted transition-transform duration-200 group-open/section:rotate-180" />
             </summary>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5">
               {competitionEvents.map((event) => (
                 <MatchCard key={event.id} event={event} />
               ))}
@@ -372,16 +391,23 @@ export default async function Home({
       <SiteHeader
         active="board"
         right={
-          <span className="flex items-center gap-2 text-xs text-fg-muted sm:hidden">
-            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
-            {lastCapturedAt ? `MAJ ${formatKickoff(lastCapturedAt)}` : "pas encore de synchro"}
+          <span
+            className="flex min-w-0 items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted sm:hidden"
+            title={lastCapturedAt ? `Cotes mises à jour ${formatKickoff(lastCapturedAt)}` : undefined}
+          >
+            <span className="h-2 w-2 shrink-0 rounded-full bg-status-good" aria-hidden />
+            <span className="truncate">
+              {lastCapturedAt
+                ? `MAJ ${parisDateKey(lastCapturedAt) === todayKey ? formatTime(lastCapturedAt) : formatShortDay(lastCapturedAt)}`
+                : "pas encore de synchro"}
+            </span>
           </span>
         }
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6 sm:px-6 lg:py-8">
         <aside className="hidden w-68 shrink-0 lg:block">
-          <div className="sticky top-24 flex flex-col gap-4">
+          <div className="sticky top-24 flex flex-col gap-5">
             <SearchForm id="team-search" current={current} />
             <CompetitionNav entries={entries} total={dayOrNext.length} current={current} />
             <Legend />
@@ -389,7 +415,7 @@ export default async function Home({
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col gap-5">
-          <DayStrip current={current} todayKey={todayKey} />
+          <DayHero current={current} todayKey={todayKey} />
           <StatusTabs current={current} lastCapturedAt={lastCapturedAt} matchesSyncedAt={matchesSyncedAt} />
           <div className="flex flex-col gap-3 lg:hidden">
             <SearchForm id="team-search-mobile" current={current} />
@@ -401,13 +427,13 @@ export default async function Home({
           {shown.some((event) => event.priced && !hasKickedOff(event.commenceTime)) ? <BankrollPrompt /> : null}
 
           {shown.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 font-cond text-[15px] font-bold uppercase tracking-wide">
               <span className="text-fg-muted">
-                <span className="font-semibold text-fg">{shown.length}</span> match{shown.length > 1 ? "s" : ""}
+                <span className="text-fg">{shown.length}</span> match{shown.length > 1 ? "s" : ""}
                 {pickCount > 0 ? (
                   <>
                     {" · "}
-                    <span className="font-semibold text-accent-strong">{pickCount}</span> pick{pickCount > 1 ? "s" : ""} du modèle
+                    <span className="text-accent-strong">{pickCount}</span> pick{pickCount > 1 ? "s" : ""} du modèle
                   </>
                 ) : null}
                 {errorCount > 0 ? (
@@ -416,15 +442,15 @@ export default async function Home({
                     <span className="inline-flex items-center gap-1 align-bottom" title="Cote d'un bookmaker français au-dessus de la cote juste du marché">
                       <Icon name="flame" className="h-3.5 w-3.5 text-flame" />
                       <span>
-                        <span className="font-semibold text-fg">{errorCount}</span> erreur{errorCount > 1 ? "s" : ""} de cote
+                        <span className="text-fg">{errorCount}</span> erreur{errorCount > 1 ? "s" : ""} de cote
                       </span>
                     </span>
                   </>
                 ) : null}
               </span>
               {pickCount > 0 ? (
-                <Link href="/picks" className="inline-flex items-center gap-1 font-medium text-accent-strong hover:underline">
-                  Voir les picks <Icon name="chevron-right" className="h-3.5 w-3.5" />
+                <Link href="/picks" className="inline-flex items-center gap-1 text-accent-strong hover:underline">
+                  Voir les picks <Icon name="chevron-right" className="h-4 w-4" />
                 </Link>
               ) : null}
             </div>
@@ -439,7 +465,7 @@ export default async function Home({
               }`}
               icon="search"
             >
-              <Link href={boardHref(current, { comp: undefined })} className="font-medium text-accent-strong underline underline-offset-2">
+              <Link href={boardHref(current, { comp: undefined })} className="font-medium text-link underline underline-offset-2">
                 Voir toutes les compétitions
               </Link>
               .
@@ -447,14 +473,14 @@ export default async function Home({
           ) : current.q ? (
             <EmptyState title="Aucun match ne correspond à ces filtres" icon="search">
               Essaie{" "}
-              <Link href="/" className="font-medium text-accent-strong underline underline-offset-2">
+              <Link href="/" className="font-medium text-link underline underline-offset-2">
                 de réinitialiser les filtres
               </Link>
               .
             </EmptyState>
           ) : shown.length > 0 ? (
             <div className="flex flex-col gap-4">
-              <p className="flex items-start gap-2 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm text-fg-muted shadow-card">
+              <p className="flex items-start gap-2 border-l-4 border-slate bg-bg-elevated px-4 py-3 text-sm text-fg-muted">
                 <Icon name="clock" className="mt-0.5 h-4 w-4" />
                 <span>{noMatchLine(current)} Voici les prochains matchs.</span>
               </p>
@@ -469,9 +495,9 @@ export default async function Home({
             <EmptyState title="Aucun match en base pour l'instant">
               Renseigne <code className="text-fg">RAPIDAPI_KEY</code> dans <code className="text-fg">.env</code> : les matchs des
               compétitions suivies arrivent au chargement de cette page, ou tous d&apos;un coup avec{" "}
-              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">npm run refresh:matches</code>.
+              <code className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">npm run refresh:matches</code>.
               Les cotes viennent de{" "}
-              <code className="rounded bg-bg-row px-1.5 py-0.5 font-mono-tabular text-accent-strong">npm run refresh:odds</code>{" "}
+              <code className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">npm run refresh:odds</code>{" "}
               (nécessite <code className="text-fg">ODDS_API_KEY</code>).
             </EmptyState>
           )}

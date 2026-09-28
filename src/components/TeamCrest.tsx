@@ -2,9 +2,21 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
 import { RemoteLogo } from "@/components/RemoteLogo";
 
-/** A logo shown next to the name it stands for, so decorative (empty alt); `fallback` if it doesn't load. */
+/**
+ * A logo shown next to the name it stands for, so decorative (empty alt); `fallback` if it doesn't
+ * load. Logos are drawn for a light background: on the site's dark panels they sit on a round
+ * light plate, padded by an eighth of their size.
+ */
 function Logo({ src, size, fallback = null }: { src: string; size: number; fallback?: ReactNode }) {
-  return <RemoteLogo src={src} size={size} className="shrink-0 object-contain" style={{ width: size, height: size }} fallback={fallback} />;
+  return (
+    <RemoteLogo
+      src={src}
+      size={size}
+      className="shrink-0 rounded-full bg-logo-plate object-contain"
+      style={{ width: size, height: size, padding: Math.round(size * 0.12) }}
+      fallback={fallback}
+    />
+  );
 }
 
 function Shield({ size }: { size: number }) {

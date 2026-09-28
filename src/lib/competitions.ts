@@ -1,11 +1,9 @@
 // The look of each competition on the board, keyed by The Odds API sport_key: its French
-// name, the round flag next to it, and the colours and motif its match blocks are painted
-// with — the way Winamax dresses each fixture in its competition's identity. A competition
+// name, the round flag next to it, and the colours its match blocks are painted with — the
+// way Winamax dresses each fixture in its competition's identity. A competition
 // that isn't listed still gets a neutral identity from its sport and The Odds API title.
 
 export type FlagCode = "eng" | "de" | "es" | "it" | "fr" | "nl" | "pt" | "br" | "us" | "eu" | "world";
-
-export type Motif = "chevrons" | "stars" | "stripes";
 
 export type CompetitionTheme = {
   sportKey: string;
@@ -15,9 +13,8 @@ export type CompetitionTheme = {
   /** Header band gradient, left to right. Both carry white text (≥ 4.5:1, see competitions.test.ts). */
   from: string;
   to: string;
-  /** Colours of the motif drawn on the header band. */
+  /** Second colours of the kit bars of a club whose own colours are unknown (home, then away). */
   accents: string[];
-  motif: Motif;
   /** Order in the competition list: the biggest competitions first. */
   rank: number;
 };
@@ -31,7 +28,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0a1a4f",
     to: "#1d3a8a",
     accents: ["#ffffff", "#7fb8ff"],
-    motif: "stars",
     rank: 1,
   },
   soccer_epl: {
@@ -40,7 +36,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#37003c",
     to: "#6a1b7a",
     accents: ["#00ff85", "#ff2882", "#04f5ff"],
-    motif: "chevrons",
     rank: 2,
   },
   soccer_france_ligue_one: {
@@ -49,7 +44,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#091c3e",
     to: "#1b3a70",
     accents: ["#dae025", "#ffffff"],
-    motif: "chevrons",
     rank: 3,
   },
   soccer_spain_la_liga: {
@@ -58,7 +52,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#8f0d18",
     to: "#c41e2a",
     accents: ["#ffc400", "#ffffff"],
-    motif: "stripes",
     rank: 4,
   },
   soccer_italy_serie_a: {
@@ -67,7 +60,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0a1f44",
     to: "#123c85",
     accents: ["#009246", "#ffffff", "#ce2b37"],
-    motif: "stripes",
     rank: 5,
   },
   soccer_germany_bundesliga: {
@@ -76,7 +68,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#1a1a1a",
     to: "#b0050f",
     accents: ["#ffce00", "#dd0000"],
-    motif: "chevrons",
     rank: 6,
   },
   soccer_uefa_europa_league: {
@@ -85,7 +76,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#161616",
     to: "#3b2410",
     accents: ["#ff7a00", "#ffffff"],
-    motif: "chevrons",
     rank: 7,
   },
   soccer_uefa_europa_conference_league: {
@@ -94,7 +84,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0f1f14",
     to: "#0b5d2a",
     accents: ["#00d26a", "#ffffff"],
-    motif: "stripes",
     rank: 8,
   },
   soccer_uefa_nations_league: {
@@ -103,7 +92,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0b1d4d",
     to: "#13317a",
     accents: ["#e63946", "#f4c430", "#2ec4b6"],
-    motif: "chevrons",
     rank: 9,
   },
   soccer_fifa_world_cup: {
@@ -112,7 +100,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#4a0b19",
     to: "#8c1c32",
     accents: ["#d4af37", "#ffffff"],
-    motif: "stars",
     rank: 10,
   },
   soccer_uefa_european_championship: {
@@ -121,7 +108,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0b2265",
     to: "#1f4bb3",
     accents: ["#ffcc00", "#e4002b"],
-    motif: "stripes",
     rank: 11,
   },
   // The other national-team competitions (src/lib/leagueMapping.ts): the Euro's rank, by name.
@@ -131,7 +117,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#1b1f4b",
     to: "#34408c",
     accents: ["#d4af37", "#ffffff"],
-    motif: "stars",
     rank: 11,
   },
   soccer_fifa_world_cup_qualifiers_south_america: {
@@ -140,7 +125,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0b3b2e",
     to: "#11694f",
     accents: ["#ffdf00", "#ffffff"],
-    motif: "stars",
     rank: 11,
   },
   soccer_uefa_euro_qualification: {
@@ -149,7 +133,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0b2265",
     to: "#1a3d99",
     accents: ["#ffcc00", "#ffffff"],
-    motif: "chevrons",
     rank: 11,
   },
   soccer_conmebol_copa_america: {
@@ -158,7 +141,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0a2a5e",
     to: "#1450a3",
     accents: ["#ffd100", "#e4002b"],
-    motif: "stripes",
     rank: 11,
   },
   soccer_africa_cup_of_nations: {
@@ -167,7 +149,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#004d26",
     to: "#00783c",
     accents: ["#fcd116", "#ce1126"],
-    motif: "stripes",
     rank: 11,
   },
   soccer_concacaf_gold_cup: {
@@ -176,7 +157,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#2b2100",
     to: "#5c4a00",
     accents: ["#f5c518", "#ffffff"],
-    motif: "stars",
     rank: 11,
   },
   // Keys of ours (src/lib/liveCompetitions.ts): competitions The Odds API doesn't price, whose
@@ -187,7 +167,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#1c3a13",
     to: "#2f6b1f",
     accents: ["#ffd700", "#ffffff"],
-    motif: "stars",
     rank: 11,
   },
   soccer_fifa_world_cup_qualifiers_asia: {
@@ -196,7 +175,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#3b0a1e",
     to: "#7a1537",
     accents: ["#d4af37", "#ffffff"],
-    motif: "stars",
     rank: 11,
   },
   soccer_fifa_world_cup_qualifiers_concacaf: {
@@ -205,7 +183,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#10223f",
     to: "#1e4274",
     accents: ["#d4af37", "#e4002b"],
-    motif: "stars",
     rank: 11,
   },
   soccer_afc_asian_cup: {
@@ -214,7 +191,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0b3a3a",
     to: "#0e6b64",
     accents: ["#f5c518", "#ffffff"],
-    motif: "stripes",
     rank: 11,
   },
   // After the competitive national-team matches.
@@ -224,7 +200,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#123a5c",
     to: "#1f6f8b",
     accents: ["#f4d35e", "#ffffff"],
-    motif: "chevrons",
     rank: 12,
   },
   soccer_netherlands_eredivisie: {
@@ -233,7 +208,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#1d1d1b",
     to: "#4a2a12",
     accents: ["#ff6200", "#ffffff"],
-    motif: "chevrons",
     rank: 12,
   },
   soccer_portugal_primeira_liga: {
@@ -242,7 +216,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#002b5c",
     to: "#0a4a8f",
     accents: ["#00a650", "#e30613", "#ffd200"],
-    motif: "stripes",
     rank: 13,
   },
   soccer_england_efl_champ: {
@@ -251,7 +224,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#14203e",
     to: "#243c73",
     accents: ["#f5b400", "#ffffff"],
-    motif: "chevrons",
     rank: 14,
   },
   soccer_fa_cup: {
@@ -260,7 +232,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0a2240",
     to: "#1a3f73",
     accents: ["#ce1126", "#ffffff"],
-    motif: "stars",
     rank: 15,
   },
   soccer_france_ligue_two: {
@@ -269,7 +240,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#15213a",
     to: "#2d3e63",
     accents: ["#ff6b35", "#ffffff"],
-    motif: "chevrons",
     rank: 16,
   },
   soccer_germany_bundesliga2: {
@@ -278,7 +248,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#1a1a1a",
     to: "#5c0a10",
     accents: ["#ffce00", "#dd0000"],
-    motif: "stripes",
     rank: 17,
   },
   soccer_spain_segunda_division: {
@@ -287,7 +256,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#22223b",
     to: "#4a4e69",
     accents: ["#ff4b44", "#ffc400"],
-    motif: "stripes",
     rank: 18,
   },
   soccer_brazil_campeonato: {
@@ -296,7 +264,6 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#00521f",
     to: "#006e30",
     accents: ["#ffdf00", "#3e6fd6"],
-    motif: "stripes",
     rank: 19,
   },
   soccer_usa_mls: {
@@ -305,18 +272,16 @@ const THEMES: Record<string, ThemeSpec> = {
     from: "#0b1e3f",
     to: "#1c3669",
     accents: ["#e4002b", "#ffffff"],
-    motif: "stars",
     rank: 20,
   },
 };
 
-// Anything else: the site's own ink and orange, under The Odds API's title.
+// Anything else: the site's own graphite, slate and orange, under The Odds API's title.
 const FALLBACK: Omit<ThemeSpec, "name"> = {
   flag: "world",
-  from: "#0f172a",
-  to: "#334155",
-  accents: ["#f97316", "#ffffff"],
-  motif: "chevrons",
+  from: "#2c2b32",
+  to: "#4a576a",
+  accents: ["#ff7a1a", "#a8b6ca"],
   rank: 99,
 };
 

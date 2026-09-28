@@ -12,7 +12,7 @@ export default function NotFound() {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6">
         <EmptyState title="Page introuvable" icon="search">
           Cette page n&apos;existe pas, ou plus.{" "}
-          <Link href="/" className="font-medium text-accent-strong underline underline-offset-2">
+          <Link href="/" className="font-medium text-link underline underline-offset-2">
             Retour au tableau
           </Link>
         </EmptyState>

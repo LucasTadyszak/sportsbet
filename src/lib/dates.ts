@@ -73,6 +73,14 @@ export function formatDayLabel(dateKey: string): string {
   }).format(new Date(Date.UTC(y, m - 1, d, 12)));
 }
 
+/** "lundi 28 septembre", the day a board shows spelled out (a year is left implicit). */
+export function formatLongDay(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(
+    new Date(Date.UTC(y, m - 1, d, 12))
+  );
+}
+
 /** "20:45" in Paris time — the board already groups by day, so rows only need the hour. */
 export function formatTime(date: Date): string {
   return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(date);

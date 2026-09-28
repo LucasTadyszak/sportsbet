@@ -7,10 +7,10 @@ import { isSameOffer, type Selection } from "@/lib/selection";
 import { Icon } from "@/components/Icon";
 
 /**
- * A price the user can click into their bet slip: a 1/X/2 box, a match block's tile, a
- * bookmaker's cell in an odds table, or a pick's price. Pressed while that exact offer is
- * in the slip; disabled once the match has kicked off, when its pre-match price can't be
- * taken any more.
+ * A price the user can click into their bet slip: a match block's 1/N/2 block, a bookmaker's
+ * cell in an odds table, or a pick's price. Orange says it matters: an orange outline and an
+ * orange price for the one the model would take, an orange fill once that exact offer is in the
+ * slip. Disabled once the match has kicked off, when its pre-match price can't be taken any more.
  */
 export function OddsButton({
   selection,
@@ -24,8 +24,8 @@ export function OddsButton({
   className = "",
 }: {
   selection: Selection;
-  variant: "box" | "tile" | "cell" | "pick";
-  /** "1" / "X" / "2" in a box, the outcome ("Arsenal", "Match nul") in a tile: shown above the price. */
+  variant: "tile" | "cell" | "pick";
+  /** In a tile, what the price is for ("1 · 50 %"): shown next to it. */
   label?: string;
   /** The price the model would take. */
   isPick?: boolean;
@@ -58,86 +58,60 @@ export function OddsButton({
     onClick: () => betSlip.toggle(selection),
   };
   const price = formatOdds(selection.price);
-  const flame = oddsError ? <Icon name="flame" className="h-3 w-3 shrink-0 text-flame" /> : null;
-
-  if (variant === "box") {
-    return (
-      <button
-        {...buttonProps}
-        className={`relative flex flex-col items-center rounded-lg border px-2 transition-colors duration-200 ${
-          selected
-            ? "border-fg bg-fg enabled:hover:bg-fg/90"
-            : isPick
-              ? "border-accent bg-accent-dim enabled:hover:border-accent-strong"
-              : "border-border bg-bg-elevated enabled:hover:border-accent"
-        } ${className}`}
-      >
-        <span
-          className={`flex items-center gap-0.5 text-[10px] font-semibold uppercase ${
-            selected ? (isPick ? "text-accent" : "text-white/75") : isPick ? "text-accent-strong" : "text-fg-muted"
-          }`}
-        >
-          {selected ? <Icon name="check" className="h-2.5 w-2.5" /> : null}
-          {label}
-        </span>
-        {flame ? <span className="absolute right-1 top-1">{flame}</span> : null}
-        <span className={`font-mono-tabular text-sm font-semibold ${selected ? "text-white" : isPick ? "text-accent-strong" : "text-fg"}`}>
-          {price}
-        </span>
-      </button>
-    );
-  }
+  // On an orange fill the flame takes the fill's ink, or it would melt into it.
+  const flame = oddsError ? <Icon name="flame" className={`h-3.5 w-3.5 shrink-0 ${selected ? "text-on-accent" : "text-flame"}`} /> : null;
 
   if (variant === "tile") {
     return (
       <button
         {...buttonProps}
-        className={`relative flex min-h-14 w-full flex-col items-center justify-center rounded-xl border px-2 py-1.5 transition-[border-color,background-color,box-shadow] duration-200 ${
+        className={`relative flex min-h-14 w-full flex-col items-start justify-center gap-1 border-2 px-3 pt-3 pb-2 transition-colors duration-200 sm:flex-row sm:py-2 sm:items-center sm:justify-between sm:gap-2 ${
           selected
-            ? "border-fg bg-fg enabled:hover:bg-fg/90"
+            ? "border-accent bg-accent text-on-accent enabled:hover:bg-accent/90"
             : isPick
-              ? "border-accent bg-accent-dim enabled:hover:border-accent-strong"
-              : "border-border bg-bg-elevated shadow-card enabled:hover:border-accent enabled:hover:shadow-md"
+              ? "border-accent bg-bg-row enabled:hover:bg-accent-dim"
+              : "border-transparent bg-bg-row enabled:hover:border-fg-muted"
         } ${className}`}
       >
         {isPick ? (
-          <span className="absolute -top-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-px text-[10px] font-bold uppercase leading-4 text-fg">
-            <Icon name="star" className="h-2.5 w-2.5" />
-            Pick
+          <span
+            className={`absolute -top-2.5 right-2 flex h-5 -skew-x-12 items-center px-2 ${selected ? "bg-on-accent text-accent" : "bg-accent text-on-accent"}`}
+          >
+            <span className="inline-flex skew-x-12 items-center gap-1 font-cond text-xs font-extrabold uppercase leading-none tracking-wider">
+              <Icon name="star" className="h-2.5 w-2.5" />
+              Pick
+            </span>
           </span>
         ) : null}
-        {flame ? <span className="absolute left-1.5 top-1.5">{flame}</span> : null}
         <span
-          className={`flex max-w-full items-center gap-0.5 text-[11px] font-medium leading-4 ${
-            selected ? "text-white/80" : isPick ? "text-accent-strong" : "text-fg-muted"
+          className={`flex min-w-0 max-w-full items-center gap-1 font-cond text-[13px] font-bold uppercase tracking-wide ${
+            selected ? "" : "text-fg-muted"
           }`}
         >
-          {selected ? <Icon name="check" className="h-3 w-3" /> : null}
+          {selected ? <Icon name="check" className="h-3.5 w-3.5 shrink-0" /> : null}
+          {flame}
           <span className="truncate">{label}</span>
         </span>
-        <span
-          className={`font-display text-lg font-extrabold leading-6 tabular ${selected ? "text-white" : isPick ? "text-accent-strong" : "text-fg"}`}
-        >
-          {price}
-        </span>
+        <span className={`font-display text-[28px] leading-none tracking-wide ${selected ? "" : isPick ? "text-accent" : "text-fg"}`}>{price}</span>
       </button>
     );
   }
 
   if (variant === "cell") {
-    const tone = isBest ? "font-semibold text-accent-strong" : "text-fg";
     return (
       <button
         {...buttonProps}
-        className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-mono-tabular transition-colors duration-200 ${
+        className={`figures inline-flex items-center gap-1 border-2 px-2.5 py-0.5 text-base transition-colors duration-200 ${
           selected
-            ? "border-fg bg-fg font-semibold text-white enabled:hover:bg-fg/90"
+            ? "border-accent bg-accent font-bold text-on-accent enabled:hover:bg-accent/90"
             : isPick
-              ? `border-accent bg-accent-dim enabled:hover:border-accent-strong ${tone}`
-              : `border-transparent enabled:hover:border-accent enabled:hover:bg-accent-dim/50 ${tone}`
+              ? "border-accent font-bold text-accent-strong enabled:hover:bg-accent-dim"
+              : isBest
+                ? "border-transparent bg-bg-row font-bold text-fg enabled:hover:border-fg-muted"
+                : "border-transparent font-semibold text-fg enabled:hover:border-border enabled:hover:bg-bg-row"
         } ${className}`}
       >
-        {selected ? <Icon name="check" className="h-3 w-3" /> : null}
+        {selected ? <Icon name="check" className="h-3.5 w-3.5" /> : null}
         {flame}
         {price}
       </button>
@@ -147,13 +121,13 @@ export function OddsButton({
   return (
     <button
       {...buttonProps}
-      className={`flex flex-col items-end rounded-lg border px-3 py-1.5 transition-colors duration-200 ${
-        selected ? "border-fg bg-fg enabled:hover:bg-fg/90" : "border-accent/50 bg-bg-elevated enabled:hover:border-accent enabled:hover:bg-accent-dim"
+      className={`flex flex-col items-end gap-1 border-2 px-3.5 py-2 transition-colors duration-200 ${
+        selected ? "border-accent bg-accent text-on-accent enabled:hover:bg-accent/90" : "border-accent enabled:hover:bg-accent-dim"
       } ${className}`}
     >
-      <span className={`font-mono-tabular text-2xl font-bold leading-tight ${selected ? "text-white" : "text-accent-strong"}`}>{price}</span>
+      <span className={`font-display text-4xl leading-none tracking-wide ${selected ? "" : "text-accent"}`}>{price}</span>
       {disabled ? null : (
-        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${selected ? "text-white/80" : "text-accent-strong"}`}>
+        <span className={`inline-flex items-center gap-1 font-cond text-xs font-bold uppercase tracking-wider ${selected ? "" : "text-accent-strong"}`}>
           <Icon name={selected ? "check" : "plus"} className="h-3 w-3" />
           {selected ? "Dans ma sélection" : "Ma sélection"}
         </span>

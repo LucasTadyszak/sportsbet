@@ -10,6 +10,7 @@ import { isUsagePeriod, USAGE_PERIODS, type UsagePeriod } from "@/lib/usagePerio
 import { Icon } from "@/components/Icon";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { PageIntro } from "@/components/SiteHeader";
+import { Straight, slantTabClass } from "@/components/Slant";
 import { vestiaireAccess } from "../access";
 import { LockScreen, VestiaireShell } from "../Shell";
 import { bucketLabel, UsageBars } from "./UsageBars";
@@ -35,8 +36,8 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
-          <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+        <h2 className="flex items-center gap-2.5 font-display text-2xl uppercase leading-none tracking-wide text-fg">
+          <span className="h-5 w-2 shrink-0 -skew-x-12 bg-slate" aria-hidden />
           {title}
         </h2>
         {description ? <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-fg-muted">{description}</p> : null}
@@ -58,7 +59,7 @@ function Meter({ label, used, limit, detail }: { label: string; used: number; li
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3 text-xs">
         <span className="font-medium text-fg">{label}</span>
-        <span className="font-mono-tabular text-fg">
+        <span className="figures text-fg">
           {formatCount(used)} <span className="text-fg-muted">/ {formatCount(limit)}</span>
         </span>
       </div>
@@ -68,9 +69,9 @@ function Meter({ label, used, limit, detail }: { label: string; used: number; li
         aria-valuemin={0}
         aria-valuemax={limit}
         aria-valuenow={Math.min(used, limit)}
-        className="h-2 overflow-hidden rounded-full bg-seq-1"
+        className="h-2.5 overflow-hidden bg-seq-1"
       >
-        <div className={`h-full rounded-full ${fill}`} style={{ width: `${share * 100}%` }} />
+        <div className={`h-full ${fill}`} style={{ width: `${share * 100}%` }} />
       </div>
       {level !== "ok" || detail ? (
         <p className="flex items-center gap-1.5 text-xs text-fg-muted">
@@ -120,15 +121,15 @@ function ProviderNow({ usage, dashboard, now }: { usage: ProviderUsage; dashboar
     meters = <p className="text-xs text-fg-muted">Pas de quota à surveiller.</p>;
   }
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-bg-elevated p-4 shadow-card">
+    <div className="flex flex-col gap-3 border-t-4 border-slate bg-bg-elevated p-4 shadow-hard">
       <div className="flex flex-col gap-0.5">
-        <h3 className="font-display text-base font-semibold text-fg">{apiProviderName(provider)}</h3>
+        <h3 className="font-display text-xl uppercase leading-tight tracking-wide text-fg">{apiProviderName(provider)}</h3>
         {isApiProvider(provider) ? <p className="text-xs text-fg-muted">{API_PROVIDERS[provider].role}</p> : null}
       </div>
       <div className="flex flex-col gap-3">{meters}</div>
       <p className="mt-auto flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 text-xs text-fg-muted">
         <span>
-          <span className="font-mono-tabular font-semibold text-fg">{formatCount(usage.lastHour)}</span> sur la dernière heure
+          <span className="figures font-semibold text-fg">{formatCount(usage.lastHour)}</span> sur la dernière heure
         </span>
         <span>{usage.lastCallAt ? `dernier appel ${formatAgo(usage.lastCallAt, now)}` : "aucun appel enregistré"}</span>
       </p>
@@ -138,17 +139,15 @@ function ProviderNow({ usage, dashboard, now }: { usage: ProviderUsage; dashboar
 
 function PeriodPicker({ period }: { period: UsagePeriod }) {
   return (
-    <nav aria-label="Période" className="flex w-fit gap-1 rounded-lg border border-border bg-bg-row p-1">
+    <nav aria-label="Période" className="flex w-fit gap-1 bg-bg-deep px-3 py-1.5">
       {(Object.keys(USAGE_PERIODS) as UsagePeriod[]).map((key) => (
         <Link
           key={key}
           href={{ pathname: "/vestiaire/requetes", query: key === "24h" ? {} : { periode: key } }}
           aria-current={key === period ? "page" : undefined}
-          className={`flex min-h-9 items-center rounded-md px-3 text-sm font-medium transition-colors duration-200 ${
-            key === period ? "bg-bg-elevated text-fg shadow-card" : "text-fg-muted hover:text-fg"
-          }`}
+          className={slantTabClass(key === period, "sm")}
         >
-          {USAGE_PERIODS[key].label}
+          <Straight>{USAGE_PERIODS[key].label}</Straight>
         </Link>
       ))}
     </nav>
@@ -157,12 +156,12 @@ function PeriodPicker({ period }: { period: UsagePeriod }) {
 
 function Table({ head, children, minWidth = 560 }: { head: string[]; children: ReactNode; minWidth?: number }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-bg-elevated shadow-card">
+    <div className="overflow-x-auto bg-bg-elevated shadow-hard">
       <table className="w-full border-collapse text-sm" style={{ minWidth }}>
-        <thead className="bg-bg-row/60">
-          <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
+        <thead className="bg-bg-deep">
+          <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
             {head.map((h, i) => (
-              <th key={h} className={`px-3 py-2 font-normal ${i === 0 ? "pl-4" : ""}`}>
+              <th key={h} className={`px-3 py-2.5 font-bold ${i === 0 ? "pl-4" : ""}`}>
                 {h}
               </th>
             ))}
@@ -221,7 +220,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <PeriodPicker period={period} />
           <p className="text-sm text-fg-muted">
-            <span className="font-mono-tabular font-semibold text-fg">{formatCount(grandTotal)}</span> requêtes sur {periodLabel}, toutes API
+            <span className="figures font-semibold text-fg">{formatCount(grandTotal)}</span> requêtes sur {periodLabel}, toutes API
             confondues
           </p>
         </div>
@@ -230,12 +229,12 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           title="Requêtes par API"
           description={`Par ${unit === "hour" ? "heure" : "jour"}, heure de Paris ; la dernière colonne est ${unit === "hour" ? "l'heure" : "la journée"} en cours. Chaque graphique a sa propre échelle : le chiffre au-dessus d'une colonne est le pic de la période.`}
         >
-          <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-bg-elevated shadow-card">
+          <div className="flex flex-col divide-y divide-border bg-bg-elevated shadow-hard">
             {dashboard.providers.map((usage) => (
               <div key={usage.provider} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-end sm:gap-6">
                 <div className="flex shrink-0 flex-col gap-0.5 sm:w-56">
-                  <span className="text-sm font-semibold text-fg">{apiProviderName(usage.provider)}</span>
-                  <span className="text-2xl font-semibold text-fg">{formatCount(usage.total)}</span>
+                  <span className="font-cond text-sm font-bold uppercase tracking-wide text-fg">{apiProviderName(usage.provider)}</span>
+                  <span className="font-display text-3xl leading-tight text-fg">{formatCount(usage.total)}</span>
                   <span className="text-xs text-fg-muted">
                     {usage.total > 0 ? perBucket(usage.total, dashboard.buckets.length, unit) : "aucune requête"}
                     {usage.credits ? ` · ${formatCount(usage.credits)} crédits` : ""}
@@ -249,18 +248,18 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
               </div>
             ))}
           </div>
-          <details className="group rounded-xl border border-border bg-bg-elevated shadow-card">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium text-fg transition-colors duration-150 hover:bg-bg-row/50 [&::-webkit-details-marker]:hidden">
+          <details className="group bg-bg-elevated shadow-hard">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-cond text-base font-bold uppercase tracking-wide text-fg transition-colors duration-150 hover:bg-bg-row/60 [&::-webkit-details-marker]:hidden">
               Tableau des valeurs
               <Icon name="chevron-down" className="h-4 w-4 text-fg-muted transition-transform duration-200 group-open:rotate-180" />
             </summary>
             <div className="max-h-96 overflow-auto border-t border-border">
               <table className="w-full border-collapse text-sm" style={{ minWidth: 640 }}>
                 <thead className="sticky top-0 bg-bg-row">
-                  <tr className="text-left text-xs uppercase tracking-wide text-fg-muted">
-                    <th className="px-3 py-2 pl-4 font-normal">{unit === "hour" ? "Heure" : "Jour"}</th>
+                  <tr className="text-left font-cond text-xs font-bold uppercase tracking-widest text-fg-muted">
+                    <th className="px-3 py-2.5 pl-4 font-bold">{unit === "hour" ? "Heure" : "Jour"}</th>
                     {dashboard.providers.map((usage) => (
-                      <th key={usage.provider} className="px-3 py-2 text-right font-normal">
+                      <th key={usage.provider} className="px-3 py-2.5 text-right font-bold">
                         {apiProviderName(usage.provider)}
                       </th>
                     ))}
@@ -274,7 +273,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                       <tr key={bucket.key} className="border-t border-border">
                         <td className="px-3 py-1.5 pl-4 text-fg">{bucketLabel(bucket, unit)}</td>
                         {dashboard.providers.map((usage) => (
-                          <td key={usage.provider} className={`px-3 py-1.5 text-right font-mono-tabular ${usage.series[i] === 0 ? "text-fg-muted" : "text-fg"}`}>
+                          <td key={usage.provider} className={`px-3 py-1.5 text-right figures ${usage.series[i] === 0 ? "text-fg-muted" : "text-fg"}`}>
                             {formatCount(usage.series[i])}
                           </td>
                         ))}
@@ -292,10 +291,10 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           ) : (
             <Table head={["API", "Endpoint", "Requêtes", "Dernier appel"]}>
               {dashboard.topEndpoints.map((row) => (
-                <tr key={`${row.provider} ${row.endpoint}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
+                <tr key={`${row.provider} ${row.endpoint}`} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
                   <td className="whitespace-nowrap px-3 py-2 pl-4 text-fg">{apiProviderName(row.provider)}</td>
                   <td className="max-w-md break-all px-3 py-2 font-mono text-xs text-fg">{row.endpoint}</td>
-                  <td className="px-3 py-2 font-mono-tabular text-fg">{formatCount(row.requests)}</td>
+                  <td className="px-3 py-2 figures text-fg">{formatCount(row.requests)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-fg-muted">{formatAgo(row.lastCallAt, now)}</td>
                 </tr>
               ))}
@@ -309,8 +308,8 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           ) : (
             <Table head={["Heure", "API", "Endpoint", "Quota renvoyé"]} minWidth={720}>
               {dashboard.recentCalls.map((call) => (
-                <tr key={call.id.toString()} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/50">
-                  <td className="whitespace-nowrap px-3 py-2 pl-4 font-mono-tabular text-fg-muted">{CALL_TIME.format(call.capturedAt)}</td>
+                <tr key={call.id.toString()} className="border-t border-border transition-colors duration-150 hover:bg-bg-row/60">
+                  <td className="whitespace-nowrap px-3 py-2 pl-4 figures text-fg-muted">{CALL_TIME.format(call.capturedAt)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-fg">{apiProviderName(call.provider)}</td>
                   <td className="max-w-md break-all px-3 py-2 font-mono text-xs text-fg">{call.endpoint}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-fg-muted">{quotaNote(call)}</td>

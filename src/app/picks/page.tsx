@@ -19,8 +19,8 @@ export const metadata = { title: "Picks — SportsBet" };
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">{label}</span>
-      <span className="font-mono-tabular text-sm font-semibold text-fg">{value}</span>
+      <span className="font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">{label}</span>
+      <span className="figures text-lg font-bold text-fg">{value}</span>
     </div>
   );
 }
@@ -47,34 +47,34 @@ function PickCard({ v }: { v: VerdictListItem }) {
   // The match link is stretched over the card, so the price can be a button of its own.
   return (
     <div
-      className={`group relative flex flex-col gap-4 rounded-xl border border-border border-l-4 bg-bg-elevated p-5 shadow-card transition-colors duration-200 hover:border-accent/70 ${
-        top ? "border-l-accent" : "border-l-accent/40"
+      className={`group relative flex flex-col gap-4 border-l-[5px] bg-bg-elevated p-5 shadow-hard transition-transform duration-200 hover:-translate-y-0.5 ${
+        top ? "border-accent" : "border-accent/50"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="flex items-center gap-1.5 text-xs text-fg-muted">
+          <span className="flex items-center gap-1.5 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">
             <Icon name="clock" className="h-3.5 w-3.5" />
-            <span className="capitalize">{formatKickoff(v.commenceTime)}</span>
+            <span>{formatKickoff(v.commenceTime)}</span>
             <span aria-hidden>·</span>
             <CompetitionName title={v.sportTitle} logo={v.sportLogo} size={14} />
           </span>
           <Link
             href={`/match/${v.eventId}`}
-            className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg after:absolute after:inset-0 after:rounded-xl focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-strong"
+            className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-cond text-2xl font-extrabold uppercase leading-tight tracking-wide text-fg after:absolute after:inset-0 focus-visible:outline-hidden focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-focus"
           >
-            <TeamName name={v.homeTeam} crest={v.homeCrest} />
-            <span className="shrink-0 font-normal text-fg-muted">vs</span>
-            <TeamName name={v.awayTeam} crest={v.awayCrest} />
+            <TeamName name={v.homeTeam} crest={v.homeCrest} size={24} />
+            <span className="shrink-0 font-display text-lg font-normal text-fg-muted">vs</span>
+            <TeamName name={v.awayTeam} crest={v.awayCrest} size={24} />
           </Link>
         </div>
         <TierBadge tier={v.tier} />
       </div>
 
-      <div className="flex items-center justify-between gap-3 rounded-lg bg-bg-row/70 px-4 py-3">
-        <div className="flex min-w-0 flex-col">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">{marketLabel(v.marketKey, v.point)}</span>
-          <span className="truncate text-[15px] font-semibold text-fg">
+      <div className="flex items-center justify-between gap-3 bg-bg-row px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-cond text-xs font-bold uppercase tracking-wider text-fg-muted">{marketLabel(v.marketKey, v.point)}</span>
+          <span className="truncate font-cond text-xl font-extrabold uppercase leading-tight tracking-wide text-fg">
             {outcomeLabel(v.marketKey, v.outcomeName, v.point, v.homeTeam, v.awayTeam)}
           </span>
           {v.bestBookmakerTitle ? <span className="text-xs text-fg-muted">chez {v.bestBookmakerTitle}</span> : null}
@@ -83,9 +83,9 @@ function PickCard({ v }: { v: VerdictListItem }) {
           {selection ? (
             <OddsButton variant="pick" selection={selection} />
           ) : (
-            <span className="font-mono-tabular text-2xl font-bold text-accent-strong">{formatOdds(v.bestPrice)}</span>
+            <span className="font-display text-4xl leading-none tracking-wide text-accent">{formatOdds(v.bestPrice)}</span>
           )}
-          <span className="text-xs font-medium text-fg-muted">mise {formatUnits(v.stakeUnits)}</span>
+          <span className="font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted">mise {formatUnits(v.stakeUnits)}</span>
         </div>
       </div>
 
@@ -98,14 +98,14 @@ function PickCard({ v }: { v: VerdictListItem }) {
 
       {confirmations.length > 0 ? <ReasonList reasons={confirmations} /> : null}
 
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-fg-muted">
+      <div className="mt-auto flex items-center justify-between gap-2 border-t-2 border-border pt-3 text-xs text-fg-muted">
         <span className="flex items-center gap-1.5">
           <Icon name={v.journaled ? "check" : "clock"} className="h-3.5 w-3.5" />
           {v.journaled
             ? `Journalisé @ ${formatOdds(v.journaled.price)} (${v.journaled.bookmakerTitle})`
             : `Journalisé à ${STAKING.publishWindowHours} h du coup d'envoi`}
         </span>
-        <span className="inline-flex items-center gap-0.5 font-medium text-accent-strong">
+        <span className="inline-flex items-center gap-0.5 font-cond text-sm font-bold uppercase tracking-wider text-link">
           Analyse <Icon name="chevron-right" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
         </span>
       </div>
@@ -138,13 +138,13 @@ export default async function PicksPage() {
           <EmptyState title="Aucun pick pour l'instant" icon="target">
             Aucun marché à venir ne passe tous les filtres (edge, prix, signaux, données). C&apos;est normal : sur un marché
             efficient, passer est la décision la plus fréquente —{" "}
-            <Link href="/passes" className="font-medium text-accent-strong underline underline-offset-2">
+            <Link href="/passes" className="font-medium text-link underline underline-offset-2">
               voir pourquoi chaque match est passé
             </Link>
             .
           </EmptyState>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {verdicts.map((v) => (
               <PickCard key={v.edgeId} v={v} />
             ))}
