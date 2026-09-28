@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type NavKey = "board" | "picks" | "bets" | "passes" | "track" | "model" | "method";
+export type NavKey = "board" | "picks" | "bets" | "passes" | "track" | "model";
 
 const NAV: { key: NavKey; href: string; label: string }[] = [
   { key: "board", href: "/", label: "Tableau" },
@@ -10,7 +10,6 @@ const NAV: { key: NavKey; href: string; label: string }[] = [
   { key: "passes", href: "/passes", label: "Passes" },
   { key: "track", href: "/historique", label: "Historique" },
   { key: "model", href: "/modele", label: "Modèle" },
-  { key: "method", href: "/methodologie", label: "Méthodologie" },
 ];
 
 export function BrandMark() {

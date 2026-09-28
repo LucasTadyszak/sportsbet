@@ -10,7 +10,7 @@ import {
   marketLabel,
   outcomeLabel,
 } from "@/lib/labels";
-import { PageIntro, SiteHeader } from "@/components/SiteHeader";
+import { SiteHeader } from "@/components/SiteHeader";
 import { CompetitionName, TeamName } from "@/components/TeamCrest";
 import { EmptyState, StatTile, TierBadge } from "@/components/Verdict";
 
@@ -40,13 +40,6 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader active="track" />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
-        <PageIntro title="Historique — chaque pick gradé">
-            Chaque recommandation est figée au moment de sa publication, gradée automatiquement une fois le match terminé
-            (score à 90 minutes) et comparée à la cote de clôture. Les défaites restent affichées, les remboursements ne
-            comptent pas comme des victoires. La CLV (closing line value) — avoir pris un meilleur prix que celui de la
-            clôture — est la mesure qui prédit le mieux la rentabilité sur la durée ; le bilan V/D, beaucoup moins.
-        </PageIntro>
-
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile
             label="CLV moyenne"
