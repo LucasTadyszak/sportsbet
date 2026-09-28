@@ -74,7 +74,9 @@ export async function syncInternationalResults(opts: { force?: boolean } = {}): 
   const skipped = { skipped: true, matches: 0, added: 0, updated: 0, removed: 0 };
   if (trackedNationalSportKeys().length === 0) return skipped;
   if (!opts.force && !(await canFetch(RESOURCE_KEY))) return skipped;
-  const records = buildInternationalMatches(await fetchInternationalDataset());
+  const records = buildInternationalMatches(
+    await fetchInternationalDataset((endpoint) => prisma.apiUsageLog.create({ data: { provider: "international-results", endpoint } }))
+  );
   const summary = await storeInternationalMatches(records);
   await markFetched(RESOURCE_KEY);
   return { skipped: false, ...summary };

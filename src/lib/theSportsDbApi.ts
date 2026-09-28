@@ -2,9 +2,11 @@
 // Free, no sign-up: the shared public key "123" works as is; a personal (Patreon) key set in
 // THESPORTSDB_API_KEY lifts its limits. Free tier: 30 requests/minute, and list methods return
 // a capped number of rows. Only used for logos (src/lib/refreshLogos.ts).
+import { prisma } from "@/lib/prisma";
 
 const BASE_URL = "https://www.thesportsdb.com/api/v1/json";
 const FREE_API_KEY = "123";
+const PROVIDER = "thesportsdb";
 
 export type SportsDbTeam = {
   idTeam: string;
@@ -57,6 +59,8 @@ async function getJson(path: string): Promise<unknown> {
     cache: "no-store",
     signal: AbortSignal.timeout(20_000),
   });
+  // No quota headers to keep: the row counts the request, like every other API's (without the key).
+  await prisma.apiUsageLog.create({ data: { provider: PROVIDER, endpoint: `/${path}` } });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`TheSportsDB ${path} failed: ${res.status} ${body.slice(0, 200)}`);

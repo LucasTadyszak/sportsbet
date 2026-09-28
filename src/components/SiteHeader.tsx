@@ -12,7 +12,7 @@ const NAV: { key: NavKey; href: string; label: string }[] = [
   { key: "method", href: "/methodologie", label: "Méthodologie" },
 ];
 
-function BrandMark() {
+export function BrandMark() {
   return (
     <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden>
       <rect width="32" height="32" rx="8" fill="var(--accent)" />
@@ -22,12 +22,12 @@ function BrandMark() {
   );
 }
 
-export function SiteHeader({ active, right }: { active: NavKey; right?: ReactNode }) {
+export function SiteHeader({ active, right }: { active?: NavKey; right?: ReactNode }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg-elevated/90 backdrop-blur supports-[backdrop-filter]:bg-bg-elevated/75">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-3">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2.5 rounded-md" aria-label="SportsBet — accueil">
+          <Link href="/" className="flex items-center gap-2.5 rounded-md" aria-label="SportsBet — accueil" data-brand>
             <BrandMark />
             <span className="font-display text-xl font-extrabold tracking-tight text-fg">
               SPORTS<span className="text-accent-strong">BET</span>

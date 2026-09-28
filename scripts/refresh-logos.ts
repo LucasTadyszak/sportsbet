@@ -2,13 +2,11 @@
 // odds job runs it with — e.g. once after deploying, to fill in every logo in one go.
 // Usage: npx tsx scripts/refresh-logos.ts
 import "dotenv/config";
-import { describeLogoRefresh, refreshLogos } from "@/lib/refreshLogos";
+import { refreshLogosJob } from "@/lib/commands";
 import { prisma } from "@/lib/prisma";
 
 async function main() {
-  const summary = await refreshLogos();
-  console.log(describeLogoRefresh(summary));
-  if (summary.stoppedEarly) process.exitCode = 1;
+  if (await refreshLogosJob(console.log)) process.exitCode = 1;
 }
 
 main()
