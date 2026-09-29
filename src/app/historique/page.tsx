@@ -80,7 +80,7 @@ export default async function TrackRecordPage({ searchParams }: { searchParams: 
         {picks.length === 0 ? (
           <EmptyState title="Aucun pick dans cette vue">
             Les picks apparaissent ici dès qu&apos;un marché passe tous les filtres dans les 48 h avant le coup
-            d&apos;envoi. Le job nocturne (<code className="text-fg">npm run nightly</code>) les grade ensuite.
+            d&apos;envoi.
           </EmptyState>
         ) : (
           <div className="overflow-x-auto bg-bg-elevated shadow-hard">
