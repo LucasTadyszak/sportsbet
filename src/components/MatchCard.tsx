@@ -231,7 +231,7 @@ export function MatchCard({ event }: { event: BoardEvent }) {
 
   return (
     <article
-      className={`group/card relative flex flex-col bg-bg-elevated shadow-hard ${
+      className={`group/card relative flex flex-col bg-bg-elevated shadow-hard render-near-screen ${
         event.priced ? "transition-transform duration-200 hover:-translate-y-0.5" : ""
       }`}
     >

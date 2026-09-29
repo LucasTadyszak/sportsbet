@@ -146,28 +146,63 @@ export type StatusFilter = "all" | "upcoming" | "live";
 // last price is still displayed, but it's no longer part of the market prices are judged on.
 const CURRENT_TOLERANCE_MS = 2 * 60 * 1000;
 
+function byEvent(rows: (OddsLine & { eventId: string })[]): Map<string, OddsLine[]> {
+  const lines = new Map<string, OddsLine[]>();
+  for (const { eventId, ...line } of rows) {
+    const list = lines.get(eventId) ?? [];
+    list.push(line);
+    lines.set(eventId, list);
+  }
+  return lines;
+}
+
 /**
  * The latest price of every line (market × book × outcome × point) of each event. The odds
- * table keeps every sync, so only the most recent row of each line is brought back.
+ * table keeps every sync, so only the most recent row of each line is brought back — which
+ * means going through the whole history of the events: fine for one match page, see lastQuotes
+ * for the board.
  */
 async function latestLines(eventIds: string[]): Promise<Map<string, OddsLine[]>> {
-  const byEvent = new Map<string, OddsLine[]>();
-  if (eventIds.length === 0) return byEvent;
-  const rows = await prisma.$queryRaw<(OddsLine & { eventId: string })[]>`
-    SELECT DISTINCT ON (o."eventId", o."marketKey", o."bookmakerKey", o."outcomeName", o."point")
-           o."eventId", o."bookmakerKey", b.title AS "bookmakerTitle", o."marketKey", o."outcomeName", o."point",
-           o.price, o."capturedAt"
-    FROM odds o
-    JOIN bookmakers b ON b.key = o."bookmakerKey"
-    WHERE o."eventId" = ANY(${eventIds}) AND o."marketKey" IN ('h2h', 'totals')
-    ORDER BY o."eventId", o."marketKey", o."bookmakerKey", o."outcomeName", o."point", o."capturedAt" DESC
-  `;
-  for (const { eventId, ...line } of rows) {
-    const list = byEvent.get(eventId) ?? [];
-    list.push(line);
-    byEvent.set(eventId, list);
-  }
-  return byEvent;
+  if (eventIds.length === 0) return new Map();
+  return byEvent(
+    await prisma.$queryRaw<(OddsLine & { eventId: string })[]>`
+      SELECT DISTINCT ON (o."eventId", o."marketKey", o."bookmakerKey", o."outcomeName", o."point")
+             o."eventId", o."bookmakerKey", b.title AS "bookmakerTitle", o."marketKey", o."outcomeName", o."point",
+             o.price, o."capturedAt"
+      FROM odds o
+      JOIN bookmakers b ON b.key = o."bookmakerKey"
+      WHERE o."eventId" = ANY(${eventIds}) AND o."marketKey" IN ('h2h', 'totals')
+      ORDER BY o."eventId", o."marketKey", o."bookmakerKey", o."outcomeName", o."point", o."capturedAt" DESC
+    `
+  );
+}
+
+/**
+ * Each book's latest quote of each market (1X2, totals) of each event: the lines of the last
+ * sync that had that book quote that market. A sync writes every line a book quotes at once, so
+ * this is latestLines for the board — its 1X2 prices, and markets judged on the latest sync —
+ * but read with one step down the odds index per event × book × market, instead of sorting a
+ * history that grows with every sync (thousands of rows per match a day). What it leaves out:
+ * a totals line a book stopped quoting while still quoting another, which only the match page lists.
+ */
+async function lastQuotes(eventIds: string[]): Promise<Map<string, OddsLine[]>> {
+  if (eventIds.length === 0) return new Map();
+  return byEvent(
+    await prisma.$queryRaw<(OddsLine & { eventId: string })[]>`
+      SELECT o."eventId", o."bookmakerKey", b.title AS "bookmakerTitle", o."marketKey", o."outcomeName", o."point",
+             o.price, o."capturedAt"
+      FROM unnest(${eventIds}::text[]) AS e(id)
+      CROSS JOIN bookmakers b
+      CROSS JOIN (VALUES ('h2h'), ('totals')) AS m(key)
+      CROSS JOIN LATERAL (
+        SELECT MAX(x."capturedAt") AS at
+        FROM odds x
+        WHERE x."eventId" = e.id AND x."marketKey" = m.key AND x."bookmakerKey" = b.key
+      ) latest
+      JOIN odds o
+        ON o."eventId" = e.id AND o."marketKey" = m.key AND o."bookmakerKey" = b.key AND o."capturedAt" = latest.at
+    `
+  );
 }
 
 function outcomesOf(marketKey: string, homeTeam: string, awayTeam: string): string[] {
@@ -342,7 +377,7 @@ function toBoardEvent(event: EventRow, lines: OddsLine[], looks: Map<string, Tea
 
 async function toBoardEvents(events: EventRow[]): Promise<BoardEvent[]> {
   const [lines, looks] = await Promise.all([
-    latestLines(events.map((e) => e.id)),
+    lastQuotes(events.map((e) => e.id)),
     teamLooksByName(events.flatMap((e) => [e.homeTeam, e.awayTeam])),
   ]);
   const now = new Date();

@@ -131,6 +131,16 @@
   clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
 }
 
+/*
+ * A block of a long list (the board's matches): styled, laid out and painted only once it nears
+ * the screen, since a phone shows two or three of dozens. Until then it holds the room of a
+ * typical block; afterwards (auto) the room it last took.
+ */
+@utility render-near-screen {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 260px;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);

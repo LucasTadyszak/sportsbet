@@ -9,6 +9,10 @@ import "./globals.css";
 // Condensed for labels, Barlow for text; IBM Plex Mono only where code or a terminal shows.
 // Their latin subsets live in ./fonts (SIL Open Font License, see ./fonts/OFL.txt): nothing
 // is fetched from Google Fonts, neither by the build nor by the browser.
+// Every page preloads the two families most of its text is set in (Anton, Barlow Condensed):
+// a preload is fetched whether the page uses the file or not, on a phone's connection alongside
+// the page itself. Barlow and IBM Plex Mono are fetched when some text needs them — a page rarely
+// sets text in more than Barlow 400, and mono only shows in the console and setup hints.
 const anton = localFont({
   variable: "--font-anton",
   src: "./fonts/anton-latin-400-normal.woff2",
@@ -23,6 +27,7 @@ const barlow = localFont({
     { path: "./fonts/barlow-latin-600-normal.woff2", weight: "600" },
     { path: "./fonts/barlow-latin-700-normal.woff2", weight: "700" },
   ],
+  preload: false,
 });
 
 const barlowCondensed = localFont({
@@ -43,6 +48,7 @@ const mono = localFont({
   ],
   // Arial's metrics would make a poor stand-in for a monospace font: globals.css falls back to ui-monospace.
   adjustFontFallback: false,
+  preload: false,
 });
 
 export const metadata: Metadata = {

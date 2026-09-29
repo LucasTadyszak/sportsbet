@@ -3,28 +3,40 @@
 
 const TIME_ZONE = "Europe/Paris";
 
+// Built once: creating an Intl.DateTimeFormat costs about 80 times what formatting with one does,
+// and a board formats a few hundred dates.
+const DATE_KEY = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+const WALL_CLOCK = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+const KICKOFF = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: TIME_ZONE,
+  weekday: "short",
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const DAY_LABEL = new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "short" });
+const LONG_DAY = new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "long", day: "numeric", month: "long" });
+const TIME = new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+const SHORT_DAY = new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "short", day: "numeric", month: "short" });
+
 export function parisDateKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return DATE_KEY.format(date);
 }
 
 /** UTC instant corresponding to 00:00 Europe/Paris on the given YYYY-MM-DD day. */
 export function parisStartOfDay(dateKey: string): Date {
   const utcGuess = new Date(`${dateKey}T00:00:00Z`);
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIME_ZONE,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(utcGuess);
+  const parts = WALL_CLOCK.formatToParts(utcGuess);
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
   const asIfUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
   // asIfUtc treats the Paris wall-clock reading as UTC, so the gap to utcGuess is exactly the Paris offset at that instant.
@@ -49,14 +61,7 @@ export function isValidDateKey(value: string): boolean {
 }
 
 export function formatKickoff(date: Date): string {
-  return new Intl.DateTimeFormat("fr-FR", {
-    timeZone: TIME_ZONE,
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return KICKOFF.format(date);
 }
 
 export function formatDayLabel(dateKey: string): string {
@@ -65,28 +70,21 @@ export function formatDayLabel(dateKey: string): string {
   if (dateKey === addDays(todayKey, 1)) return "Demain";
   if (dateKey === addDays(todayKey, -1)) return "Hier";
   const [y, m, d] = dateKey.split("-").map(Number);
-  return new Intl.DateTimeFormat("fr-FR", {
-    timeZone: TIME_ZONE,
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(Date.UTC(y, m - 1, d, 12)));
+  return DAY_LABEL.format(new Date(Date.UTC(y, m - 1, d, 12)));
 }
 
 /** "lundi 28 septembre", the day a board shows spelled out (a year is left implicit). */
 export function formatLongDay(dateKey: string): string {
   const [y, m, d] = dateKey.split("-").map(Number);
-  return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(
-    new Date(Date.UTC(y, m - 1, d, 12))
-  );
+  return LONG_DAY.format(new Date(Date.UTC(y, m - 1, d, 12)));
 }
 
 /** "20:45" in Paris time — the board already groups by day, so rows only need the hour. */
 export function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" }).format(date);
+  return TIME.format(date);
 }
 
 /** "sam. 27 sept." in Paris time. */
 export function formatShortDay(date: Date): string {
-  return new Intl.DateTimeFormat("fr-FR", { timeZone: TIME_ZONE, weekday: "short", day: "numeric", month: "short" }).format(date);
+  return SHORT_DAY.format(date);
 }

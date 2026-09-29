@@ -1,15 +1,17 @@
 import Link from "next/link";
+import { Suspense, type ReactNode } from "react";
 import { boardPhase, getBoard, groupByCompetition, groupOddsErrors, stakedVerdict, type BoardEvent, type StatusFilter } from "@/lib/board";
 import { byRank, competitionTheme, type CompetitionTheme } from "@/lib/competitions";
 import { addDays, formatDayLabel, formatKickoff, formatLongDay, formatShortDay, formatTime, hasKickedOff, isValidDateKey, parisDateKey } from "@/lib/dates";
 import { upperFirst } from "@/lib/labels";
-import { syncLiveMatches } from "@/lib/liveSync";
+import { syncBoardDays } from "@/lib/liveSync";
 import { BankrollPrompt } from "@/components/BetSlip";
 import { CompetitionIcon } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { MatchCard } from "@/components/MatchCard";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SkeletonList } from "@/components/Skeleton";
 import { Straight, slantTabClass } from "@/components/Slant";
 import { EmptyState } from "@/components/Verdict";
 
@@ -270,15 +272,37 @@ function syncLabel(matchesSyncedAt: Date | null, lastCapturedAt: Date | null): s
   return parts.length > 0 ? parts.join(" · ") : "En attente de la première synchro";
 }
 
-function StatusTabs({
-  current,
-  lastCapturedAt,
-  matchesSyncedAt,
-}: {
-  current: BoardQuery;
-  lastCapturedAt: Date | null;
-  matchesSyncedAt: Date | null;
-}) {
+/** How fresh the board is, from `sm` (the header says it on a phone): a pulsing dot and syncLabel. */
+function SyncStatus({ lastCapturedAt, matchesSyncedAt }: { lastCapturedAt: Date | null; matchesSyncedAt: Date | null }) {
+  return (
+    <span className="hidden items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted sm:flex">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-status-good" />
+      </span>
+      {syncLabel(matchesSyncedAt, lastCapturedAt)}
+    </span>
+  );
+}
+
+/** The same on a phone, in the header: when the odds were last synced. */
+function HeaderSync({ lastCapturedAt, todayKey }: { lastCapturedAt: Date | null; todayKey: string }) {
+  return (
+    <span
+      className="flex min-w-0 items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted sm:hidden"
+      title={lastCapturedAt ? `Cotes mises à jour ${formatKickoff(lastCapturedAt)}` : undefined}
+    >
+      <span className="h-2 w-2 shrink-0 rounded-full bg-status-good" aria-hidden />
+      <span className="truncate">
+        {lastCapturedAt
+          ? `MAJ ${parisDateKey(lastCapturedAt) === todayKey ? formatTime(lastCapturedAt) : formatShortDay(lastCapturedAt)}`
+          : "pas encore de synchro"}
+      </span>
+    </span>
+  );
+}
+
+function StatusTabs({ current, status }: { current: BoardQuery; status: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border pb-3">
       <nav aria-label="Statut des matchs" className="flex gap-1.5 pl-1">
@@ -296,13 +320,7 @@ function StatusTabs({
           );
         })}
       </nav>
-      <span className="hidden items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted sm:flex">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-status-good" />
-        </span>
-        {syncLabel(matchesSyncedAt, lastCapturedAt)}
-      </span>
+      {status}
     </div>
   );
 }
@@ -357,6 +375,159 @@ function countOddsErrors(events: BoardEvent[]): number {
   return events.reduce((n, e) => n + groupOddsErrors(e.oddsErrors).length, 0);
 }
 
+/** What the board shows for a query, read once and shared by every part of the page that needs it. */
+type BoardData = Awaited<ReturnType<typeof getBoard>> & {
+  /** The day's matches, or the next ones when the day has none. */
+  dayOrNext: BoardEvent[];
+  /** The same, in the competition filtered on. */
+  shown: BoardEvent[];
+  entries: CompetitionEntry[];
+};
+
+async function loadBoard(current: BoardQuery): Promise<BoardData> {
+  await syncBoardDays([current.date]);
+  const board = await getBoard({ dateKey: current.date, status: current.status, query: current.q ?? "" });
+  // The competition filter applies on top of the day's matches, so the list can still count every competition.
+  const dayOrNext = board.events.length > 0 ? board.events : board.upcomingFallback;
+  const shown = current.comp ? dayOrNext.filter((e) => e.sportKey === current.comp) : dayOrNext;
+  return { ...board, dayOrNext, shown, entries: competitionEntries(dayOrNext, current.comp) };
+}
+
+async function HeaderSyncLoaded({ board, todayKey }: { board: Promise<BoardData>; todayKey: string }) {
+  const { lastCapturedAt } = await board;
+  return <HeaderSync lastCapturedAt={lastCapturedAt} todayKey={todayKey} />;
+}
+
+async function SyncStatusLoaded({ board }: { board: Promise<BoardData> }) {
+  const { lastCapturedAt, matchesSyncedAt } = await board;
+  return <SyncStatus lastCapturedAt={lastCapturedAt} matchesSyncedAt={matchesSyncedAt} />;
+}
+
+async function CompetitionNavLoaded({ board, current }: { board: Promise<BoardData>; current: BoardQuery }) {
+  const { entries, dayOrNext } = await board;
+  return <CompetitionNav entries={entries} total={dayOrNext.length} current={current} />;
+}
+
+function CompetitionNavSkeleton() {
+  return (
+    <div aria-hidden className="animate-pulse bg-bg-elevated shadow-hard">
+      <div className="bg-bg-deep px-4 py-2.5 font-display text-lg uppercase tracking-wide text-fg">Compétitions</div>
+      <div className="flex flex-col gap-3 p-3.5">
+        {[0, 1, 2, 3, 4].map((row) => (
+          <span key={row} className="h-6 bg-bg-row" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function CompetitionChipsLoaded({ board, current }: { board: Promise<BoardData>; current: BoardQuery }) {
+  const { entries, dayOrNext } = await board;
+  return entries.length > 0 ? <CompetitionChips entries={entries} total={dayOrNext.length} current={current} /> : null;
+}
+
+function CompetitionChipsSkeleton() {
+  return (
+    <div aria-hidden className="flex animate-pulse gap-2 overflow-hidden py-0.5 pl-1">
+      {[16, 28, 24, 20].map((width, i) => (
+        <span key={i} className="h-9 shrink-0 -skew-x-12 bg-bg-elevated" style={{ width: `${width * 4}px` }} />
+      ))}
+    </div>
+  );
+}
+
+/** The matches: how many and what's in them, then the blocks by competition — or why there are none. */
+async function BoardMatches({ board, current }: { board: Promise<BoardData>; current: BoardQuery }) {
+  const { events, dayOrNext, shown, entries, lastCapturedAt, hasMatches } = await board;
+  const pickCount = countPicks(shown);
+  const errorCount = countOddsErrors(shown);
+  const selectedName = current.comp ? entries.find((e) => e.theme.sportKey === current.comp)?.theme.name : undefined;
+
+  return (
+    <>
+      {hasLiveAction(shown) ? <LiveRefresh everyMs={LIVE_REFRESH_MS} /> : null}
+
+      {shown.some((event) => event.priced && !hasKickedOff(event.commenceTime)) ? <BankrollPrompt /> : null}
+
+      {shown.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 font-cond text-[15px] font-bold uppercase tracking-wide">
+          <span className="text-fg-muted">
+            <span className="text-fg">{shown.length}</span> match{shown.length > 1 ? "s" : ""}
+            {pickCount > 0 ? (
+              <>
+                {" · "}
+                <span className="text-accent-strong">{pickCount}</span> pick{pickCount > 1 ? "s" : ""} du modèle
+              </>
+            ) : null}
+            {errorCount > 0 ? (
+              <>
+                {" · "}
+                <span className="inline-flex items-center gap-1 align-bottom" title="Cote d'un bookmaker français au-dessus de la cote juste du marché">
+                  <Icon name="flame" className="h-3.5 w-3.5 text-flame" />
+                  <span>
+                    <span className="text-fg">{errorCount}</span> erreur{errorCount > 1 ? "s" : ""} de cote
+                  </span>
+                </span>
+              </>
+            ) : null}
+          </span>
+          {pickCount > 0 ? (
+            <Link href="/picks" className="inline-flex items-center gap-1 text-accent-strong hover:underline">
+              Voir les picks <Icon name="chevron-right" className="h-4 w-4" />
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+
+      {events.length > 0 && shown.length > 0 ? (
+        <MatchGroups events={shown} />
+      ) : shown.length === 0 && dayOrNext.length > 0 ? (
+        <EmptyState
+          title={`Aucun match de ${selectedName ?? "cette compétition"} ${
+            events.length > 0 ? `pour ${formatDayLabel(current.date).toLowerCase()}` : "à venir"
+          }`}
+          icon="search"
+        >
+          <Link href={boardHref(current, { comp: undefined })} className="font-medium text-link underline underline-offset-2">
+            Voir toutes les compétitions
+          </Link>
+          .
+        </EmptyState>
+      ) : current.q ? (
+        <EmptyState title="Aucun match ne correspond à ces filtres" icon="search">
+          Essaie{" "}
+          <Link href="/" className="font-medium text-link underline underline-offset-2">
+            de réinitialiser les filtres
+          </Link>
+          .
+        </EmptyState>
+      ) : shown.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          <p className="flex items-start gap-2 border-l-4 border-slate bg-bg-elevated px-4 py-3 text-sm text-fg-muted">
+            <Icon name="clock" className="mt-0.5 h-4 w-4" />
+            <span>{noMatchLine(current)} Voici les prochains matchs.</span>
+          </p>
+          <MatchGroups events={shown} />
+        </div>
+      ) : hasMatches ? (
+        <EmptyState title="Aucun match à venir" icon="clock">
+          Aucun match n&apos;est actuellement programmé dans les compétitions suivies
+          {lastCapturedAt ? ` (cotes synchronisées ${formatKickoff(lastCapturedAt)})` : ""}.
+        </EmptyState>
+      ) : (
+        <EmptyState title="Aucun match en base pour l'instant">
+          Renseigne <code className="text-fg">RAPIDAPI_KEY</code> dans <code className="text-fg">.env</code> : les matchs des
+          compétitions suivies arrivent au chargement de cette page, ou tous d&apos;un coup avec{" "}
+          <code className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">npm run refresh:matches</code>.
+          Les cotes viennent de{" "}
+          <code className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">npm run refresh:odds</code>{" "}
+          (nécessite <code className="text-fg">ODDS_API_KEY</code>).
+        </EmptyState>
+      )}
+    </>
+  );
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -371,37 +542,20 @@ export default async function Home({
     comp: params.comp || undefined,
   };
 
-  await syncLiveMatches([current.date]);
-  const { events, lastCapturedAt, matchesSyncedAt, upcomingFallback, hasMatches } = await getBoard({
-    dateKey: current.date,
-    status: current.status,
-    query: current.q ?? "",
-  });
-  // The competition filter applies on top of the day's matches, so the list can still count every competition.
-  const inCompetition = (list: BoardEvent[]) => (current.comp ? list.filter((e) => e.sportKey === current.comp) : list);
-  const dayOrNext = events.length > 0 ? events : upcomingFallback;
-  const shown = inCompetition(dayOrNext);
-  const entries = competitionEntries(dayOrNext, current.comp);
-  const pickCount = countPicks(shown);
-  const errorCount = countOddsErrors(shown);
-  const selectedName = current.comp ? entries.find((e) => e.theme.sportKey === current.comp)?.theme.name : undefined;
+  // The day, the tabs and the search go out at once; what needs the matches streams in as soon as
+  // they're read, placeholders until then: a day or a filter tapped on a phone shows straight away.
+  // Keyed by the query, so another day or filter shows placeholders rather than the last one's matches.
+  const board = loadBoard(current);
+  const query = JSON.stringify(current);
 
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
       <SiteHeader
         active="board"
         right={
-          <span
-            className="flex min-w-0 items-center gap-2 font-cond text-[13px] font-bold uppercase tracking-wider text-fg-muted sm:hidden"
-            title={lastCapturedAt ? `Cotes mises à jour ${formatKickoff(lastCapturedAt)}` : undefined}
-          >
-            <span className="h-2 w-2 shrink-0 rounded-full bg-status-good" aria-hidden />
-            <span className="truncate">
-              {lastCapturedAt
-                ? `MAJ ${parisDateKey(lastCapturedAt) === todayKey ? formatTime(lastCapturedAt) : formatShortDay(lastCapturedAt)}`
-                : "pas encore de synchro"}
-            </span>
-          </span>
+          <Suspense key={query} fallback={null}>
+            <HeaderSyncLoaded board={board} todayKey={todayKey} />
+          </Suspense>
         }
       />
 
@@ -409,98 +563,33 @@ export default async function Home({
         <aside className="hidden w-68 shrink-0 lg:block">
           <div className="sticky top-24 flex flex-col gap-5">
             <SearchForm id="team-search" current={current} />
-            <CompetitionNav entries={entries} total={dayOrNext.length} current={current} />
+            <Suspense key={query} fallback={<CompetitionNavSkeleton />}>
+              <CompetitionNavLoaded board={board} current={current} />
+            </Suspense>
             <Legend />
           </div>
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col gap-5">
           <DayHero current={current} todayKey={todayKey} />
-          <StatusTabs current={current} lastCapturedAt={lastCapturedAt} matchesSyncedAt={matchesSyncedAt} />
+          <StatusTabs
+            current={current}
+            status={
+              <Suspense key={query} fallback={null}>
+                <SyncStatusLoaded board={board} />
+              </Suspense>
+            }
+          />
           <div className="flex flex-col gap-3 lg:hidden">
             <SearchForm id="team-search-mobile" current={current} />
-            {entries.length > 0 ? <CompetitionChips entries={entries} total={dayOrNext.length} current={current} /> : null}
+            <Suspense key={query} fallback={<CompetitionChipsSkeleton />}>
+              <CompetitionChipsLoaded board={board} current={current} />
+            </Suspense>
           </div>
 
-          {hasLiveAction(shown) ? <LiveRefresh everyMs={LIVE_REFRESH_MS} /> : null}
-
-          {shown.some((event) => event.priced && !hasKickedOff(event.commenceTime)) ? <BankrollPrompt /> : null}
-
-          {shown.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 font-cond text-[15px] font-bold uppercase tracking-wide">
-              <span className="text-fg-muted">
-                <span className="text-fg">{shown.length}</span> match{shown.length > 1 ? "s" : ""}
-                {pickCount > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="text-accent-strong">{pickCount}</span> pick{pickCount > 1 ? "s" : ""} du modèle
-                  </>
-                ) : null}
-                {errorCount > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="inline-flex items-center gap-1 align-bottom" title="Cote d'un bookmaker français au-dessus de la cote juste du marché">
-                      <Icon name="flame" className="h-3.5 w-3.5 text-flame" />
-                      <span>
-                        <span className="text-fg">{errorCount}</span> erreur{errorCount > 1 ? "s" : ""} de cote
-                      </span>
-                    </span>
-                  </>
-                ) : null}
-              </span>
-              {pickCount > 0 ? (
-                <Link href="/picks" className="inline-flex items-center gap-1 text-accent-strong hover:underline">
-                  Voir les picks <Icon name="chevron-right" className="h-4 w-4" />
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
-
-          {events.length > 0 && shown.length > 0 ? (
-            <MatchGroups events={shown} />
-          ) : shown.length === 0 && dayOrNext.length > 0 ? (
-            <EmptyState
-              title={`Aucun match de ${selectedName ?? "cette compétition"} ${
-                events.length > 0 ? `pour ${formatDayLabel(current.date).toLowerCase()}` : "à venir"
-              }`}
-              icon="search"
-            >
-              <Link href={boardHref(current, { comp: undefined })} className="font-medium text-link underline underline-offset-2">
-                Voir toutes les compétitions
-              </Link>
-              .
-            </EmptyState>
-          ) : current.q ? (
-            <EmptyState title="Aucun match ne correspond à ces filtres" icon="search">
-              Essaie{" "}
-              <Link href="/" className="font-medium text-link underline underline-offset-2">
-                de réinitialiser les filtres
-              </Link>
-              .
-            </EmptyState>
-          ) : shown.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              <p className="flex items-start gap-2 border-l-4 border-slate bg-bg-elevated px-4 py-3 text-sm text-fg-muted">
-                <Icon name="clock" className="mt-0.5 h-4 w-4" />
-                <span>{noMatchLine(current)} Voici les prochains matchs.</span>
-              </p>
-              <MatchGroups events={shown} />
-            </div>
-          ) : hasMatches ? (
-            <EmptyState title="Aucun match à venir" icon="clock">
-              Aucun match n&apos;est actuellement programmé dans les compétitions suivies
-              {lastCapturedAt ? ` (cotes synchronisées ${formatKickoff(lastCapturedAt)})` : ""}.
-            </EmptyState>
-          ) : (
-            <EmptyState title="Aucun match en base pour l'instant">
-              Renseigne <code className="text-fg">RAPIDAPI_KEY</code> dans <code className="text-fg">.env</code> : les matchs des
-              compétitions suivies arrivent au chargement de cette page, ou tous d&apos;un coup avec{" "}
-              <code className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">npm run refresh:matches</code>.
-              Les cotes viennent de{" "}
-              <code className="bg-bg-row px-1.5 py-0.5 font-mono text-[13px] text-fg">npm run refresh:odds</code>{" "}
-              (nécessite <code className="text-fg">ODDS_API_KEY</code>).
-            </EmptyState>
-          )}
+          <Suspense key={query} fallback={<SkeletonList label="Chargement des matchs…" />}>
+            <BoardMatches board={board} current={current} />
+          </Suspense>
         </main>
       </div>
     </div>

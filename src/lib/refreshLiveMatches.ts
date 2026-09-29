@@ -256,6 +256,16 @@ function aroundNow(now: Date): { from: Date; to: Date } {
   return { from: new Date(now.getTime() - 12 * HOUR_MS), to: new Date(now.getTime() + 36 * HOUR_MS) };
 }
 
+/**
+ * Whether the day lists of these board days (YYYY-MM-DD) have all been read before, i.e. their
+ * matches are in the database: a day that never was would show without them.
+ */
+export async function dayListsRead(days: string[]): Promise<boolean> {
+  const keys = Array.from(new Set(days.flatMap(apiDatesOf)), dayKey);
+  if (keys.length === 0) return true;
+  return (await prisma.fetchLog.count({ where: { resourceKey: { in: keys } } })) === keys.length;
+}
+
 /** Runs `run` over the items, `size` at a time, in order. */
 async function inPool<T>(items: T[], size: number, run: (item: T) => Promise<void>) {
   let next = 0;

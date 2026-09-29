@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { Icon } from "@/components/Icon";
+import { Shield } from "@/components/LogoFallbacks";
 import { RemoteLogo } from "@/components/RemoteLogo";
 
 /**
@@ -7,7 +6,7 @@ import { RemoteLogo } from "@/components/RemoteLogo";
  * load. Logos are drawn for a light background: on the site's dark panels they sit on a round
  * light plate, padded by an eighth of their size.
  */
-function Logo({ src, size, fallback = null }: { src: string; size: number; fallback?: ReactNode }) {
+function Logo({ src, size, fallback = null }: { src: string; size: number; fallback?: "shield" | null }) {
   return (
     <RemoteLogo
       src={src}
@@ -19,14 +18,6 @@ function Logo({ src, size, fallback = null }: { src: string; size: number; fallb
   );
 }
 
-function Shield({ size }: { size: number }) {
-  return (
-    <span aria-hidden className="flex shrink-0 items-center justify-center text-fg-muted/40" style={{ width: size, height: size }}>
-      <Icon name="shield" className="h-[85%] w-[85%]" />
-    </span>
-  );
-}
-
 /**
  * A club's crest (src/lib/crests.ts). Always rendered next to the club's name, so it's
  * decorative (empty alt); a club without one, or whose logo doesn't load, gets a faint
@@ -34,7 +25,7 @@ function Shield({ size }: { size: number }) {
  */
 export function TeamCrest({ src, size = 18 }: { src: string | null; size?: number }) {
   if (!src) return <Shield size={size} />;
-  return <Logo src={src} size={size} fallback={<Shield size={size} />} />;
+  return <Logo src={src} size={size} fallback="shield" />;
 }
 
 /** A club name with its crest in front, truncated to fit lists and table cells. */

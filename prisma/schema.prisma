@@ -163,7 +163,12 @@ model Odds {
   lastUpdate   DateTime // bookmaker-reported timestamp from the API payload
   capturedAt   DateTime  @default(now())
 
-  @@index([eventId, marketKey, bookmakerKey])
+  // capturedAt last: a book's latest quote of a market is one step down the index, however long
+  // the history (src/lib/board.ts).
+  @@index([eventId, marketKey, bookmakerKey, capturedAt])
+  // When the odds were last synced, which the board shows (a sync's rows share their capturedAt,
+  // so the index stays small).
+  @@index([capturedAt])
   @@map("odds")
 }
 
