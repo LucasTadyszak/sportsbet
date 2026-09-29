@@ -18,7 +18,7 @@ import { ODDS_ERROR, isStakedTier } from "@/lib/methodology/config";
 import { selectionFor } from "@/lib/selection";
 import { CompetitionBand } from "@/components/Competition";
 import { Icon } from "@/components/Icon";
-import { ResultTiles, TeamSide, kitOrTheme } from "@/components/MatchCard";
+import { ResultTiles, TeamSide } from "@/components/MatchCard";
 import { OddsButton } from "@/components/OddsButton";
 import { SectionTitle, SiteHeader } from "@/components/SiteHeader";
 import { TierBadge } from "@/components/Verdict";
@@ -359,8 +359,6 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   );
 
   const theme = competitionTheme(match.sportKey, match.sportTitle);
-  const homeKit = kitOrTheme(match.homeColors, theme, "home");
-  const awayKit = kitOrTheme(match.awayColors, theme, "away");
 
   return (
     <div className="flex flex-1 flex-col bg-bg text-fg">
@@ -379,9 +377,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <CompetitionBand theme={theme} logo={match.sportLogo} className="h-10" right={upperFirst(formatKickoff(match.commenceTime))} />
           <div className="px-4 py-7 sm:px-8">
             <h1 className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
-              <TeamSide name={match.homeTeam} crest={match.homeCrest} kit={homeKit} side="home" size="lg" />
+              <TeamSide name={match.homeTeam} crest={match.homeCrest} side="home" size="lg" />
               <span className="font-display text-3xl uppercase leading-none tracking-wide text-fg-muted sm:text-4xl">vs</span>
-              <TeamSide name={match.awayTeam} crest={match.awayCrest} kit={awayKit} side="away" size="lg" />
+              <TeamSide name={match.awayTeam} crest={match.awayCrest} side="away" size="lg" />
             </h1>
             <ResultTiles event={match} className="mx-auto mt-8 max-w-xl" />
             {h2hPick || totalsPick ? (

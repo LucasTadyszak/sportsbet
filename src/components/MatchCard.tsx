@@ -70,37 +70,15 @@ export function KickoffTime({ commenceTime, live = null, size = "md" }: { commen
   );
 }
 
-/** A club's colours, or the competition's when football-data.org doesn't give them. */
-export function kitOrTheme(colors: string[], theme: CompetitionTheme, side: "home" | "away"): string[] {
-  if (colors.length > 0) return colors;
-  return side === "home" ? [theme.to, theme.accents[0]] : [theme.from, theme.accents[1] ?? theme.accents[0]];
-}
-
-/** A club's kit as a bar of its colours: across above the crest on a phone, upright at the block's edge from `sm`. */
-export function KitBar({ colors, size = "md" }: { colors: string[]; size?: "md" | "lg" }) {
-  return (
-    <span
-      aria-hidden
-      className={`flex h-1.5 w-10 shrink-0 overflow-hidden sm:w-1.5 sm:flex-col ${size === "lg" ? "sm:h-16" : "sm:h-11"}`}
-    >
-      {colors.map((color, i) => (
-        <span key={i} className="flex-1" style={{ background: color }} />
-      ))}
-    </span>
-  );
-}
-
-/** One side of a scoreboard: the kit bar, the crest, the name in condensed capitals. */
+/** One side of a scoreboard: the crest, the name in condensed capitals. */
 export function TeamSide({
   name,
   crest,
-  kit,
   side,
   size = "md",
 }: {
   name: string;
   crest: string | null;
-  kit: string[];
   side: "home" | "away";
   size?: "md" | "lg";
 }) {
@@ -110,7 +88,6 @@ export function TeamSide({
         side === "away" ? "sm:flex-row-reverse sm:text-right" : "sm:text-left"
       }`}
     >
-      <KitBar colors={kit} size={size} />
       <TeamCrest src={crest} size={size === "lg" ? 52 : 36} />
       <span
         className={`line-clamp-2 min-w-0 font-cond font-extrabold uppercase leading-[1.05] tracking-wide text-fg ${
@@ -216,16 +193,14 @@ const TEAMS_ROW = "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-cente
  */
 export function MatchCard({ event }: { event: BoardEvent }) {
   const theme = competitionTheme(event.sportKey, event.sportTitle);
-  const homeKit = kitOrTheme(event.homeColors, theme, "home");
-  const awayKit = kitOrTheme(event.awayColors, theme, "away");
   const phase = boardPhase(event);
   const teams = (
     <>
-      <TeamSide name={event.homeTeam} crest={event.homeCrest} kit={homeKit} side="home" />
+      <TeamSide name={event.homeTeam} crest={event.homeCrest} side="home" />
       <span className="flex min-w-20 flex-col items-center gap-1.5 text-center">
         <KickoffTime commenceTime={event.commenceTime} live={event.live} />
       </span>
-      <TeamSide name={event.awayTeam} crest={event.awayCrest} kit={awayKit} side="away" />
+      <TeamSide name={event.awayTeam} crest={event.awayCrest} side="away" />
     </>
   );
 
